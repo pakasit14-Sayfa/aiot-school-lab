@@ -95,7 +95,7 @@ class _TeacherParentBindingApprovalPageState
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('ยืนยันการอนุมัติ', style: TextStyle(fontSize: 16)),
+        title: const Text('ยืนยันการอนุมัติ', style: TextStyle(fontSize: 15)),
         content: Text(
           'ยืนยันว่า "${link.parentName}" เป็นผู้ปกครองจริงของ '
           '"${link.studentName}" และต้องการอนุมัติการผูกบัญชีนี้ใช่หรือไม่? '
@@ -155,7 +155,7 @@ class _TeacherParentBindingApprovalPageState
           ),
           title: const Text(
             'พบความเสี่ยงผลประโยชน์ทับซ้อน',
-            style: TextStyle(fontSize: 16),
+            style: TextStyle(fontSize: 15),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -164,7 +164,7 @@ class _TeacherParentBindingApprovalPageState
               const Text(
                 'ระบบตรวจพบว่าคุณอาจมีความเสี่ยงผลประโยชน์ทับซ้อนกับคำขอนี้ '
                 'ไม่สามารถอนุมัติเองได้ — ต้องส่งให้ผู้อนุมัติคนอื่นตรวจสอบซ้ำ',
-                style: TextStyle(fontSize: 12.5, color: TeacherPalette.muted),
+                style: TextStyle(fontSize: 12, color: TeacherPalette.muted),
               ),
               const SizedBox(height: 10),
               TextField(
@@ -225,14 +225,14 @@ class _TeacherParentBindingApprovalPageState
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-          title: const Text('ปฏิเสธคำขอ', style: TextStyle(fontSize: 16)),
+          title: const Text('ปฏิเสธคำขอ', style: TextStyle(fontSize: 15)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
                 'ระบุเหตุผลที่ปฏิเสธ (จำเป็น) เพื่อแจ้งให้ผู้ปกครองติดต่อโรงเรียน',
-                style: TextStyle(fontSize: 12.5, color: TeacherPalette.muted),
+                style: TextStyle(fontSize: 12, color: TeacherPalette.muted),
               ),
               const SizedBox(height: 10),
               TextField(
@@ -368,7 +368,7 @@ class _TeacherParentBindingApprovalPageState
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: TeacherPalette.muted,
-                                fontSize: 11.5,
+                                fontSize: 11,
                               ),
                             ),
                           ],
@@ -440,7 +440,7 @@ class _RequestRow extends StatelessWidget {
                     link.parentName,
                     style: const TextStyle(
                       fontWeight: FontWeight.w800,
-                      fontSize: 13.5,
+                      fontSize: 13,
                       color: TeacherPalette.ink,
                     ),
                   ),
@@ -465,7 +465,7 @@ class _RequestRow extends StatelessWidget {
                     'ยื่นคำขอเมื่อ ${link.requestedAt.toLocal()}',
                     style: const TextStyle(
                       color: TeacherPalette.muted,
-                      fontSize: 10.5,
+                      fontSize: 11,
                     ),
                   ),
                 ],

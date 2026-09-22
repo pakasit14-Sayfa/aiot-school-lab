@@ -50,7 +50,7 @@ Widget _buildSeverityBadge(String? severity) {
       label,
       style: TextStyle(
         color: color,
-        fontSize: 10.5,
+        fontSize: 11,
         fontWeight: FontWeight.w900,
       ),
     ),
@@ -506,7 +506,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
           Text(
             text,
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
               color: isPrimary ? const Color(0xFF9F1239) : const Color(0xFF475569),
             ),
@@ -539,7 +539,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
           const Text(
             'ฐานข้อมูลจริง',
             style: TextStyle(
-              fontSize: 8.5,
+              fontSize: 11,
               fontWeight: FontWeight.w800,
               color: Color(0xFF047857),
             ),
@@ -659,7 +659,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
-                                        fontSize: 16,
+                                        fontSize: 15,
                                         fontWeight: FontWeight.w800,
                                         color: Color(0xFF0F172A),
                                       ),
@@ -688,7 +688,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                                         const Text(
                                           'ปิดเหตุแล้ว',
                                           style: TextStyle(
-                                            fontSize: 9.5,
+                                            fontSize: 11,
                                             fontWeight: FontWeight.w800,
                                             color: Color(0xFF047857),
                                           ),
@@ -704,7 +704,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                                     ? '${resolved.reason ?? "สัญญาณฉุกเฉิน"} • ${resolved.room != null && resolved.room!.isNotEmpty ? "ห้อง ${resolved.room}" : "ภายในโรงเรียน"} • ${_statusLabel(resolved.status)}'
                                     : 'ปิดเหตุการณ์เรียบร้อยแล้ว',
                                 style: const TextStyle(
-                                  fontSize: 10.5,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                   color: Color(0xFF64748B),
                                 ),
@@ -753,7 +753,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                                       ? 'ผู้แจ้ง: ${resolved.reporterName.isNotEmpty ? resolved.reporterName : "นักเรียน"} • สถานะ: ${_statusLabel(resolved.status)}'
                                       : 'ปิดเหตุการณ์เรียบร้อยแล้ว',
                                   style: const TextStyle(
-                                    fontSize: 10.5,
+                                    fontSize: 11,
                                     height: 1.45,
                                     color: Color(0xFF475569),
                                   ),
@@ -812,7 +812,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                         label: const Text(
                           'ดูรายงานสรุปและไทม์ไลน์',
                           style: TextStyle(
-                            fontSize: 11.5,
+                            fontSize: 11,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -984,7 +984,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                       Text(
                         timerText,
                         style: const TextStyle(
-                          fontSize: 9.5,
+                          fontSize: 11,
                           fontWeight: FontWeight.w800,
                           color: Colors.white,
                         ),
@@ -1110,7 +1110,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
-                                        fontSize: 16,
+                                        fontSize: 15,
                                         fontWeight: FontWeight.w900,
                                         color: Color(0xFF0F172A),
                                         letterSpacing: -0.3,
@@ -1139,7 +1139,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                                         Text(
                                           statusText,
                                           style: const TextStyle(
-                                            fontSize: 9.5,
+                                            fontSize: 11,
                                             fontWeight: FontWeight.w800,
                                             color: Colors.white,
                                           ),
@@ -1155,7 +1155,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                  fontSize: 11.5,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.w700,
                                   color: Color(0xFFE11D48),
                                 ),
@@ -1212,7 +1212,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                                 const Text(
                                   'รายละเอียดสถานการณ์:',
                                   style: TextStyle(
-                                    fontSize: 11.5,
+                                    fontSize: 11,
                                     fontWeight: FontWeight.w800,
                                     color: Color(0xFF991B1B),
                                   ),
@@ -1221,7 +1221,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                                 Text(
                                   narrativeText,
                                   style: const TextStyle(
-                                    fontSize: 13.5,
+                                    fontSize: 13,
                                     height: 1.5,
                                     color: Color(0xFF0F172A),
                                     fontWeight: FontWeight.w600,
@@ -1396,7 +1396,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
             Text(
               'รับแจ้งเหตุฉุกเฉิน (Inbox)',
               style: TextStyle(
-                fontSize: 19,
+                fontSize: 17,
                 fontWeight: FontWeight.w800,
                 color: TeacherPalette.ink,
                 letterSpacing: -0.4,
@@ -1406,7 +1406,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
             Text(
               'รับแจ้ง SOS เฝ้าระวังความปลอดภัย และติดตามเหตุการณ์ในวิชา/ห้องที่สอน',
               style: TextStyle(
-                fontSize: 10.8,
+                fontSize: 11,
                 color: TeacherPalette.muted,
               ),
             ),
@@ -1446,7 +1446,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                   const Text(
                     'เชื่อมต่อระบบจริง',
                     style: TextStyle(
-                      fontSize: 9.5,
+                      fontSize: 11,
                       fontWeight: FontWeight.w800,
                       color: Color(0xFF047857),
                     ),
@@ -1472,7 +1472,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                     Text(
                       'รีเฟรช',
                       style: TextStyle(
-                        fontSize: 9.5,
+                        fontSize: 11,
                         fontWeight: FontWeight.w700,
                         color: TeacherPalette.muted,
                       ),
@@ -1721,10 +1721,10 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
             height: 36,
             child: TextField(
               onChanged: (val) => setState(() => searchText = val),
-              style: const TextStyle(fontSize: 12.5),
+              style: const TextStyle(fontSize: 12),
               decoration: InputDecoration(
                 hintText: 'ค้นหาเหตุการณ์...',
-                hintStyle: const TextStyle(color: TeacherPalette.muted, fontSize: 12.5),
+                hintStyle: const TextStyle(color: TeacherPalette.muted, fontSize: 12),
                 prefixIcon: const Icon(Icons.search_rounded, size: 16, color: TeacherPalette.muted),
                 filled: true,
                 fillColor: const Color(0xFFF8FAFC),
@@ -1764,7 +1764,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 11.5,
+            fontSize: 11,
             fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
             color: isSelected ? Colors.white : TeacherPalette.muted,
           ),
@@ -1847,7 +1847,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                         child: Text(
                           evt.priority,
                           style: TextStyle(
-                            fontSize: 9,
+                            fontSize: 11,
                             fontWeight: FontWeight.w800,
                             color: evt.color,
                           ),
@@ -1863,7 +1863,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                         child: Text(
                           evt.status,
                           style: TextStyle(
-                            fontSize: 9,
+                            fontSize: 11,
                             fontWeight: FontWeight.w700,
                             color: evt.status == 'ปิดเหตุแล้ว' ? TeacherPalette.green : TeacherPalette.muted,
                           ),
@@ -1875,7 +1875,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                   Text(
                     '${evt.type} • ${evt.location} • รายงานโดย ${evt.reporter}',
                     style: const TextStyle(
-                      fontSize: 11.5,
+                      fontSize: 11,
                       fontWeight: FontWeight.w700,
                       color: TeacherPalette.ink,
                     ),
@@ -1892,7 +1892,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                   Text(
                     evt.time,
                     style: const TextStyle(
-                      fontSize: 10,
+                      fontSize: 11,
                       fontWeight: FontWeight.w700,
                       color: TeacherPalette.muted,
                     ),
@@ -2166,7 +2166,7 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
                   const SizedBox(height: 8),
                   const Text(
                     'เหตุนี้ถูกยกระดับเป็นเหตุฉุกเฉินแล้ว การปิดเหตุจะถูกบันทึกเป็น "เหตุจริง" เสมอ',
-                    style: TextStyle(fontSize: 11.5, color: TeacherPalette.muted),
+                    style: TextStyle(fontSize: 11, color: TeacherPalette.muted),
                   ),
                 ],
                 const SizedBox(height: 14),
@@ -2283,7 +2283,7 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
             style: TextStyle(
               color: selected ? color : TeacherPalette.ink,
               fontWeight: FontWeight.w800,
-              fontSize: 12.5,
+              fontSize: 12,
             ),
           ),
         ),
@@ -2383,7 +2383,7 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
                                               style: TextStyle(
                                                 color: accent,
                                                 fontWeight: FontWeight.w900,
-                                                fontSize: 16,
+                                                fontSize: 15,
                                               ),
                                             ),
                                             _buildSeverityBadge(incident.severity),
@@ -2445,7 +2445,7 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
                                                   'เหตุผล / สิ่งที่พบเห็น (แจ้งจากนักเรียน):',
                                                   overflow: TextOverflow.ellipsis,
                                                   style: const TextStyle(
-                                                    fontSize: 11.5,
+                                                    fontSize: 11,
                                                     fontWeight: FontWeight.w800,
                                                     color: Color(0xFF991B1B),
                                                   ),

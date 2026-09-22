@@ -226,7 +226,7 @@ class _TeacherQuestionBankPageState extends State<TeacherQuestionBankPage> {
           style: const TextStyle(
             color: TeacherPalette.muted,
             fontWeight: FontWeight.w700,
-            fontSize: 13.5,
+            fontSize: 13,
           ),
         ),
       );
@@ -313,7 +313,7 @@ class _TeacherQuestionBankPageState extends State<TeacherQuestionBankPage> {
                                 '${set.questions.length} ข้อ',
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 10.5,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.w900,
                                 ),
                               ),
@@ -358,7 +358,7 @@ class _TeacherQuestionBankPageState extends State<TeacherQuestionBankPage> {
                           style: const TextStyle(
                             color: TeacherPalette.muted,
                             fontWeight: FontWeight.w600,
-                            fontSize: 11.5,
+                            fontSize: 11,
                           ),
                         ),
                       ],
@@ -462,7 +462,7 @@ class _Tag extends StatelessWidget {
         text,
         style: TextStyle(
           color: color,
-          fontSize: 10,
+          fontSize: 11,
           fontWeight: FontWeight.w800,
         ),
       ),
@@ -694,7 +694,7 @@ class _BankQuestionDetailPageState extends State<BankQuestionDetailPage> {
                               style: const TextStyle(
                                 color: TeacherPalette.ink,
                                 fontWeight: FontWeight.w600,
-                                fontSize: 12.5,
+                                fontSize: 12,
                               ),
                             ),
                           ),
@@ -810,7 +810,7 @@ class _BankQuestionSetDetailPageState
                     style: const TextStyle(
                       color: TeacherPalette.muted,
                       fontWeight: FontWeight.w700,
-                      fontSize: 11.5,
+                      fontSize: 11,
                     ),
                   ),
                 ),
@@ -865,7 +865,7 @@ class _BankQuestionSetDetailPageState
                           style: const TextStyle(
                             color: TeacherPalette.ink,
                             fontWeight: FontWeight.w800,
-                            fontSize: 13.5,
+                            fontSize: 13,
                           ),
                         ),
                         if (q.type == BankQuestionType.multipleChoice) ...[

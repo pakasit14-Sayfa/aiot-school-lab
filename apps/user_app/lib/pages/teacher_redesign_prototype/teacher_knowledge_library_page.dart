@@ -397,7 +397,7 @@ class _TeacherKnowledgeLibraryPageState
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               shape: const StadiumBorder(),
               textStyle: const TextStyle(
-                fontSize: 12.5,
+                fontSize: 12,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -510,7 +510,7 @@ class _TeacherKnowledgeLibraryPageState
               style: const TextStyle(
                 color: TeacherPalette.muted,
                 fontWeight: FontWeight.w700,
-                fontSize: 12.5,
+                fontSize: 12,
               ),
             ),
             const SizedBox(height: 12),
@@ -537,7 +537,7 @@ class _TeacherKnowledgeLibraryPageState
                       style: TextStyle(
                         color: TeacherPalette.ink,
                         fontWeight: FontWeight.w800,
-                        fontSize: 13.5,
+                        fontSize: 13,
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -576,7 +576,7 @@ class _TeacherKnowledgeLibraryPageState
                       style: TextStyle(
                         color: TeacherPalette.ink,
                         fontWeight: FontWeight.w800,
-                        fontSize: 13.5,
+                        fontSize: 13,
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -649,7 +649,7 @@ class _SubjectChip extends StatelessWidget {
                 style: TextStyle(
                   color: selected ? Colors.white : TeacherPalette.ink,
                   fontWeight: FontWeight.w800,
-                  fontSize: 12.5,
+                  fontSize: 12,
                 ),
               ),
               const SizedBox(width: 4),
@@ -666,7 +666,7 @@ class _SubjectChip extends StatelessWidget {
                   style: TextStyle(
                     color: selected ? Colors.white : subject.color,
                     fontWeight: FontWeight.w900,
-                    fontSize: 10.5,
+                    fontSize: 11,
                   ),
                 ),
               ),
@@ -717,7 +717,7 @@ class _LibraryFileCard extends StatelessWidget {
                 style: TextStyle(
                   color: file.color,
                   fontWeight: FontWeight.w900,
-                  fontSize: 9.5,
+                  fontSize: 11,
                 ),
               ),
             ),
@@ -733,7 +733,7 @@ class _LibraryFileCard extends StatelessWidget {
                     style: const TextStyle(
                       color: TeacherPalette.ink,
                       fontWeight: FontWeight.w800,
-                      fontSize: 13.5,
+                      fontSize: 13,
                     ),
                   ),
                   const SizedBox(height: 3),
@@ -742,7 +742,7 @@ class _LibraryFileCard extends StatelessWidget {
                     style: const TextStyle(
                       color: TeacherPalette.muted,
                       fontWeight: FontWeight.w600,
-                      fontSize: 11.5,
+                      fontSize: 11,
                     ),
                   ),
                 ],
@@ -864,7 +864,7 @@ class _UploadFileSheetState extends State<_UploadFileSheet> {
                 style: TextStyle(
                   color: TeacherPalette.ink,
                   fontWeight: FontWeight.w900,
-                  fontSize: 18,
+                  fontSize: 17,
                 ),
               ),
               const SizedBox(height: 16),
@@ -962,7 +962,7 @@ class _UploadFileSheetState extends State<_UploadFileSheet> {
                           style: const TextStyle(
                             color: TeacherPalette.primary,
                             fontWeight: FontWeight.w800,
-                            fontSize: 12.5,
+                            fontSize: 12,
                           ),
                         ),
                       ),

@@ -556,7 +556,7 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
                           style: const TextStyle(
                             color: TeacherPalette.ink,
                             fontWeight: FontWeight.w900,
-                            fontSize: 19,
+                            fontSize: 17,
                           ),
                           decoration: InputDecoration(
                             hintText: 'ชื่อชุดข้อสอบ / หัวข้อประเมิน',
@@ -647,7 +647,7 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
                           style: TextStyle(
                             color: TeacherPalette.muted,
                             fontWeight: FontWeight.w800,
-                            fontSize: 11.5,
+                            fontSize: 11,
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -684,7 +684,7 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
                   style: TextStyle(
                     color: TeacherPalette.ink,
                     fontWeight: FontWeight.w900,
-                    fontSize: 16,
+                    fontSize: 15,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -822,7 +822,7 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: const StadiumBorder(),
                         textStyle: const TextStyle(
-                          fontSize: 13.5,
+                          fontSize: 13,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -842,7 +842,7 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: const StadiumBorder(),
                         textStyle: const TextStyle(
-                          fontSize: 14.5,
+                          fontSize: 14,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
@@ -1117,7 +1117,7 @@ class _PillActionButton extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
               shape: const StadiumBorder(),
               textStyle: const TextStyle(
-                fontSize: 13.5,
+                fontSize: 13,
                 fontWeight: FontWeight.w900,
               ),
             ),
@@ -1132,7 +1132,7 @@ class _PillActionButton extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
               shape: const StadiumBorder(),
               textStyle: const TextStyle(
-                fontSize: 13.5,
+                fontSize: 13,
                 fontWeight: FontWeight.w900,
               ),
             ),
@@ -1237,7 +1237,7 @@ class _QuestionBuilderCard extends StatelessWidget {
               'แสดงตามสัดส่วนจริงของไฟล์อัปโหลด ($sizeText)',
               style: const TextStyle(
                 color: TeacherPalette.muted,
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -1282,7 +1282,7 @@ class _QuestionBuilderCard extends StatelessWidget {
                           ? TeacherPalette.green
                           : TeacherPalette.muted,
                       fontWeight: FontWeight.w900,
-                      fontSize: 12.5,
+                      fontSize: 12,
                     ),
                   ),
                   const SizedBox(width: 6),
@@ -1294,7 +1294,7 @@ class _QuestionBuilderCard extends StatelessWidget {
                         onChanged();
                       },
                       style: TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 12,
                         fontWeight: isCorrect
                             ? FontWeight.w800
                             : FontWeight.w600,
@@ -1314,7 +1314,7 @@ class _QuestionBuilderCard extends StatelessWidget {
                         'เฉลย',
                         style: TextStyle(
                           color: TeacherPalette.green,
-                          fontSize: 10.5,
+                          fontSize: 11,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
@@ -1368,7 +1368,7 @@ class _QuestionBuilderCard extends StatelessWidget {
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w900,
-                                fontSize: 12.5,
+                                fontSize: 12,
                               ),
                             ),
                           ),
@@ -1582,7 +1582,7 @@ class _QuestionBuilderCard extends StatelessWidget {
                                   style: TextStyle(
                                     color: TeacherPalette.muted,
                                     fontWeight: FontWeight.w700,
-                                    fontSize: 11.5,
+                                    fontSize: 11,
                                   ),
                                 ),
                               ),
@@ -1715,7 +1715,7 @@ class _AttachmentChipHeader extends StatelessWidget {
             style: TextStyle(
               color: color,
               fontWeight: FontWeight.w800,
-              fontSize: 11.5,
+              fontSize: 11,
             ),
           ),
         ),
@@ -1951,7 +1951,7 @@ class _StudentExamPreviewPageState extends State<_StudentExamPreviewPage> {
                         style: const TextStyle(
                           color: TeacherPalette.ink,
                           fontWeight: FontWeight.w900,
-                          fontSize: 14.5,
+                          fontSize: 14,
                         ),
                       ),
                       const SizedBox(height: 12),

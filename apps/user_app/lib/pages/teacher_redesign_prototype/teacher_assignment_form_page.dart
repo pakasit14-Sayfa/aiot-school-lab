@@ -713,7 +713,7 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
                               : 'ยังไม่ได้มอบหมาย — บันทึกร่างได้จากเมนู ⋯'),
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 12.5,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: _published ? _chipGreenFg : TeacherPalette.muted,
                     ),
@@ -831,7 +831,7 @@ class _HeroChip extends StatelessWidget {
           Text(
             text,
             style: TextStyle(
-              fontSize: 12.5,
+              fontSize: 12,
               fontWeight: solid ? FontWeight.w800 : FontWeight.w600,
               color: fg,
             ),
@@ -893,7 +893,7 @@ class _SubjectHeader extends StatelessWidget {
                   subjectName,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 12.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.3,
                     color: Colors.white.withValues(alpha: 0.85),
@@ -914,7 +914,7 @@ class _SubjectHeader extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 24,
+                  fontSize: 22,
                   height: 1.3,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.3,
@@ -1005,7 +1005,7 @@ class _RubricPickerSheet extends StatelessWidget {
           child: Text(
             'เกณฑ์การให้คะแนน',
             style: TextStyle(
-              fontSize: 19,
+              fontSize: 17,
               fontWeight: FontWeight.w800,
               color: TeacherPalette.ink,
             ),
@@ -1070,7 +1070,7 @@ class _RubricPickerSheet extends StatelessWidget {
                         'สร้างเกณฑ์ไว้หนึ่งชุด แล้วใช้ซ้ำกับใบงานอื่นได้ทั้งเทอม',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 12.5,
+                          fontSize: 12,
                           height: 1.45,
                           color: TeacherPalette.muted,
                         ),
@@ -1092,7 +1092,7 @@ class _RubricPickerSheet extends StatelessWidget {
                     label: const Text(
                       'สร้างเกณฑ์การให้คะแนน',
                       style: TextStyle(
-                        fontSize: 15.5,
+                        fontSize: 15,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -1194,7 +1194,7 @@ class _RubricOption extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 15.5,
+                        fontSize: 15,
                         fontWeight: FontWeight.w700,
                         color: selected ? accent : TeacherPalette.ink,
                       ),
@@ -1203,7 +1203,7 @@ class _RubricOption extends StatelessWidget {
                     Text(
                       subtitle,
                       style: const TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 12,
                         color: TeacherPalette.muted,
                       ),
                     ),
@@ -1310,7 +1310,7 @@ class _LinkDatasetSheetState extends State<_LinkDatasetSheet> {
               padding: EdgeInsets.fromLTRB(22, 0, 22, 18),
               child: Text(
                 'นักเรียนจะเห็นกราฟของค่าที่เลือกอยู่ในใบงานนี้',
-                style: TextStyle(fontSize: 13.5, color: AirySpec.label),
+                style: TextStyle(fontSize: 13, color: AirySpec.label),
               ),
             ),
             Padding(
@@ -1348,7 +1348,7 @@ class _LinkDatasetSheetState extends State<_LinkDatasetSheet> {
                     child: Text(
                       'ช่วงเวลาของข้อมูล',
                       style: TextStyle(
-                        fontSize: 15.5,
+                        fontSize: 15,
                         fontWeight: FontWeight.w700,
                         color: AirySpec.ink,
                       ),
@@ -1547,7 +1547,7 @@ class _OptionSheet<T> extends StatelessWidget {
                 child: Text(
                   title,
                   style: const TextStyle(
-                    fontSize: 18,
+                    fontSize: 17,
                     fontWeight: FontWeight.w800,
                     color: TeacherPalette.ink,
                   ),
@@ -1595,7 +1595,7 @@ class _OptionSheet<T> extends StatelessWidget {
                                   Text(
                                     o.title,
                                     style: TextStyle(
-                                      fontSize: 15.5,
+                                      fontSize: 15,
                                       fontWeight: FontWeight.w700,
                                       color: o.selected
                                           ? accent
@@ -1607,7 +1607,7 @@ class _OptionSheet<T> extends StatelessWidget {
                                     Text(
                                       o.subtitle!,
                                       style: const TextStyle(
-                                        fontSize: 12.5,
+                                        fontSize: 12,
                                         color: TeacherPalette.muted,
                                       ),
                                     ),

@@ -190,7 +190,7 @@ class _TeacherStudentsPageState extends State<TeacherStudentsPage> {
                         style: const TextStyle(
                           color: TeacherPalette.primary,
                           fontWeight: FontWeight.w800,
-                          fontSize: 12.5,
+                          fontSize: 12,
                         ),
                       ),
                     ),
@@ -386,7 +386,7 @@ class _StudentRow extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: TeacherPalette.muted,
-                      fontSize: 11.5,
+                      fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
                   ),

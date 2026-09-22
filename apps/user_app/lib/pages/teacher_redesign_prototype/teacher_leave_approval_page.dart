@@ -157,7 +157,7 @@ class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
                     children: [
                       Text(
                         studentName,
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
                       ),
                       Text(
                         'วันที่ยื่น: ${req.createdAt.toLocal().toString().split(' ')[0]}',
@@ -292,7 +292,7 @@ class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
               children: [
                 Icon(Icons.check_circle_outline, size: 64, color: Colors.grey.shade400),
                 const SizedBox(height: 16),
-                Text('ไม่มีคำขอลาเรียนรอดำเนินการ', style: TextStyle(color: Colors.grey.shade600, fontSize: 16)),
+                Text('ไม่มีคำขอลาเรียนรอดำเนินการ', style: TextStyle(color: Colors.grey.shade600, fontSize: 15)),
               ],
             ),
           );

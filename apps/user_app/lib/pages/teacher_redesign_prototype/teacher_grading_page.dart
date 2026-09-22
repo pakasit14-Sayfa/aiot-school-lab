@@ -169,7 +169,7 @@ class _TeacherGradingPageState extends State<TeacherGradingPage> {
               padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
               child: Text(
                 'กรองตามวิชา',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
               ),
             ),
             ListTile(
@@ -332,7 +332,7 @@ class _TeacherGradingPageState extends State<TeacherGradingPage> {
                         child: const Text(
                           'เผยแพร่',
                           style: TextStyle(
-                            fontSize: 13.5,
+                            fontSize: 13,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -409,7 +409,7 @@ class _SegmentedFilter extends StatelessWidget {
                       Text(
                         '$count',
                         style: TextStyle(
-                          fontSize: 12.5,
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: f == value
                               ? AirySpec.label
@@ -526,7 +526,7 @@ class _Section extends StatelessWidget {
             Text(
               title,
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 15,
                 fontWeight: FontWeight.w700,
                 letterSpacing: -0.2,
                 color: color,
@@ -624,7 +624,7 @@ class _AssignmentRow extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 15.5,
+                    fontSize: 15,
                     height: 1.3,
                     fontWeight: FontWeight.w700,
                     color: AirySpec.ink,
@@ -639,7 +639,7 @@ class _AssignmentRow extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 12.5,
+                          fontSize: 12,
                           color: AirySpec.label,
                         ),
                       ),
@@ -660,7 +660,7 @@ class _AssignmentRow extends StatelessWidget {
                         child: Text(
                           _statusLabel!,
                           style: TextStyle(
-                            fontSize: 11.5,
+                            fontSize: 11,
                             fontWeight: FontWeight.w700,
                             color: _statusFg,
                           ),

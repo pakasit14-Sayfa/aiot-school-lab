@@ -173,7 +173,7 @@ class _TeacherStaffRequestsCardState extends State<TeacherStaffRequestsCard> {
                     children: [
                       const Text(
                         'ยื่นคำขอ',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
@@ -325,7 +325,7 @@ class _TeacherStaffRequestsCardState extends State<TeacherStaffRequestsCard> {
     } else if (_requests.isEmpty) {
       body = const Text(
         'ยังไม่มีคำขอ',
-        style: TextStyle(fontSize: 12.5, color: TeacherPalette.muted),
+        style: TextStyle(fontSize: 12, color: TeacherPalette.muted),
       );
     } else {
       body = Column(
@@ -349,7 +349,7 @@ class _TeacherStaffRequestsCardState extends State<TeacherStaffRequestsCard> {
                         Text(
                           '${_fmt(r.date)} · ${_statusLabels[r.status] ?? r.status}'
                           '${r.execNote != null && r.execNote!.isNotEmpty ? ' · ${r.execNote}' : ''}',
-                          style: const TextStyle(fontSize: 11.5, color: TeacherPalette.muted),
+                          style: const TextStyle(fontSize: 11, color: TeacherPalette.muted),
                         ),
                       ],
                     ),

@@ -220,7 +220,7 @@ class _TeacherLessonListPageState extends State<TeacherLessonListPage> {
               'สร้างบทเรียนใหม่',
               style: TextStyle(
                 fontWeight: FontWeight.w900,
-                fontSize: 19,
+                fontSize: 17,
                 color: TeacherPalette.ink,
               ),
             ),
@@ -566,7 +566,7 @@ class _TeacherLessonListPageState extends State<TeacherLessonListPage> {
         Text(
           'รายการบทเรียนทั้งหมด (${filtered.length})',
           style: const TextStyle(
-            fontSize: 16,
+            fontSize: 15,
             fontWeight: FontWeight.w900,
             color: TeacherPalette.ink,
           ),
@@ -593,7 +593,7 @@ class _TeacherLessonListPageState extends State<TeacherLessonListPage> {
                 const SizedBox(height: 12),
                 const Text(
                   'ยังไม่มีบทเรียนในวิชานี้',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
                 ),
                 const SizedBox(height: 4),
                 const Text(
@@ -737,7 +737,7 @@ class _TeacherLessonListPageState extends State<TeacherLessonListPage> {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontSize: 15.5,
+                fontSize: 15,
                 fontWeight: FontWeight.w900,
                 color: TeacherPalette.ink,
                 height: 1.25,
@@ -796,7 +796,7 @@ class _TeacherLessonListPageState extends State<TeacherLessonListPage> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       textStyle: const TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 12,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -940,13 +940,13 @@ class _PermissionDeniedView extends StatelessWidget {
             const SizedBox(height: 14),
             const Text(
               'ไม่มีสิทธิ์เข้าถึงรายวิชานี้',
-              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
             ),
             const SizedBox(height: 4),
             const Text(
               'คุณไม่มีสิทธิ์สอนในรายวิชานี้แล้ว หากคิดว่าเป็นความผิดพลาด\nกรุณาติดต่อผู้ดูแลระบบ',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12.5, color: TeacherPalette.muted),
+              style: TextStyle(fontSize: 12, color: TeacherPalette.muted),
             ),
           ],
         ),
@@ -987,7 +987,7 @@ class _LessonMetaTag extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              fontSize: 11.5,
+              fontSize: 11,
               fontWeight: FontWeight.w800,
               color: color,
             ),
@@ -1507,7 +1507,7 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                             const Text(
                               'JPEG, PNG, PDF, and MP4 formats, up to 50 MB.',
                               style: TextStyle(
-                                fontSize: 11.5,
+                                fontSize: 11,
                                 color: Color(0xFF64748B),
                                 fontWeight: FontWeight.w500,
                               ),
@@ -1584,7 +1584,7 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                                     child: Text(
                                       f.typeCategory,
                                       style: TextStyle(
-                                        fontSize: 10,
+                                        fontSize: 11,
                                         fontWeight: FontWeight.w900,
                                         color: colorBadge,
                                       ),
@@ -2159,7 +2159,7 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                             : _saveStatusText,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 12.5,
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: _saveColor,
                         ),
@@ -2198,7 +2198,7 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                             'ดูตัวอย่าง',
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 14.5,
+                              fontSize: 14,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -2234,7 +2234,7 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                             _isPublished ? 'อัปเดตบทเรียน' : 'เผยแพร่บทเรียน',
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              fontSize: 14.5,
+                              fontSize: 14,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -2345,7 +2345,7 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                               Text(
                                 'เพิ่มบล็อกเนื้อหา',
                                 style: TextStyle(
-                                  fontSize: 15.5,
+                                  fontSize: 15,
                                   fontWeight: FontWeight.w700,
                                   color: widget.isCourseClosed
                                       ? AirySpec.label
@@ -2356,7 +2356,7 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                               const Text(
                                 'เลือกชนิดพร้อมดูตัวอย่างก่อนเพิ่ม',
                                 style: TextStyle(
-                                  fontSize: 12.5,
+                                  fontSize: 12,
                                   color: AirySpec.label,
                                 ),
                               ),
@@ -2405,7 +2405,7 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 12.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w500,
                     color: AirySpec.label,
                   ),
@@ -2491,7 +2491,7 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                fontSize: 15.5,
+                                fontSize: 15,
                                 fontWeight: FontWeight.w700,
                                 color: block.sensorDeviceId.isEmpty
                                     ? const Color(0xFF6E6C7A)
@@ -2506,7 +2506,7 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                fontSize: 12.5,
+                                fontSize: 12,
                                 color: AirySpec.label,
                               ),
                             ),
@@ -2530,7 +2530,7 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                           : 'นักเรียนจะเห็นกราฟข้อมูลจริงตรงนี้',
                       style: const TextStyle(
                         color: AirySpec.label,
-                        fontSize: 12.5,
+                        fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -2596,7 +2596,7 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
         Text(
           label,
           style: const TextStyle(
-            fontSize: 12.5,
+            fontSize: 12,
             fontWeight: FontWeight.w600,
             color: AirySpec.label,
           ),
@@ -2610,7 +2610,7 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
           decoration: InputDecoration(
             isDense: true,
             hintText: hint,
-            hintStyle: const TextStyle(fontSize: 13.5, color: AirySpec.label),
+            hintStyle: const TextStyle(fontSize: 13, color: AirySpec.label),
             filled: false,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 12,
@@ -2698,7 +2698,7 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 13.5,
+                      fontSize: 13,
                       height: 1.4,
                       fontWeight: FontWeight.w600,
                       color: picked == null ? AirySpec.label : AirySpec.ink,
@@ -2772,7 +2772,7 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
               child: Text(
                 'เลือกไฟล์จากคลังสื่อแนบ',
                 style: TextStyle(
-                  fontSize: 19,
+                  fontSize: 17,
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.3,
                   color: AirySpec.ink,
@@ -2807,7 +2807,7 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                             child: Text(
                               m.title,
                               style: const TextStyle(
-                                fontSize: 14.5,
+                                fontSize: 14,
                                 fontWeight: FontWeight.w600,
                                 color: AirySpec.ink,
                               ),
@@ -3335,7 +3335,7 @@ class TeacherLessonPreviewPage extends StatelessWidget {
                     'หน้านี้คือสิ่งที่นักเรียนจะเห็น — ครูเท่านั้นที่เปิดดูได้ก่อนเผยแพร่',
                     style: TextStyle(
                       color: Color(0xFFB4650F),
-                      fontSize: 12.5,
+                      fontSize: 12,
                       height: 1.4,
                       fontWeight: FontWeight.w600,
                     ),
@@ -3411,7 +3411,7 @@ class TeacherLessonPreviewPage extends StatelessWidget {
                                     Text(
                                       mat.title,
                                       style: const TextStyle(
-                                        fontSize: 13.5,
+                                        fontSize: 13,
                                         fontWeight: FontWeight.w800,
                                         color: SchoolPalette.ink,
                                       ),
@@ -3520,7 +3520,7 @@ class TeacherLessonPreviewPage extends StatelessWidget {
                                     'กราฟจะวาดจากข้อมูลจริงตอนนักเรียนเปิดบทเรียน',
                                     textAlign: TextAlign.center,
                                     style: const TextStyle(
-                                      fontSize: 12.5,
+                                      fontSize: 12,
                                       height: 1.5,
                                       color: SchoolPalette.muted,
                                     ),
@@ -3566,7 +3566,7 @@ class _StudentSectionTitle extends StatelessWidget {
   Widget build(BuildContext context) => Text(
     text,
     style: const TextStyle(
-      fontSize: 16,
+      fontSize: 15,
       fontWeight: FontWeight.w900,
       color: SchoolPalette.navy,
     ),
@@ -3612,7 +3612,7 @@ class _StudentEmpty extends StatelessWidget {
     child: Text(
       text,
       style: const TextStyle(
-        fontSize: 12.5,
+        fontSize: 12,
         height: 1.45,
         color: SchoolPalette.muted,
       ),
@@ -3844,7 +3844,7 @@ class _AddBlockSheet extends StatelessWidget {
             child: Text(
               'เพิ่มบล็อกเนื้อหา',
               style: TextStyle(
-                fontSize: 21,
+                fontSize: 22,
                 fontWeight: FontWeight.w700,
                 letterSpacing: -0.3,
                 color: AirySpec.ink,
@@ -3889,7 +3889,7 @@ class _AddBlockSheet extends StatelessWidget {
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                             style: TextStyle(
-                                              fontSize: 15.5,
+                                              fontSize: 15,
                                               fontWeight: FontWeight.w700,
                                               color: type == null
                                                   ? AirySpec.label
@@ -3925,7 +3925,7 @@ class _AddBlockSheet extends StatelessWidget {
                                     Text(
                                       desc,
                                       style: const TextStyle(
-                                        fontSize: 12.5,
+                                        fontSize: 12,
                                         color: AirySpec.label,
                                       ),
                                     ),
@@ -4008,7 +4008,7 @@ class TeacherPublishChecklistDialog extends StatelessWidget {
           SizedBox(width: 10),
           Text(
             'ยืนยันการเผยแพร่บทเรียน',
-            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17),
           ),
         ],
       ),
@@ -4240,7 +4240,7 @@ class _TeacherLessonAnalyticsPageState
               body,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 12.5,
+                fontSize: 12,
                 color: TeacherPalette.muted,
               ),
             ),
@@ -4265,13 +4265,13 @@ class _TeacherLessonAnalyticsPageState
         children: [
           Text(
             label,
-            style: const TextStyle(fontSize: 11.5, color: TeacherPalette.muted),
+            style: const TextStyle(fontSize: 11, color: TeacherPalette.muted),
           ),
           const SizedBox(height: 4),
           Text(
             value,
             style: const TextStyle(
-              fontSize: 18,
+              fontSize: 17,
               fontWeight: FontWeight.w900,
               color: TeacherPalette.ink,
             ),
@@ -4336,7 +4336,7 @@ class _TeacherLessonAnalyticsPageState
               Text(
                 status,
                 style: const TextStyle(
-                  fontSize: 10.5,
+                  fontSize: 11,
                   color: TeacherPalette.muted,
                 ),
               ),

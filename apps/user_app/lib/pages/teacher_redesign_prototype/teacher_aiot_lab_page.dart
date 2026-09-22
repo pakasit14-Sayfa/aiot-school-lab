@@ -407,7 +407,7 @@ class _TeacherAiotLabPageState extends State<TeacherAiotLabPage> {
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
-                    fontSize: 14.5,
+                    fontSize: 14,
                   ),
                 ),
                 SizedBox(height: 3),
@@ -712,7 +712,7 @@ class _SectionCard extends StatelessWidget {
                   title,
                   style: const TextStyle(
                     color: TeacherPalette.ink,
-                    fontSize: 14.5,
+                    fontSize: 14,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -748,7 +748,7 @@ class _LastUpdatedChip extends StatelessWidget {
             'ข้อมูลสด (Live)',
             style: TextStyle(
               color: TeacherPalette.primary,
-              fontSize: 10.5,
+              fontSize: 11,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -875,7 +875,7 @@ class _DeviceControlRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: TeacherPalette.muted,
-                    fontSize: 11.5,
+                    fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -905,7 +905,7 @@ class _DeviceControlRow extends StatelessWidget {
                         effectiveStatus.label,
                         style: TextStyle(
                           color: effectiveStatus.color,
-                          fontSize: 10.5,
+                          fontSize: 11,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -960,7 +960,7 @@ class _LabConfirmDialog extends StatelessWidget {
                   ? 'ยืนยันเปิด "$deviceName"'
                   : 'ยืนยันปิด "$deviceName"',
               style: const TextStyle(
-                fontSize: 15.5,
+                fontSize: 15,
                 fontWeight: FontWeight.w900,
                 color: TeacherPalette.ink,
               ),
@@ -1077,7 +1077,7 @@ class _HistoryRow extends StatelessWidget {
             actionStr,
             style: const TextStyle(
               color: TeacherPalette.primary,
-              fontSize: 10.5,
+              fontSize: 11,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -1159,7 +1159,7 @@ class _WiringGroupCard extends StatelessWidget {
                       'ชุดฝึก ${group.kitCode} · ${group.kitOnlineCount}/${group.kitDeviceCount} ออนไลน์',
                       style: const TextStyle(
                         color: TeacherPalette.muted,
-                        fontSize: 11.5,
+                        fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -1204,7 +1204,7 @@ class _WiringGroupCard extends StatelessWidget {
                   Chip(
                     label: Text(
                       m.studentName,
-                      style: const TextStyle(fontSize: 11.5),
+                      style: const TextStyle(fontSize: 11),
                     ),
                     visualDensity: VisualDensity.compact,
                     backgroundColor: TeacherPalette.skyLight,
@@ -1212,7 +1212,7 @@ class _WiringGroupCard extends StatelessWidget {
                 ActionChip(
                   label: const Text(
                     'จัดการสมาชิก',
-                    style: TextStyle(fontSize: 11.5),
+                    style: TextStyle(fontSize: 11),
                   ),
                   avatar: const Icon(Icons.person_add_alt_1_rounded, size: 14),
                   onPressed: onManageMembers,
@@ -1244,7 +1244,7 @@ class _WiringGroupCard extends StatelessWidget {
                     ),
                     child: Text(
                       'เปลี่ยนเป็น ${_wiringStatusLabel[next]}',
-                      style: const TextStyle(fontSize: 11.5),
+                      style: const TextStyle(fontSize: 11),
                     ),
                   ),
               ],
@@ -1445,7 +1445,7 @@ class _WiringGroupMembersSheetState extends State<_WiringGroupMembersSheet> {
             'สมาชิกกลุ่ม "${widget.group.name}"',
             style: const TextStyle(
               fontWeight: FontWeight.w900,
-              fontSize: 15.5,
+              fontSize: 15,
               color: TeacherPalette.ink,
             ),
           ),

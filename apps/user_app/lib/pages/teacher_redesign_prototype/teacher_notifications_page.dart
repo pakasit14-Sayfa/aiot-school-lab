@@ -237,7 +237,7 @@ class _TeacherNotificationsPageState extends State<TeacherNotificationsPage> {
                   const Text(
                     'หมวดหมู่:',
                     style: TextStyle(
-                      fontSize: 12.5,
+                      fontSize: 12,
                       fontWeight: FontWeight.w800,
                       color: TeacherPalette.muted,
                     ),
@@ -420,7 +420,7 @@ class _TeacherNotificationsPageState extends State<TeacherNotificationsPage> {
                                         child: Text(
                                           notif.title,
                                           style: TextStyle(
-                                            fontSize: 14.5,
+                                            fontSize: 14,
                                             fontWeight: notif.isRead
                                                 ? FontWeight.w800
                                                 : FontWeight.w900,
@@ -445,7 +445,7 @@ class _TeacherNotificationsPageState extends State<TeacherNotificationsPage> {
                                   Text(
                                     notif.message,
                                     style: const TextStyle(
-                                      fontSize: 12.5,
+                                      fontSize: 12,
                                       color: TeacherPalette.muted,
                                       height: 1.3,
                                     ),

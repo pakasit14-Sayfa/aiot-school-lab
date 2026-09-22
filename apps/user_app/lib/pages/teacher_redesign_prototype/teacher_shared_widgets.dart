@@ -41,7 +41,7 @@ class TeacherSearchInput extends StatelessWidget {
           onChanged: onChanged,
           style: const TextStyle(
             color: Color(0xFF0F172A),
-            fontSize: 13.5,
+            fontSize: 13,
             fontWeight: FontWeight.w600,
           ),
           decoration: InputDecoration(
@@ -54,7 +54,7 @@ class TeacherSearchInput extends StatelessWidget {
             hintText: hintText,
             hintStyle: const TextStyle(
               color: Color(0xFF94A3B8),
-              fontSize: 13.5,
+              fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
             prefixIcon: const Padding(
@@ -129,7 +129,7 @@ class TeacherSectionCard extends StatelessWidget {
                   title,
                   style: const TextStyle(
                     color: TeacherPalette.ink,
-                    fontSize: 14.5,
+                    fontSize: 14,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -187,7 +187,7 @@ class TeacherStatCard extends StatelessWidget {
             value,
             style: const TextStyle(
               color: TeacherPalette.ink,
-              fontSize: 20,
+              fontSize: 17,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -232,7 +232,7 @@ class TeacherStatusChip extends StatelessWidget {
         label,
         style: TextStyle(
           color: color,
-          fontSize: 11.5,
+          fontSize: 11,
           fontWeight: FontWeight.w800,
         ),
       ),
@@ -354,7 +354,7 @@ class _TeacherMockPageShellState extends State<TeacherMockPageShell> {
                       style: const TextStyle(
                         color: TeacherPalette.ink,
                         fontWeight: FontWeight.w900,
-                        fontSize: 18,
+                        fontSize: 17,
                       ),
                     ),
                     Container(
@@ -382,7 +382,7 @@ class _TeacherMockPageShellState extends State<TeacherMockPageShell> {
                             'ครูผู้สอน',
                             style: TextStyle(
                               color: TeacherPalette.primary,
-                              fontSize: 10.5,
+                              fontSize: 11,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -454,7 +454,7 @@ class _TeacherMockPageShellState extends State<TeacherMockPageShell> {
               style: const TextStyle(
                 color: TeacherPalette.ink,
                 fontWeight: FontWeight.w900,
-                fontSize: 18,
+                fontSize: 17,
               ),
             ),
             // ไม่ใส่ widget.actions ตรงนี้ — AppBar ไม่บีบ/wrap/scroll
@@ -601,7 +601,7 @@ class TeacherThreeDotsMenu extends StatelessWidget {
               Text(
                 'แก้ไขข้อมูล',
                 style: TextStyle(
-                  fontSize: 13.5,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: Color(0xFF334155),
                 ),
@@ -623,7 +623,7 @@ class TeacherThreeDotsMenu extends StatelessWidget {
               Text(
                 'คัดลอก / ทำซ้ำ',
                 style: TextStyle(
-                  fontSize: 13.5,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: Color(0xFF334155),
                 ),
@@ -645,7 +645,7 @@ class TeacherThreeDotsMenu extends StatelessWidget {
               Text(
                 'ดูรายละเอียด',
                 style: TextStyle(
-                  fontSize: 13.5,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: Color(0xFF334155),
                 ),
@@ -663,7 +663,7 @@ class TeacherThreeDotsMenu extends StatelessWidget {
               Text(
                 'แชร์ / ส่งออก',
                 style: TextStyle(
-                  fontSize: 13.5,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: Color(0xFF334155),
                 ),
@@ -687,7 +687,7 @@ class TeacherThreeDotsMenu extends StatelessWidget {
                 Text(
                   'ลบรายการนี้',
                   style: TextStyle(
-                    fontSize: 13.5,
+                    fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFFEF4444),
                   ),

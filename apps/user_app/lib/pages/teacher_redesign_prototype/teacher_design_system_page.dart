@@ -39,7 +39,7 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
               style: TextStyle(
                 color: TeacherPalette.muted,
                 fontWeight: FontWeight.w600,
-                fontSize: 11.5,
+                fontSize: 11,
               ),
             ),
           ],
@@ -124,7 +124,7 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
                     style: const TextStyle(
                       color: TeacherPalette.ink,
                       fontWeight: FontWeight.w900,
-                      fontSize: 16,
+                      fontSize: 15,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -404,7 +404,7 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
                         '$_selectedPointPill คะแนน',
                         style: const TextStyle(
                           color: TeacherPalette.green,
-                          fontSize: 11.5,
+                          fontSize: 11,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
@@ -431,7 +431,7 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
                   'เผยแพร่แล้ว',
                   style: TextStyle(
                     color: TeacherPalette.green,
-                    fontSize: 11.5,
+                    fontSize: 11,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -450,7 +450,7 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
                   'รอตรวจ 12 ชิ้น',
                   style: TextStyle(
                     color: TeacherPalette.orange,
-                    fontSize: 11.5,
+                    fontSize: 11,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -469,7 +469,7 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
                   'ฉบับร่างครู',
                   style: TextStyle(
                     color: TeacherPalette.skyDeep,
-                    fontSize: 11.5,
+                    fontSize: 11,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -527,7 +527,7 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
                       style: TextStyle(
                         color: TeacherPalette.muted,
                         fontWeight: FontWeight.w600,
-                        fontSize: 11.5,
+                        fontSize: 11,
                       ),
                     ),
                   ],
@@ -548,7 +548,7 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
                   ),
                   textStyle: const TextStyle(
                     fontWeight: FontWeight.w900,
-                    fontSize: 11.5,
+                    fontSize: 11,
                   ),
                 ),
                 child: const Text('ตรวจงาน ->'),
@@ -601,7 +601,7 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
                       style: TextStyle(
                         color: TeacherPalette.muted,
                         fontWeight: FontWeight.w600,
-                        fontSize: 11.5,
+                        fontSize: 11,
                       ),
                     ),
                   ],
@@ -655,7 +655,7 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
                       style: TextStyle(
                         color: TeacherPalette.muted,
                         fontWeight: FontWeight.w600,
-                        fontSize: 11.5,
+                        fontSize: 11,
                       ),
                     ),
                   ],
@@ -706,7 +706,7 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
                       style: TextStyle(
                         color: TeacherPalette.primary,
                         fontWeight: FontWeight.w900,
-                        fontSize: 11.5,
+                        fontSize: 11,
                       ),
                     ),
                   ),
@@ -724,7 +724,7 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
                       'เผยแพร่แล้ว',
                       style: TextStyle(
                         color: TeacherPalette.green,
-                        fontSize: 10.5,
+                        fontSize: 11,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -783,7 +783,7 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
                       ),
                       textStyle: const TextStyle(
                         fontWeight: FontWeight.w900,
-                        fontSize: 11.5,
+                        fontSize: 11,
                       ),
                     ),
                   ),
@@ -838,7 +838,7 @@ class _ColorTile extends StatelessWidget {
             style: TextStyle(
               color: textColor.withValues(alpha: 0.8),
               fontWeight: FontWeight.w700,
-              fontSize: 10.5,
+              fontSize: 11,
             ),
           ),
         ],

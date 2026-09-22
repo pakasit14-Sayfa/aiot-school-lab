@@ -396,7 +396,7 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
                         const Text(
                           'เช็คชื่อนักเรียน',
                           style: TextStyle(
-                            fontSize: 19,
+                            fontSize: 17,
                             fontWeight: FontWeight.w900,
                             color: Color(0xFF0F172A),
                             letterSpacing: -0.3,
@@ -430,7 +430,7 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
                     const Text(
                       'บันทึกเวลาเรียน ติดตามการมาเรียน และวิเคราะห์ความพร้อมเพรียงของนักเรียนรายวัน',
                       style: TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 12,
                         color: Color(0xFF64748B),
                         fontWeight: FontWeight.w500,
                       ),
@@ -567,7 +567,7 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
                             isExpanded: true,
                             hint: const Text('เลือกห้องประจำชั้น'),
                             style: const TextStyle(
-                              fontSize: 13.5,
+                              fontSize: 13,
                               fontWeight: FontWeight.w700,
                               color: Color(0xFF0F172A),
                             ),
@@ -592,7 +592,7 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
                             isExpanded: true,
                             hint: const Text('เลือกรายวิชา'),
                             style: const TextStyle(
-                              fontSize: 13.5,
+                              fontSize: 13,
                               fontWeight: FontWeight.w700,
                               color: Color(0xFF0F172A),
                             ),
@@ -640,7 +640,7 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
                 Text(
                   _dateLabelFormatted,
                   style: const TextStyle(
-                    fontSize: 13.5,
+                    fontSize: 13,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -655,7 +655,7 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
                     child: const Text(
                       'วันนี้',
                       style: TextStyle(
-                        fontSize: 10.5,
+                        fontSize: 11,
                         fontWeight: FontWeight.w800,
                         color: Color(0xFF15803D),
                       ),
@@ -714,7 +714,7 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
                 label: Text(
                   _saving ? 'กำลังบันทึก...' : 'บันทึกการเช็คชื่อ',
                   style: const TextStyle(
-                    fontSize: 13.5,
+                    fontSize: 13,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -861,7 +861,7 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
                 Text(
                   value,
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 17,
                     fontWeight: FontWeight.w900,
                     color: color,
                   ),
@@ -952,7 +952,7 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
                 : 'ไม่มีรายชื่อนักเรียนในห้องหรือวิชานี้',
             textAlign: TextAlign.center,
             style: const TextStyle(
-              fontSize: 16,
+              fontSize: 15,
               fontWeight: FontWeight.w800,
               color: Color(0xFF0F172A),
             ),
@@ -962,7 +962,7 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
             'กรุณาตรวจสอบการมอบหมายภาระงานสอนหรือข้อมูลนักเรียนจากฝ่ายวิชาการ',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 12.5,
+              fontSize: 12,
               color: Color(0xFF64748B),
               fontWeight: FontWeight.w500,
             ),
@@ -1011,7 +1011,7 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
               const Text(
                 'รายชื่อนักเรียนทั้งหมด',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: FontWeight.w900,
                   color: Color(0xFF0F172A),
                 ),
@@ -1026,7 +1026,7 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
                 child: Text(
                   '${_roster.length} คน',
                   style: const TextStyle(
-                    fontSize: 11.5,
+                    fontSize: 11,
                     fontWeight: FontWeight.w800,
                     color: Color(0xFF475569),
                   ),
@@ -1041,7 +1041,7 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
                   decoration: InputDecoration(
                     hintText: 'ค้นหาชื่อ หรือรหัส...',
                     hintStyle: const TextStyle(
-                      fontSize: 12.5,
+                      fontSize: 12,
                       color: Color(0xFF94A3B8),
                     ),
                     prefixIcon: const Icon(
@@ -1253,7 +1253,7 @@ class _ModernModeTab extends StatelessWidget {
                       label,
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
-                        fontSize: 13.5,
+                        fontSize: 13,
                         color: selected
                             ? const Color(0xFF0F172A)
                             : const Color(0xFF64748B),
@@ -1324,7 +1324,7 @@ class _ModernRosterTile extends StatelessWidget {
                 child: Text(
                   '$index',
                   style: const TextStyle(
-                    fontSize: 12.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w800,
                     color: Color(0xFF94A3B8),
                   ),
@@ -1342,7 +1342,7 @@ class _ModernRosterTile extends StatelessWidget {
                   style: const TextStyle(
                     color: Color(0xFF542E85),
                     fontWeight: FontWeight.w900,
-                    fontSize: 13.5,
+                    fontSize: 13,
                   ),
                 ),
               ),
@@ -1367,7 +1367,7 @@ class _ModernRosterTile extends StatelessWidget {
                         'รหัสประจำตัว: ${row.studentCode}',
                         style: const TextStyle(
                           color: Color(0xFF64748B),
-                          fontSize: 11.5,
+                          fontSize: 11,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -1475,7 +1475,7 @@ class _ModernStatusDropdownPicker extends StatelessWidget {
                       style: TextStyle(
                         fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w600,
                         color: isCurrent ? color : const Color(0xFF0F172A),
-                        fontSize: 13.5,
+                        fontSize: 13,
                       ),
                     ),
                   ),

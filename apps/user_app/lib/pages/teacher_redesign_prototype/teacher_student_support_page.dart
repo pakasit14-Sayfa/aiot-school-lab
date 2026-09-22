@@ -145,7 +145,7 @@ class _TeacherStudentSupportPageState extends State<TeacherStudentSupportPage> {
                     const Text(
                       'เลือกนักเรียน',
                       style: TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 12,
                         fontWeight: FontWeight.w800,
                         color: TeacherPalette.ink,
                       ),
@@ -182,7 +182,7 @@ class _TeacherStudentSupportPageState extends State<TeacherStudentSupportPage> {
                     const Text(
                       'ชื่อนักเรียน',
                       style: TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 12,
                         fontWeight: FontWeight.w800,
                         color: TeacherPalette.ink,
                       ),
@@ -205,7 +205,7 @@ class _TeacherStudentSupportPageState extends State<TeacherStudentSupportPage> {
                   const Text(
                     'หมวดหมู่ปัญหา',
                     style: TextStyle(
-                      fontSize: 12.5,
+                      fontSize: 12,
                       fontWeight: FontWeight.w800,
                       color: TeacherPalette.ink,
                     ),
@@ -246,7 +246,7 @@ class _TeacherStudentSupportPageState extends State<TeacherStudentSupportPage> {
                   const Text(
                     'ระดับความเสี่ยง',
                     style: TextStyle(
-                      fontSize: 12.5,
+                      fontSize: 12,
                       fontWeight: FontWeight.w800,
                       color: TeacherPalette.ink,
                     ),
@@ -283,7 +283,7 @@ class _TeacherStudentSupportPageState extends State<TeacherStudentSupportPage> {
                   const Text(
                     'หัวข้อปัญหา / พฤติกรรมที่สังเกตได้',
                     style: TextStyle(
-                      fontSize: 12.5,
+                      fontSize: 12,
                       fontWeight: FontWeight.w800,
                       color: TeacherPalette.ink,
                     ),
@@ -306,7 +306,7 @@ class _TeacherStudentSupportPageState extends State<TeacherStudentSupportPage> {
                   const Text(
                     'บันทึกรายละเอียดเพิ่มเติม',
                     style: TextStyle(
-                      fontSize: 12.5,
+                      fontSize: 12,
                       fontWeight: FontWeight.w800,
                       color: TeacherPalette.ink,
                     ),
@@ -410,7 +410,7 @@ class _TeacherStudentSupportPageState extends State<TeacherStudentSupportPage> {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               shape: const StadiumBorder(),
               textStyle: const TextStyle(
-                fontSize: 12.5,
+                fontSize: 12,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -607,7 +607,7 @@ class _CaseCard extends StatelessWidget {
                       '${item.studentName} (${item.studentEmail})',
                       style: const TextStyle(
                         color: TeacherPalette.ink,
-                        fontSize: 13.5,
+                        fontSize: 13,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -623,7 +623,7 @@ class _CaseCard extends StatelessWidget {
                 '${item.courseName} · หมวด${item.categoryLabel}',
                 style: const TextStyle(
                   color: TeacherPalette.muted,
-                  fontSize: 11.5,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -632,7 +632,7 @@ class _CaseCard extends StatelessWidget {
                 item.title,
                 style: const TextStyle(
                   color: TeacherPalette.ink,
-                  fontSize: 12.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -644,7 +644,7 @@ class _CaseCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: TeacherPalette.muted,
-                    fontSize: 11.5,
+                    fontSize: 11,
                   ),
                 ),
               ],
@@ -660,7 +660,7 @@ class _CaseCard extends StatelessWidget {
                     'บันทึกช่วยเหลือ ${item.interventionCount} ครั้ง',
                     style: const TextStyle(
                       color: TeacherPalette.muted,
-                      fontSize: 11.5,
+                      fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -807,7 +807,7 @@ class _SupportCaseDetailSheetState extends State<_SupportCaseDetailSheet> {
                       widget.item.studentName,
                       style: const TextStyle(
                         color: TeacherPalette.ink,
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -867,7 +867,7 @@ class _SupportCaseDetailSheetState extends State<_SupportCaseDetailSheet> {
                       'บันทึกการติดตาม & ช่วยเหลือ (Timeline)',
                       style: TextStyle(
                         color: TeacherPalette.ink,
-                        fontSize: 13.5,
+                        fontSize: 13,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -915,7 +915,7 @@ class _SupportCaseDetailSheetState extends State<_SupportCaseDetailSheet> {
                               Text(
                                 iv.notes,
                                 style: const TextStyle(
-                                  fontSize: 12.5,
+                                  fontSize: 12,
                                   color: TeacherPalette.ink,
                                 ),
                               ),

@@ -379,7 +379,7 @@ class _TeacherSubmissionRosterPageState
               widget.courseLabel,
               style: const TextStyle(
                 color: TeacherPalette.muted,
-                fontSize: 12.5,
+                fontSize: 12,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -389,7 +389,7 @@ class _TeacherSubmissionRosterPageState
               '${_selectedRubric != null ? ' · เกณฑ์: ${_selectedRubric!.title}' : ''}',
               style: const TextStyle(
                 color: TeacherPalette.ink,
-                fontSize: 13.5,
+                fontSize: 13,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -473,7 +473,7 @@ class _RubricPicker extends StatelessWidget {
                 ? const Text(
                     'ยังไม่มีเกณฑ์การประเมิน (Rubric) ในระบบ — สร้างที่หน้า Rubric ก่อน',
                     style: TextStyle(
-                      fontSize: 12.5,
+                      fontSize: 12,
                       color: TeacherPalette.muted,
                     ),
                   )
@@ -483,7 +483,7 @@ class _RubricPicker extends StatelessWidget {
                       value: selectedId,
                       hint: const Text(
                         'เลือกเกณฑ์การประเมิน (Rubric) ก่อนให้คะแนน',
-                        style: TextStyle(fontSize: 12.5),
+                        style: TextStyle(fontSize: 12),
                       ),
                       items: [
                         for (final r in rubrics)
@@ -565,7 +565,7 @@ class _RosterRow extends StatelessWidget {
                   entry.studentName,
                   style: const TextStyle(
                     color: TeacherPalette.ink,
-                    fontSize: 13.5,
+                    fontSize: 13,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -576,7 +576,7 @@ class _RosterRow extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: TeacherPalette.primary,
-                      fontSize: 10.5,
+                      fontSize: 11,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -585,7 +585,7 @@ class _RosterRow extends StatelessWidget {
                     'ยืนยันคะแนนแล้ว',
                     style: TextStyle(
                       color: Color(0xFF10B981),
-                      fontSize: 10.5,
+                      fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -736,7 +736,7 @@ class _ScoringSheetState extends State<_ScoringSheet> {
                       widget.studentName,
                       style: const TextStyle(
                         color: TeacherPalette.ink,
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -763,7 +763,7 @@ class _ScoringSheetState extends State<_ScoringSheet> {
                       'ข้อเสนอแนะ',
                       style: TextStyle(
                         color: TeacherPalette.ink,
-                        fontSize: 13.5,
+                        fontSize: 13,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -855,7 +855,7 @@ class _CriterionScorer extends StatelessWidget {
           criterion.title,
           style: const TextStyle(
             color: TeacherPalette.ink,
-            fontSize: 13.5,
+            fontSize: 13,
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -881,7 +881,7 @@ class _CriterionScorer extends StatelessWidget {
               subtitle: Text(
                 level.description,
                 style: const TextStyle(
-                  fontSize: 11.5,
+                  fontSize: 11,
                   color: TeacherPalette.muted,
                 ),
               ),

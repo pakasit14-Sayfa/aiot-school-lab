@@ -699,7 +699,7 @@ class _SidebarMenuTile extends StatelessWidget {
                             ? emergencyRed
                             : const Color(0xFF0F172A)),
                   fontWeight: FontWeight.w900,
-                  fontSize: 14.5,
+                  fontSize: 14,
                 ),
               ),
             ),
@@ -782,7 +782,7 @@ class _SidebarProfileCard extends StatelessWidget {
                             style: const TextStyle(
                               color: TeacherPalette.ink,
                               fontWeight: FontWeight.w900,
-                              fontSize: 13.5,
+                              fontSize: 13,
                             ),
                           ),
                           Text(
@@ -792,7 +792,7 @@ class _SidebarProfileCard extends StatelessWidget {
                             style: const TextStyle(
                               color: TeacherPalette.muted,
                               fontWeight: FontWeight.w700,
-                              fontSize: 11.5,
+                              fontSize: 11,
                             ),
                           ),
                         ],
@@ -896,7 +896,7 @@ class _SidebarMiniClassCardState extends State<_SidebarMiniClassCard> {
                         style: TextStyle(
                           color: TeacherPalette.ink,
                           fontWeight: FontWeight.w900,
-                          fontSize: 12.5,
+                          fontSize: 12,
                         ),
                       ),
                       Text(
@@ -1122,7 +1122,7 @@ class _SubmissionBarChartCardState extends State<_SubmissionBarChartCard> {
                             '${(room.percent * 100).round()}%',
                             style: const TextStyle(
                               color: TeacherPalette.muted,
-                              fontSize: 10.5,
+                              fontSize: 11,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -1153,7 +1153,7 @@ class _SubmissionBarChartCardState extends State<_SubmissionBarChartCard> {
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               color: TeacherPalette.ink,
-                              fontSize: 11.5,
+                              fontSize: 11,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -1443,7 +1443,7 @@ class _TeacherTopBar extends StatelessWidget {
                 style: const TextStyle(
                   color: TeacherPalette.ink,
                   fontWeight: FontWeight.w900,
-                  fontSize: 26,
+                  fontSize: 22,
                 ),
               ),
               const SizedBox(height: 4),
@@ -2123,7 +2123,7 @@ class _ClassesCarouselState extends State<_ClassesCarousel> {
               _error!,
               style: const TextStyle(
                 color: TeacherPalette.red,
-                fontSize: 12.5,
+                fontSize: 12,
                 fontWeight: FontWeight.w700,
               ),
             )
@@ -2139,7 +2139,7 @@ class _ClassesCarouselState extends State<_ClassesCarousel> {
               'ยังไม่มีรายวิชาที่คุณสอน',
               style: TextStyle(
                 color: TeacherPalette.muted,
-                fontSize: 12.5,
+                fontSize: 12,
                 fontWeight: FontWeight.w700,
               ),
             )
@@ -2228,7 +2228,7 @@ class _TeacherClassCard extends StatelessWidget {
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w900,
-                  fontSize: 18,
+                  fontSize: 17,
                   height: 1.15,
                 ),
               ),
@@ -2406,7 +2406,7 @@ class _ScheduleTile extends StatelessWidget {
                       style: const TextStyle(
                         color: TeacherPalette.ink,
                         fontWeight: FontWeight.w900,
-                        fontSize: 16,
+                        fontSize: 15,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -2558,7 +2558,7 @@ class _MiniCalendarCardState extends State<_MiniCalendarCard> {
                   style: const TextStyle(
                     color: TeacherPalette.ink,
                     fontWeight: FontWeight.w900,
-                    fontSize: 14.5,
+                    fontSize: 14,
                   ),
                 ),
               ),
@@ -2598,7 +2598,7 @@ class _MiniCalendarCardState extends State<_MiniCalendarCard> {
                       w,
                       style: const TextStyle(
                         color: TeacherPalette.softText,
-                        fontSize: 10.5,
+                        fontSize: 11,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -2644,7 +2644,7 @@ class _MiniCalendarCardState extends State<_MiniCalendarCard> {
                         '$day',
                         style: TextStyle(
                           color: isToday ? Colors.white : TeacherPalette.ink,
-                          fontSize: 11.5,
+                          fontSize: 11,
                           fontWeight: (isToday || isSelected)
                               ? FontWeight.w900
                               : FontWeight.w700,
@@ -3062,7 +3062,7 @@ class _EmergencyAlertBanner extends StatelessWidget {
                             style: TextStyle(
                               color: color,
                               fontWeight: FontWeight.w900,
-                              fontSize: 14.5,
+                              fontSize: 14,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -3198,7 +3198,7 @@ class _AiotSensorRow extends StatelessWidget {
                   title,
                   style: const TextStyle(
                     color: Color(0xFF334155),
-                    fontSize: 12.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -3214,7 +3214,7 @@ class _AiotSensorRow extends StatelessWidget {
                           style: TextStyle(
                             color: iconColor,
                             fontWeight: FontWeight.w900,
-                            fontSize: 16.5,
+                            fontSize: 15,
                           ),
                         ),
                         if (unit != null) ...[
@@ -3224,7 +3224,7 @@ class _AiotSensorRow extends StatelessWidget {
                             style: TextStyle(
                               color: iconColor.withValues(alpha: 0.8),
                               fontWeight: FontWeight.w800,
-                              fontSize: 10.5,
+                              fontSize: 11,
                             ),
                           ),
                         ],
@@ -3238,7 +3238,7 @@ class _AiotSensorRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: TeacherPalette.muted,
-                    fontSize: 10.5,
+                    fontSize: 11,
                     fontWeight: FontWeight.w600,
                     height: 1.12,
                   ),
@@ -3251,7 +3251,7 @@ class _AiotSensorRow extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: freshness.color,
-                      fontSize: 9.5,
+                      fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -3332,7 +3332,7 @@ class _AiotSensorRow extends StatelessWidget {
                     style: TextStyle(
                       color: freshness.color,
                       fontWeight: FontWeight.w800,
-                      fontSize: 9.5,
+                      fontSize: 11,
                       letterSpacing: 0.1,
                     ),
                   ),
@@ -3458,7 +3458,7 @@ class _SmartWiringLabCardState extends State<_SmartWiringLabCard> {
                       'AIoT Smart Wiring Lab',
                       style: TextStyle(
                         color: TeacherPalette.ink,
-                        fontSize: 18,
+                        fontSize: 17,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -3469,7 +3469,7 @@ class _SmartWiringLabCardState extends State<_SmartWiringLabCard> {
                           : 'ชุดฝึกทั้งหมด ${summary.kitsTotal} ชุด',
                       style: const TextStyle(
                         color: TeacherPalette.muted,
-                        fontSize: 12.5,
+                        fontSize: 12,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -3655,7 +3655,7 @@ class _LabMetricTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: TeacherPalette.muted,
-                    fontSize: 11.5,
+                    fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -3696,7 +3696,7 @@ class _LabDeviceNotice extends StatelessWidget {
               text,
               style: const TextStyle(
                 color: TeacherPalette.ink,
-                fontSize: 12.5,
+                fontSize: 12,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -3891,7 +3891,7 @@ class _HomeroomUtilityCardState extends State<_HomeroomUtilityCard>
                 'ค่าเฉลี่ยรายวัน',
                 style: TextStyle(
                   color: TeacherPalette.ink,
-                  fontSize: 12.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -4024,7 +4024,7 @@ class _UtilitySplitMetric extends StatelessWidget {
                 Text(
                   label,
                   style: const TextStyle(
-                    fontSize: 11.5,
+                    fontSize: 11,
                     fontWeight: FontWeight.w700,
                     color: TeacherPalette.muted,
                   ),
@@ -4050,7 +4050,7 @@ class _UtilitySplitMetric extends StatelessWidget {
                   Text(
                     trendLabel,
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 11,
                       fontWeight: FontWeight.w800,
                       color: trendColor,
                     ),
@@ -4067,7 +4067,7 @@ class _UtilitySplitMetric extends StatelessWidget {
               TextSpan(
                 text: '$value ',
                 style: const TextStyle(
-                  fontSize: 24,
+                  fontSize: 22,
                   fontWeight: FontWeight.w900,
                   color: TeacherPalette.ink,
                   height: 1.0,
@@ -4120,7 +4120,7 @@ class _UtilityLegendDot extends StatelessWidget {
           label,
           style: const TextStyle(
             color: TeacherPalette.muted,
-            fontSize: 10.5,
+            fontSize: 11,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -4365,7 +4365,7 @@ class _UtilityGradientAreaChartPainter extends CustomPainter {
       text: TextSpan(
         text: text,
         style: const TextStyle(
-          fontSize: 10.5,
+          fontSize: 11,
           fontWeight: FontWeight.w900,
           color: Colors.white,
         ),
@@ -4561,7 +4561,7 @@ class _AiotWeatherSensorsCardState extends State<_AiotWeatherSensorsCard> {
                           'ข้อมูลเซนเซอร์สภาพอากาศ AIoT',
                           style: TextStyle(
                             color: TeacherPalette.ink,
-                            fontSize: 15.5,
+                            fontSize: 15,
                             fontWeight: FontWeight.w900,
                           ),
                         ),
@@ -4907,7 +4907,7 @@ class _SensorSnapshotCardState extends State<_SensorSnapshotCard> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 textStyle: const TextStyle(
-                  fontSize: 12.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -5137,7 +5137,7 @@ class _SensorMiniMetric extends StatelessWidget {
                   style: TextStyle(
                     color: color,
                     fontWeight: FontWeight.w900,
-                    fontSize: 20,
+                    fontSize: 17,
                   ),
                   children: [
                     TextSpan(
@@ -5176,7 +5176,7 @@ class _SensorMiniMetric extends StatelessWidget {
                   style: TextStyle(
                     color: freshness.color,
                     fontWeight: FontWeight.w700,
-                    fontSize: 9.5,
+                    fontSize: 11,
                   ),
                 ),
               ],
@@ -5220,7 +5220,7 @@ class _SectionTitle extends StatelessWidget {
                 style: const TextStyle(
                   color: TeacherPalette.ink,
                   fontWeight: FontWeight.w900,
-                  fontSize: 20,
+                  fontSize: 17,
                 ),
               ),
               const SizedBox(height: 2),
@@ -5476,7 +5476,7 @@ class _TeacherProfilePill extends StatelessWidget {
                 Text(
                   'บทบาทของบัญชีนี้',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 15,
                     fontWeight: FontWeight.w900,
                     color: TeacherPalette.ink,
                   ),
@@ -5536,7 +5536,7 @@ class _TeacherProfilePill extends StatelessWidget {
             child: Text(
               roleName,
               style: TextStyle(
-                fontSize: 13.5,
+                fontSize: 13,
                 fontWeight: FontWeight.w800,
                 color: isCurrent ? TeacherPalette.primary : TeacherPalette.ink,
               ),
@@ -5593,14 +5593,14 @@ class _TeacherProfilePill extends StatelessWidget {
                     style: const TextStyle(
                       color: TeacherPalette.primary,
                       fontWeight: FontWeight.w900,
-                      fontSize: 12.5,
+                      fontSize: 12,
                     ),
                   ),
                   const Text(
                     'ครูผู้สอน ▾',
                     style: TextStyle(
                       color: TeacherPalette.muted,
-                      fontSize: 10,
+                      fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -5859,7 +5859,7 @@ void _openLessonDetail(BuildContext context, _LessonItem lesson) {
                       style: const TextStyle(
                         color: TeacherPalette.ink,
                         fontWeight: FontWeight.w900,
-                        fontSize: 16,
+                        fontSize: 15,
                       ),
                     ),
                     Text(
@@ -5867,7 +5867,7 @@ void _openLessonDetail(BuildContext context, _LessonItem lesson) {
                       style: const TextStyle(
                         color: TeacherPalette.muted,
                         fontWeight: FontWeight.w700,
-                        fontSize: 12.5,
+                        fontSize: 12,
                       ),
                     ),
                   ],
@@ -5982,7 +5982,7 @@ Future<void> _showTeacherNotificationPreview(BuildContext context) async {
                               'การแจ้งเตือน 🔔',
                               style: TextStyle(
                                 color: Color(0xFF0F172A),
-                                fontSize: 16.5,
+                                fontSize: 15,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: -0.3,
                               ),
@@ -6102,7 +6102,7 @@ class _GlassNotificationTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: const Color(0xFF0F172A),
-                    fontSize: 12.5,
+                    fontSize: 12,
                     fontWeight: notif.isRead
                         ? FontWeight.w700
                         : FontWeight.w900,
@@ -6124,7 +6124,7 @@ class _GlassNotificationTile extends StatelessWidget {
                   notif.timestamp,
                   style: const TextStyle(
                     color: Color(0xFF94A3B8),
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -6284,7 +6284,7 @@ Future<void> _showTeacherSearchDialog(BuildContext context) async {
                                   'ค้นหาวิชาและตารางสอน 🔍',
                                   style: TextStyle(
                                     color: Color(0xFF0F172A),
-                                    fontSize: 18.5,
+                                    fontSize: 17,
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: -0.3,
                                   ),
@@ -6320,7 +6320,7 @@ Future<void> _showTeacherSearchDialog(BuildContext context) async {
                                     setDialogState(() => query = value),
                                 style: const TextStyle(
                                   color: Color(0xFF0F172A),
-                                  fontSize: 13.5,
+                                  fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                 ),
                                 decoration: InputDecoration(
@@ -6333,7 +6333,7 @@ Future<void> _showTeacherSearchDialog(BuildContext context) async {
                                       'ค้นหาวิชา รหัสวิชา หรือห้องเรียน...',
                                   hintStyle: const TextStyle(
                                     color: Color(0xFF94A3B8),
-                                    fontSize: 13.5,
+                                    fontSize: 13,
                                     fontWeight: FontWeight.w500,
                                   ),
                                   prefixIcon: const Padding(
@@ -6423,7 +6423,7 @@ Future<void> _showTeacherSearchDialog(BuildContext context) async {
                                           color: selected
                                               ? const Color(0xFF1D4ED8)
                                               : const Color(0xFF334155),
-                                          fontSize: 12.5,
+                                          fontSize: 12,
                                           fontWeight: FontWeight.w800,
                                         ),
                                       ),

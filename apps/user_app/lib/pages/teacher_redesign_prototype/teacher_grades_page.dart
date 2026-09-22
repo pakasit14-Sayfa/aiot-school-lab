@@ -282,7 +282,7 @@ class _TeacherGradesPageState extends State<TeacherGradesPage> {
                 Text(
                   'ส่งออกรายงาน',
                   style: TextStyle(
-                    fontSize: 13.5,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AirySpec.ink,
                   ),
@@ -351,7 +351,7 @@ class _TeacherGradesPageState extends State<TeacherGradesPage> {
                       const Text(
                         'คะแนนเฉลี่ยทุกวิชา',
                         style: TextStyle(
-                          fontSize: 12.5,
+                          fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: AirySpec.label,
                         ),
@@ -366,7 +366,7 @@ class _TeacherGradesPageState extends State<TeacherGradesPage> {
                                 ? '${(overallAverage * 100).round()}'
                                 : '—',
                             style: const TextStyle(
-                              fontSize: 34,
+                              fontSize: 32,
                               fontWeight: FontWeight.w800,
                               letterSpacing: -1.2,
                               color: AirySpec.ink,
@@ -379,7 +379,7 @@ class _TeacherGradesPageState extends State<TeacherGradesPage> {
                               child: Text(
                                 '%',
                                 style: TextStyle(
-                                  fontSize: 18,
+                                  fontSize: 17,
                                   fontWeight: FontWeight.w700,
                                   color: AirySpec.label,
                                 ),
@@ -503,7 +503,7 @@ class _PendingGradeRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: AirySpec.label,
-                    fontSize: 12.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -515,7 +515,7 @@ class _PendingGradeRow extends StatelessWidget {
                   style: const TextStyle(
                     color: AirySpec.ink,
                     fontWeight: FontWeight.w700,
-                    fontSize: 15.5,
+                    fontSize: 15,
                   ),
                 ),
               ],
@@ -572,14 +572,14 @@ class _CourseGradeRow extends StatelessWidget {
                   style: const TextStyle(
                     color: AirySpec.ink,
                     fontWeight: FontWeight.w700,
-                    fontSize: 15.5,
+                    fontSize: 15,
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   '${summary.records.length} รายการ · ยืนยันแล้ว '
                   '${summary.records.length - summary.pending.length}',
-                  style: const TextStyle(color: AirySpec.label, fontSize: 12.5),
+                  style: const TextStyle(color: AirySpec.label, fontSize: 12),
                 ),
               ],
             ),

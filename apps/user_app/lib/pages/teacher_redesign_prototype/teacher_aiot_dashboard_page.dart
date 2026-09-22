@@ -499,7 +499,7 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
                 SizedBox(width: 10),
                 Text(
                   'ส่งออกข้อมูลเซนเซอร์ AIoT',
-                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
                 ),
               ],
             ),
@@ -509,7 +509,7 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
               children: [
                 const Text(
                   'เลือกช่วงเวลาและรูปแบบไฟล์ที่ต้องการดาวน์โหลด:',
-                  style: TextStyle(fontSize: 12.5, color: TeacherPalette.muted),
+                  style: TextStyle(fontSize: 12, color: TeacherPalette.muted),
                 ),
                 const SizedBox(height: 14),
                 DropdownButtonFormField<String>(
@@ -750,7 +750,7 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.w900,
                         color: TeacherPalette.ink,
                       ),
@@ -783,7 +783,7 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
                   Text(
                     'อัปเดต: ${dev.lastUpdated}',
                     style: const TextStyle(
-                      fontSize: 11.5,
+                      fontSize: 11,
                       color: TeacherPalette.muted,
                     ),
                   ),
@@ -793,7 +793,7 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
               Text(
                 dev.location,
                 style: const TextStyle(
-                  fontSize: 12.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: TeacherPalette.muted,
                 ),
@@ -816,7 +816,7 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
                       Text(
                         'อุปกรณ์ขาดการเชื่อมต่อ ไม่สามารถอ่านค่าสดได้ในขณะนี้',
                         style: TextStyle(
-                          fontSize: 12.5,
+                          fontSize: 12,
                           fontWeight: FontWeight.w700,
                           color: Color(0xFFDC2626),
                         ),
@@ -838,7 +838,7 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
                       Text(
                         'ยังไม่มีข้อมูลเซนเซอร์จริงจากอุปกรณ์นี้',
                         style: TextStyle(
-                          fontSize: 12.5,
+                          fontSize: 12,
                           fontWeight: FontWeight.w700,
                           color: Color(0xFF64748B),
                         ),
@@ -933,7 +933,7 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
             Text(
               value,
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 15,
                 fontWeight: FontWeight.w900,
                 color: color,
               ),
@@ -941,7 +941,7 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
             Text(
               unit,
               style: TextStyle(
-                fontSize: 10.5,
+                fontSize: 11,
                 fontWeight: FontWeight.w700,
                 color: color.withValues(alpha: 0.8),
               ),
@@ -968,7 +968,7 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
               const Text(
                 'ตั้งค่าขอบเขตความปลอดภัย (Safety Thresholds)',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: FontWeight.w900,
                   color: TeacherPalette.ink,
                 ),
@@ -977,7 +977,7 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
               const Text(
                 'เมื่อค่าเซนเซอร์เกินเกณฑ์สูงสุดที่กำหนด ระบบจะส่งสัญญาณ Alert และบันทึกประวัติการเฝ้าระวังอัตโนมัติ',
                 style: TextStyle(
-                  fontSize: 12.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: TeacherPalette.muted,
                 ),
@@ -1022,7 +1022,7 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
                               Text(
                                 'หน่วย: ${th.unit}',
                                 style: const TextStyle(
-                                  fontSize: 11.5,
+                                  fontSize: 11,
                                   color: TeacherPalette.muted,
                                 ),
                               ),
@@ -1170,7 +1170,7 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
                         Text(
                           alert.metricName,
                           style: const TextStyle(
-                            fontSize: 14.5,
+                            fontSize: 14,
                             fontWeight: FontWeight.w900,
                             color: TeacherPalette.ink,
                           ),
@@ -1229,7 +1229,7 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
                   child: const Text(
                     'รับทราบแล้ว',
                     style: TextStyle(
-                      fontSize: 11.5,
+                      fontSize: 11,
                       fontWeight: FontWeight.w800,
                       color: Color(0xFF64748B),
                     ),
@@ -1256,7 +1256,7 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
           const Text(
             'รายงานและการส่งออกข้อมูล (Export Data)',
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 15,
               fontWeight: FontWeight.w900,
               color: TeacherPalette.ink,
             ),
@@ -1265,7 +1265,7 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
           const Text(
             'ดาวน์โหลดข้อมูลเซนเซอร์ย้อนหลังในรูปแบบ CSV หรือ Excel เพื่อนำไปใช้วิเคราะห์ต่อหรือจัดทำรายงานประจำภาคเรียน',
             style: TextStyle(
-              fontSize: 12.5,
+              fontSize: 12,
               fontWeight: FontWeight.w600,
               color: TeacherPalette.muted,
             ),
@@ -1302,7 +1302,7 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
                         'ประกอบด้วย Timestamp, Device ID, PM2.5, Temp, Humidity, UV',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 11.5,
+                          fontSize: 11,
                           color: TeacherPalette.muted,
                         ),
                       ),
@@ -1351,7 +1351,7 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
                         'สรุปค่าเฉลี่ยรายวัน ค่าสูงสุด-ต่ำสุด พร้อมกราฟสรุปประจำสัปดาห์',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 11.5,
+                          fontSize: 11,
                           color: TeacherPalette.muted,
                         ),
                       ),

@@ -324,7 +324,7 @@ class _TeacherPblActivityEditorPageState
             child: Text(
               '${index + 1}. ${labels[index]}',
               style: TextStyle(
-                fontSize: 11.5,
+                fontSize: 11,
                 fontWeight: FontWeight.w800,
                 color: isActive ? Colors.white : TeacherPalette.softText,
               ),
@@ -501,7 +501,7 @@ class _TeacherPblActivityEditorPageState
                 'กรุณารอ Technician ติดตั้งอุปกรณ์ก่อน',
                 style: TextStyle(
                   color: Color(0xFFB91C1C),
-                  fontSize: 12.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -550,7 +550,7 @@ class _TeacherPblActivityEditorPageState
           if (_rubricSummaries.isEmpty)
             const Text(
               'ยังไม่มี Rubric ในระบบ — สร้างที่หน้า Rubric ก่อน',
-              style: TextStyle(fontSize: 12.5, color: TeacherPalette.muted),
+              style: TextStyle(fontSize: 12, color: TeacherPalette.muted),
             )
           else
             for (final r in _rubricSummaries)
@@ -668,7 +668,7 @@ class _TeacherPblActivityEditorPageState
           Expanded(
             child: Text(
               value.isEmpty ? '-' : value,
-              style: const TextStyle(fontSize: 12.5, color: TeacherPalette.ink),
+              style: const TextStyle(fontSize: 12, color: TeacherPalette.ink),
             ),
           ),
         ],

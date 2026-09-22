@@ -625,7 +625,7 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                   'จัดการตารางสอนและเวลาเรียน',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
+                    fontSize: 17,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -729,7 +729,7 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                 isDense: true,
                 style: const TextStyle(
                   color: Color(0xFF0F172A),
-                  fontSize: 13.5,
+                  fontSize: 13,
                   fontWeight: FontWeight.w700,
                 ),
                 onChanged: (val) {
@@ -814,7 +814,7 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                     child: Text(
                       'ไม่มีคาบเรียนในวัน$dayLabel',
                       style: const TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 12,
                         color: Color(0xFF94A3B8),
                         fontWeight: FontWeight.w500,
                       ),
@@ -875,7 +875,7 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                                           child: const Text(
                                             'กิจกรรม & แล็บ',
                                             style: TextStyle(
-                                              fontSize: 9.5,
+                                              fontSize: 11,
                                               fontWeight: FontWeight.w700,
                                               color: Color(0xFF059669),
                                             ),

@@ -38,6 +38,56 @@ String _fmtThaiShort(DateTime d) {
 /// ชุดค่าของสไตล์ "โปร่ง-ขาว" ที่เจ้าของเลือกจากภาพอ้างอิง (2026-09-22):
 /// พื้นขาว การ์ดเงานุ่ม เส้นคั่นบาง ป้ายเล็กสีเทาคู่กับค่าตัวหนาเข้ม
 /// ไอคอนเส้นบางสีเดียว และใช้สีเน้นเฉพาะสถานะจริง ๆ เท่านั้น
+/// สเกลขนาดตัวอักษรของเลนครู — 7 ระดับสำหรับข้อความ + 1 สำหรับตัวเลขใหญ่
+///
+/// ก่อน 2026-09-22 เลนนี้ใช้ขนาดต่างกัน **35 ขนาด** ตั้งแต่ 8.5 ถึง 42 รวม
+/// ครึ่งหน่วยอย่าง 10.8 / 12.5 / 16.5 — ตาแยกไม่ออกแต่ทำให้ไม่มีใครรู้ว่า
+/// ควรใช้อันไหน คนต่อไปจึงเดาแล้วเพิ่มขนาดใหม่เข้าไปเรื่อย ๆ
+///
+/// ใช้ค่าจากที่นี่เสมอ อย่าพิมพ์ตัวเลขดิบ — `teacher_type_scale_test.dart`
+/// จะ fail ถ้ามีขนาดนอกสเกลโผล่มา
+abstract final class TeacherType {
+  /// ชื่อหน้า · ชื่อบทเรียนบนหัวสีประจำวิชา
+  static const double hero = 22;
+
+  /// ชื่อบนแถบบน · หัวไดอะล็อก · หัวชีต
+  static const double title = 17;
+
+  /// ชื่อรายการในการ์ด · ค่าที่ต้องการให้อ่านก่อน
+  static const double cardTitle = 15;
+
+  /// ย่อหน้าเนื้อหา · คำอธิบาย
+  static const double body = 14;
+
+  /// ป้ายปุ่ม · ค่าในแถวข้อมูล
+  static const double secondary = 13;
+
+  /// ป้ายกำกับเหนือค่า · ข้อมูลประกอบในแถว
+  static const double label = 12;
+
+  /// ชิปสถานะ · หมายเหตุ · หน่วยวัด
+  static const double caption = 11;
+
+  /// ตัวเลขสรุปขนาดใหญ่เท่านั้น (จำนวนที่ส่งแล้ว · เปอร์เซ็นต์รวม)
+  /// ไม่ใช่สำหรับข้อความ
+  static const double figure = 32;
+
+  /// ทุกค่าที่อนุญาต — เทสต์อ่านจากที่นี่ เพิ่มขนาดใหม่ต้องมาแก้ตรงนี้ก่อน
+  /// ซึ่งเป็นจุดที่จะมีคนเห็นและถามว่าทำไมถึงต้องมี
+  // List ไม่ใช่ Set เพราะ const Set<double> คอมไพล์ไม่ผ่าน
+  // (double ไม่มี primitive equality)
+  static const List<double> all = [
+    hero,
+    title,
+    cardTitle,
+    body,
+    secondary,
+    label,
+    caption,
+    figure,
+  ];
+}
+
 class AirySpec {
   static const ink = Color(0xFF17161C);
   static const label = Color(0xFF8E8C99);
@@ -141,10 +191,7 @@ class AiryRow extends StatelessWidget {
                     trailingNote!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      color: AirySpec.label,
-                    ),
+                    style: const TextStyle(fontSize: 12, color: AirySpec.label),
                   ),
                 ],
               ],
@@ -187,7 +234,7 @@ Future<bool?> showAiryConfirm({
           Text(
             title,
             style: const TextStyle(
-              fontSize: 17.5,
+              fontSize: 17,
               fontWeight: FontWeight.w700,
               letterSpacing: -0.2,
               color: AirySpec.ink,
@@ -291,7 +338,7 @@ class AiryInputState extends State<AiryInput> {
                 Text(
                   widget.label,
                   style: const TextStyle(
-                    fontSize: 12.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w500,
                     color: AirySpec.label,
                   ),
@@ -300,7 +347,7 @@ class AiryInputState extends State<AiryInput> {
                   const SizedBox(width: 6),
                   const Text(
                     'ไม่บังคับ',
-                    style: TextStyle(fontSize: 11.5, color: Color(0xFFB6B4C2)),
+                    style: TextStyle(fontSize: 11, color: Color(0xFFB6B4C2)),
                   ),
                 ],
               ],
@@ -454,7 +501,7 @@ class AirySection extends StatelessWidget {
         Text(
           text,
           style: const TextStyle(
-            fontSize: 16,
+            fontSize: 15,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.2,
             color: AirySpec.ink,
@@ -513,7 +560,7 @@ class AirySwitchRow extends StatelessWidget {
               Text(
                 label,
                 style: const TextStyle(
-                  fontSize: 12.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w500,
                   color: AirySpec.label,
                 ),
@@ -522,7 +569,7 @@ class AirySwitchRow extends StatelessWidget {
               Text(
                 value,
                 style: const TextStyle(
-                  fontSize: 15.5,
+                  fontSize: 15,
                   fontWeight: FontWeight.w700,
                   color: AirySpec.ink,
                 ),
@@ -553,11 +600,7 @@ class AiryNote extends StatelessWidget {
     padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
     child: Text(
       text,
-      style: const TextStyle(
-        fontSize: 13.5,
-        height: 1.45,
-        color: AirySpec.label,
-      ),
+      style: const TextStyle(fontSize: 13, height: 1.45, color: AirySpec.label),
     ),
   );
 }
@@ -596,7 +639,7 @@ class AiryDatasetRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 15.5,
+                    fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: AirySpec.ink,
                   ),
@@ -606,7 +649,7 @@ class AiryDatasetRow extends StatelessWidget {
                   '$deviceName · $range',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12.5, color: AirySpec.label),
+                  style: const TextStyle(fontSize: 12, color: AirySpec.label),
                 ),
               ],
             ),

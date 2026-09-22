@@ -399,7 +399,7 @@ class _TeacherAssignmentEditorPageState
                         const Text(
                           'สถานะ:',
                           style: TextStyle(
-                            fontSize: 12.5,
+                            fontSize: 12,
                             fontWeight: FontWeight.w800,
                             color: TeacherPalette.muted,
                           ),
@@ -577,7 +577,7 @@ class _AssignmentCardItem extends StatelessWidget {
                           child: Text(
                             assignment.type,
                             style: const TextStyle(
-                              fontSize: 10.5,
+                              fontSize: 11,
                               fontWeight: FontWeight.w800,
                               color: Color(0xFF7E22CE),
                             ),
@@ -605,7 +605,7 @@ class _AssignmentCardItem extends StatelessWidget {
                                 Text(
                                   'งานกลุ่ม',
                                   style: TextStyle(
-                                    fontSize: 10.5,
+                                    fontSize: 11,
                                     fontWeight: FontWeight.w800,
                                     color: Color(0xFF0284C7),
                                   ),
@@ -620,7 +620,7 @@ class _AssignmentCardItem extends StatelessWidget {
                     Text(
                       assignment.title,
                       style: const TextStyle(
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.w900,
                         color: TeacherPalette.ink,
                         height: 1.2,
@@ -632,7 +632,7 @@ class _AssignmentCardItem extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: TeacherPalette.muted,
                       ),
@@ -738,7 +738,7 @@ class _AssignmentCardItem extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 11.5,
+                          fontSize: 11,
                           fontWeight: FontWeight.w700,
                           color: TeacherPalette.primary,
                         ),
@@ -759,7 +759,7 @@ class _AssignmentCardItem extends StatelessWidget {
                       const Text(
                         'ผูกเซนเซอร์ AIoT:',
                         style: TextStyle(
-                          fontSize: 11.5,
+                          fontSize: 11,
                           fontWeight: FontWeight.w800,
                           color: Color(0xFF0284C7),
                         ),
@@ -781,7 +781,7 @@ class _AssignmentCardItem extends StatelessWidget {
                                 child: Text(
                                   m,
                                   style: const TextStyle(
-                                    fontSize: 10.5,
+                                    fontSize: 11,
                                     fontWeight: FontWeight.w800,
                                     color: Color(0xFF0284C7),
                                   ),
@@ -1273,7 +1273,7 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
                         'ช่วงเวลาของข้อมูล',
                         style: TextStyle(
                           fontWeight: FontWeight.w800,
-                          fontSize: 12.5,
+                          fontSize: 12,
                           color: TeacherPalette.ink,
                         ),
                       ),
@@ -1563,7 +1563,7 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
                           Text(
                             isEditMode ? 'แก้ไขใบงาน' : 'สร้างใบงานใหม่',
                             style: const TextStyle(
-                              fontSize: 18,
+                              fontSize: 17,
                               fontWeight: FontWeight.w900,
                               color: TeacherPalette.ink,
                             ),
@@ -1700,7 +1700,7 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
                                           Text(
                                             'กำหนดเป็นงานกลุ่ม',
                                             style: TextStyle(
-                                              fontSize: 13.5,
+                                              fontSize: 13,
                                               fontWeight: FontWeight.w800,
                                               color: TeacherPalette.ink,
                                             ),
@@ -1822,7 +1822,7 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
                                 'ชุดข้อมูลเซนเซอร์ AIoT',
                                 style: TextStyle(
                                   fontWeight: FontWeight.w800,
-                                  fontSize: 13.5,
+                                  fontSize: 13,
                                   color: TeacherPalette.ink,
                                 ),
                               ),
@@ -1844,7 +1844,7 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
                             child: Text(
                               'บันทึกร่างใบงานนี้ก่อน แล้วค่อยกลับมาผูกชุดข้อมูลเซนเซอร์ทีหลังได้',
                               style: TextStyle(
-                                fontSize: 11.5,
+                                fontSize: 11,
                                 color: Color(0xFF64748B),
                               ),
                             ),
@@ -1868,7 +1868,7 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
                             child: Text(
                               'ยังไม่มีชุดข้อมูลเซนเซอร์ผูกกับใบงานนี้',
                               style: TextStyle(
-                                fontSize: 11.5,
+                                fontSize: 11,
                                 color: Color(0xFF64748B),
                               ),
                             ),
@@ -2042,7 +2042,7 @@ class _SensorWindowRow extends StatelessWidget {
       children: [
         SizedBox(
           width: 52,
-          child: Text(label, style: const TextStyle(fontSize: 12.5)),
+          child: Text(label, style: const TextStyle(fontSize: 12)),
         ),
         Expanded(
           child: OutlinedButton.icon(
@@ -2052,7 +2052,7 @@ class _SensorWindowRow extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: Text(
                 value == null ? 'ไม่กำหนด' : _fmt(value!),
-                style: const TextStyle(fontSize: 12.5),
+                style: const TextStyle(fontSize: 12),
               ),
             ),
             style: OutlinedButton.styleFrom(

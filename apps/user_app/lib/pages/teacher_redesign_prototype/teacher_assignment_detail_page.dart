@@ -351,7 +351,7 @@ class _TeacherAssignmentDetailPageState
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            fontSize: 23,
+            fontSize: 22,
             height: 1.3,
             fontWeight: FontWeight.w800,
             letterSpacing: -0.3,
@@ -418,7 +418,7 @@ class _TeacherAssignmentDetailPageState
                   Text(
                     '$submitted',
                     style: const TextStyle(
-                      fontSize: 30,
+                      fontSize: 32,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -1,
                       color: TeacherPalette.ink,
@@ -521,7 +521,7 @@ class _TeacherAssignmentDetailPageState
                 Text(
                   brief,
                   style: const TextStyle(
-                    fontSize: 14.5,
+                    fontSize: 14,
                     height: 1.65,
                     color: Color(0xFF4B4558),
                   ),
@@ -546,7 +546,7 @@ class _TeacherAssignmentDetailPageState
                             const Text(
                               'ชุดข้อมูลเซนเซอร์',
                               style: TextStyle(
-                                fontSize: 12.5,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w500,
                                 color: AirySpec.label,
                               ),
@@ -555,7 +555,7 @@ class _TeacherAssignmentDetailPageState
                             Text(
                               _metricThai(datasets[i].metric),
                               style: const TextStyle(
-                                fontSize: 15.5,
+                                fontSize: 15,
                                 fontWeight: FontWeight.w700,
                                 color: AirySpec.ink,
                               ),
@@ -812,7 +812,7 @@ class _Legend extends StatelessWidget {
       Text(
         label,
         style: const TextStyle(
-          fontSize: 12.5,
+          fontSize: 12,
           fontWeight: FontWeight.w600,
           color: TeacherPalette.muted,
         ),
@@ -821,7 +821,7 @@ class _Legend extends StatelessWidget {
       Text(
         '$value',
         style: const TextStyle(
-          fontSize: 12.5,
+          fontSize: 12,
           fontWeight: FontWeight.w800,
           color: TeacherPalette.ink,
           fontFeatures: [FontFeature.tabularFigures()],
@@ -861,7 +861,7 @@ class _HeadChip extends StatelessWidget {
           Text(
             text,
             style: TextStyle(
-              fontSize: 12.5,
+              fontSize: 12,
               fontWeight: solid ? FontWeight.w800 : FontWeight.w600,
               color: fg,
             ),
@@ -909,7 +909,7 @@ class _StudentRow extends StatelessWidget {
               child: Text(
                 initial,
                 style: TextStyle(
-                  fontSize: 13.5,
+                  fontSize: 13,
                   fontWeight: FontWeight.w800,
                   color: fg,
                 ),
@@ -925,7 +925,7 @@ class _StudentRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 14.5,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                       color: TeacherPalette.ink,
                     ),

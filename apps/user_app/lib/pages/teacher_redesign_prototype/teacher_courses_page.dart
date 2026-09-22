@@ -147,7 +147,7 @@ class _JoinCodeDialogState extends State<_JoinCodeDialog> {
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('รหัสเข้าร่วมรายวิชา', style: TextStyle(fontSize: 16)),
+          const Text('รหัสเข้าร่วมรายวิชา', style: TextStyle(fontSize: 15)),
           const SizedBox(height: 2),
           Text(
             '${widget.courseCode} · ${widget.courseName}',
@@ -200,7 +200,7 @@ class _JoinCodeDialogState extends State<_JoinCodeDialog> {
                     _error != null ? '—' : (_code ?? '—'),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      fontSize: 18,
+                      fontSize: 17,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 1.2,
                       color: TeacherPalette.ink,
@@ -434,7 +434,7 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
             ),
             title: const Text(
               'คัดลอกรายวิชาจากภาคเรียนก่อน',
-              style: TextStyle(fontSize: 16),
+              style: TextStyle(fontSize: 15),
             ),
             content: SizedBox(
               width: 380,
@@ -457,7 +457,7 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                             child: Text(
                               '${c.code} · ${c.name}',
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 12.5),
+                              style: const TextStyle(fontSize: 12),
                             ),
                           ),
                         )
@@ -486,14 +486,14 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                         value: 'ภาคเรียนที่ 2/2569',
                         child: Text(
                           'ภาคเรียนที่ 2/2569',
-                          style: TextStyle(fontSize: 12.5),
+                          style: TextStyle(fontSize: 12),
                         ),
                       ),
                       DropdownMenuItem(
                         value: 'ภาคเรียนที่ 1/2570',
                         child: Text(
                           'ภาคเรียนที่ 1/2570',
-                          style: TextStyle(fontSize: 12.5),
+                          style: TextStyle(fontSize: 12),
                         ),
                       ),
                     ],
@@ -535,7 +535,7 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                       'จะคัดลอกโครงสร้างบทเรียน/ใบงาน/Rubric เท่านั้น — ไม่คัดลอก'
                       'รายชื่อนักเรียนหรือคะแนนเดิมมาด้วย',
                       style: TextStyle(
-                        fontSize: 11.5,
+                        fontSize: 11,
                         color: Color(0xFF1D4ED8),
                         fontWeight: FontWeight.w700,
                       ),
@@ -712,7 +712,7 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: TeacherPalette.ink,
-                      fontSize: 18,
+                      fontSize: 17,
                       fontWeight: FontWeight.w900,
                       letterSpacing: -0.2,
                     ),
@@ -1317,7 +1317,7 @@ class _NewCourseModalSheetState extends State<_NewCourseModalSheet> {
                           'สร้างรายวิชาใหม่ 📖',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 18,
+                            fontSize: 17,
                             fontWeight: FontWeight.w900,
                           ),
                         ),
@@ -1685,7 +1685,7 @@ class _StatTile extends StatelessWidget {
             Text(
               value,
               style: const TextStyle(
-                fontSize: 18,
+                fontSize: 17,
                 fontWeight: FontWeight.w900,
                 color: TeacherPalette.ink,
                 letterSpacing: -0.5,
@@ -1743,7 +1743,7 @@ class _TeacherCourseCard extends StatelessWidget {
             Text(
               'สร้างสื่อ / งานใหม่ในวิชา ${course.code}',
               style: const TextStyle(
-                fontSize: 18,
+                fontSize: 17,
                 fontWeight: FontWeight.w900,
                 color: TeacherPalette.ink,
               ),
@@ -1977,7 +1977,7 @@ class _TeacherCourseCard extends StatelessWidget {
                     child: Text(
                       course.name,
                       style: const TextStyle(
-                        fontSize: 19,
+                        fontSize: 17,
                         fontWeight: FontWeight.w900,
                         color: TeacherPalette.ink,
                         letterSpacing: -0.3,
@@ -2483,7 +2483,7 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
                     c.name,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 24,
+                      fontSize: 22,
                       fontWeight: FontWeight.w900,
                       letterSpacing: -0.4,
                     ),
@@ -2652,7 +2652,7 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
                   'หน้า $_activeTab วิชา ${c.code}',
                   style: const TextStyle(
                     fontWeight: FontWeight.w800,
-                    fontSize: 16,
+                    fontSize: 15,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -2759,7 +2759,7 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 24,
+                            fontSize: 22,
                             fontWeight: FontWeight.w900,
                             height: 1.1,
                           ),
@@ -2771,7 +2771,7 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.85),
-                            fontSize: 12.5,
+                            fontSize: 12,
                           ),
                         ),
                       ],
@@ -2916,7 +2916,7 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
                 'รายวิชานี้ยังมีภารกิจค้างอยู่',
                 style: TextStyle(
                   fontWeight: FontWeight.w900,
-                  fontSize: 16,
+                  fontSize: 15,
                   color: Color(0xFFDC2626),
                 ),
               ),
@@ -3009,7 +3009,7 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
               SizedBox(width: 10),
               Text(
                 'ยืนยันการปิดรายวิชา',
-                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
               ),
             ],
           ),
@@ -3284,7 +3284,7 @@ class __StudentGroupManagementWidgetState
             SizedBox(width: 10),
             Text(
               'ตั้งชื่อกลุ่มใหม่',
-              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17),
             ),
           ],
         ),
@@ -3506,7 +3506,7 @@ class __StudentGroupManagementWidgetState
                         child: Text(
                           'เลือกนักเรียนเข้า "$groupName"',
                           style: const TextStyle(
-                            fontSize: 16.5,
+                            fontSize: 15,
                             fontWeight: FontWeight.w900,
                             color: TeacherPalette.ink,
                           ),
@@ -3591,7 +3591,7 @@ class __StudentGroupManagementWidgetState
                                       child: Text(
                                         st,
                                         style: const TextStyle(
-                                          fontSize: 13.5,
+                                          fontSize: 13,
                                           fontWeight: FontWeight.w700,
                                           color: Color(0xFF1E293B),
                                         ),
@@ -3663,7 +3663,7 @@ class __StudentGroupManagementWidgetState
                   child: Text(
                     'จัดการกลุ่มนักเรียนสำหรับทำกิจกรรม',
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: 17,
                       fontWeight: FontWeight.w900,
                       color: TeacherPalette.ink,
                     ),
@@ -3713,7 +3713,7 @@ class __StudentGroupManagementWidgetState
                   child: Text(
                     'กติกา: นักเรียน 1 คนสังกัดได้เพียง 1 กลุ่มต่อกิจกรรมเท่านั้น (กดปุ่ม ✏️ เพื่อตั้งชื่อกลุ่มได้)',
                     style: TextStyle(
-                      fontSize: 12.5,
+                      fontSize: 12,
                       fontWeight: FontWeight.w800,
                       color: Color(0xFF92400E),
                     ),
@@ -3751,7 +3751,7 @@ class __StudentGroupManagementWidgetState
                   Text(
                     'ยังไม่มีกลุ่มนักเรียนสำหรับทำกิจกรรมในระบบ',
                     style: TextStyle(
-                      fontSize: 13.5,
+                      fontSize: 13,
                       fontWeight: FontWeight.w700,
                       color: TeacherPalette.ink,
                     ),
@@ -3830,7 +3830,7 @@ class __StudentGroupManagementWidgetState
                             child: Text(
                               '${members.length} สมาชิก',
                               style: const TextStyle(
-                                fontSize: 11.5,
+                                fontSize: 11,
                                 fontWeight: FontWeight.w800,
                                 color: Color(0xFF0284C7),
                               ),
@@ -3912,7 +3912,7 @@ class __StudentGroupManagementWidgetState
                           child: const Text(
                             'ยังไม่มีสมาชิกในกลุ่มนี้ (กดเลือกนักเรียนด้านล่าง)',
                             style: TextStyle(
-                              fontSize: 12.5,
+                              fontSize: 12,
                               color: TeacherPalette.muted,
                               fontStyle: FontStyle.italic,
                             ),
@@ -4026,7 +4026,7 @@ class __StudentGroupManagementWidgetState
                           label: const Text(
                             '+ เลือกนักเรียนเข้ากลุ่มนี้',
                             style: TextStyle(
-                              fontSize: 12.5,
+                              fontSize: 12,
                               fontWeight: FontWeight.w800,
                               color: TeacherPalette.primary,
                             ),
@@ -4206,7 +4206,7 @@ class _AddStudentModalSheetState extends State<_AddStudentModalSheet> {
           children: [
             Text(
               'เพิ่มนักเรียนเข้าวิชา ${widget.course.code}',
-              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
             ),
             const SizedBox(height: 4),
             const Text(
@@ -4275,7 +4275,7 @@ class _AddStudentModalSheetState extends State<_AddStudentModalSheet> {
                                 },
                           title: Text(
                             s.fullName,
-                            style: const TextStyle(fontSize: 13.5),
+                            style: const TextStyle(fontSize: 13),
                           ),
                           subtitle: Text(
                             alreadyIn ? 'อยู่ในวิชานี้แล้ว' : s.email,
@@ -4442,7 +4442,7 @@ class _TeacherStudentRosterTabState extends State<TeacherStudentRosterTab> {
               Text(
                 'นักเรียน ${_students.length} คน',
                 style: const TextStyle(
-                  fontSize: 16.5,
+                  fontSize: 15,
                   fontWeight: FontWeight.w900,
                   color: TeacherPalette.ink,
                 ),
@@ -4995,7 +4995,7 @@ class _CourseGradebookTabWidgetState extends State<_CourseGradebookTabWidget> {
           title: const Text(
             'สมุดบันทึกคะแนน',
             style: TextStyle(
-              fontSize: 16.5,
+              fontSize: 15,
               fontWeight: FontWeight.w900,
               color: TeacherPalette.ink,
             ),
@@ -5309,7 +5309,7 @@ class _CourseGradebookTabWidgetState extends State<_CourseGradebookTabWidget> {
                 Text(
                   value,
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 17,
                     fontWeight: FontWeight.w900,
                     color: color,
                   ),
@@ -5638,7 +5638,7 @@ class _AssignmentRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 14.5,
+                      fontSize: 14,
                       fontWeight: FontWeight.w800,
                       color: TeacherPalette.ink,
                     ),
@@ -5649,7 +5649,7 @@ class _AssignmentRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 11.5,
+                      fontSize: 11,
                       color: TeacherPalette.muted,
                     ),
                   ),
@@ -5734,7 +5734,7 @@ class _Legend extends StatelessWidget {
       const SizedBox(width: 4),
       Text(
         label,
-        style: const TextStyle(fontSize: 10.5, color: TeacherPalette.muted),
+        style: const TextStyle(fontSize: 11, color: TeacherPalette.muted),
       ),
     ],
   );
@@ -5784,7 +5784,7 @@ class _EmptyInvite extends StatelessWidget {
           body,
           textAlign: TextAlign.center,
           style: const TextStyle(
-            fontSize: 12.5,
+            fontSize: 12,
             color: TeacherPalette.muted,
             height: 1.4,
           ),
@@ -5947,7 +5947,7 @@ class _PhoneStat extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: FontWeight.w800,
                   color: color.fg,
                 ),

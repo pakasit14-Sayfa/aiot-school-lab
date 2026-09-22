@@ -224,7 +224,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
               style: TextStyle(
                 fontWeight: FontWeight.w800,
                 color: TeacherPalette.ink,
-                fontSize: 18,
+                fontSize: 17,
               ),
             ),
           ],
@@ -550,7 +550,7 @@ class _IdentityCard extends StatelessWidget {
         'ครูผู้สอน AIoT',
         style: TextStyle(
           color: TeacherPalette.primary,
-          fontSize: 12.5,
+          fontSize: 12,
           fontWeight: FontWeight.w800,
         ),
       ),
@@ -572,7 +572,7 @@ class _IdentityCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: TeacherPalette.ink,
-                  fontSize: 24,
+                  fontSize: 22,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -840,7 +840,7 @@ class _MetricCard extends StatelessWidget {
                   style: const TextStyle(
                     color: TeacherPalette.ink,
                     fontWeight: FontWeight.w900,
-                    fontSize: 20,
+                    fontSize: 17,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -850,7 +850,7 @@ class _MetricCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: TeacherPalette.softText,
-                    fontSize: 10.5,
+                    fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -969,7 +969,7 @@ class _MenuTile extends StatelessWidget {
                       title,
                       style: TextStyle(
                         color: titleColor,
-                        fontSize: 14.5,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -1027,7 +1027,7 @@ class _DetailRow extends StatelessWidget {
                 label,
                 style: const TextStyle(
                   color: TeacherPalette.muted,
-                  fontSize: 11.5,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -1038,7 +1038,7 @@ class _DetailRow extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: TeacherPalette.ink,
-                  fontSize: 13.5,
+                  fontSize: 13,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -1113,7 +1113,7 @@ class _AcademicDropdownTile extends StatelessWidget {
                   'ภาคเรียนปัจจุบัน',
                   style: TextStyle(
                     color: TeacherPalette.ink,
-                    fontSize: 14.5,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -1122,7 +1122,7 @@ class _AcademicDropdownTile extends StatelessWidget {
                   currentVal,
                   style: const TextStyle(
                     color: TeacherPalette.muted,
-                    fontSize: 12.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
                 ),

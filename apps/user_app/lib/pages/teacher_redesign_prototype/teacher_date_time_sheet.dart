@@ -192,7 +192,7 @@ class _DateTimeSheetState extends State<_DateTimeSheet> {
                   child: Text(
                     _summary(_selected),
                     style: const TextStyle(
-                      fontSize: 20,
+                      fontSize: 17,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.2,
                       color: TeacherPalette.ink,
@@ -220,7 +220,7 @@ class _DateTimeSheetState extends State<_DateTimeSheet> {
                           child: Text(
                             '${_thaiMonthsFull[_month.month - 1]} ${_month.year + 543}',
                             style: TextStyle(
-                              fontSize: 16.5,
+                              fontSize: 15,
                               fontWeight: FontWeight.w800,
                               color: widget.accent,
                             ),
@@ -266,7 +266,7 @@ class _DateTimeSheetState extends State<_DateTimeSheet> {
                               child: Text(
                                 w,
                                 style: const TextStyle(
-                                  fontSize: 12.5,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                   color: TeacherPalette.muted,
                                 ),
@@ -324,7 +324,7 @@ class _DateTimeSheetState extends State<_DateTimeSheet> {
                               child: Text(
                                 '${day.day}',
                                 style: TextStyle(
-                                  fontSize: 16,
+                                  fontSize: 15,
                                   fontWeight: selected || isToday
                                       ? FontWeight.w700
                                       : FontWeight.w500,
@@ -368,7 +368,7 @@ class _DateTimeSheetState extends State<_DateTimeSheet> {
                             child: Text(
                               'เวลา',
                               style: TextStyle(
-                                fontSize: 16,
+                                fontSize: 15,
                                 color: TeacherPalette.ink,
                               ),
                             ),
@@ -388,7 +388,7 @@ class _DateTimeSheetState extends State<_DateTimeSheet> {
                               '${_selected.hour.toString().padLeft(2, '0')}:'
                               '${_selected.minute.toString().padLeft(2, '0')}',
                               style: TextStyle(
-                                fontSize: 16,
+                                fontSize: 15,
                                 fontWeight: FontWeight.w700,
                                 color: _timeOpen
                                     ? widget.accent
@@ -471,7 +471,7 @@ class _DateTimeSheetState extends State<_DateTimeSheet> {
                       child: const Text(
                         'เสร็จ',
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 15,
                           fontWeight: FontWeight.w800,
                         ),
                       ),

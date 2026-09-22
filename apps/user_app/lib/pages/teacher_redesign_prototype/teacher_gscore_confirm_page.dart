@@ -162,7 +162,7 @@ class _TeacherGScoreConfirmPageState extends State<TeacherGScoreConfirmPage> {
               const Text(
                 'ไม่มีรายการรออนุมัติในตอนนี้',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: FontWeight.w800,
                   color: TeacherPalette.ink,
                 ),
@@ -237,7 +237,7 @@ class _PendingRow extends StatelessWidget {
                 entry.studentFullName,
                 style: const TextStyle(
                   color: TeacherPalette.ink,
-                  fontSize: 13.5,
+                  fontSize: 13,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -245,7 +245,7 @@ class _PendingRow extends StatelessWidget {
                 '${entry.subjectName} · $sourceLabel',
                 style: const TextStyle(
                   color: TeacherPalette.muted,
-                  fontSize: 11.5,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
               ),

@@ -393,7 +393,7 @@ class _TeacherRubricPageState extends State<TeacherRubricPage> {
                         const Text(
                           'ตัวกรอง:',
                           style: TextStyle(
-                            fontSize: 12.5,
+                            fontSize: 12,
                             fontWeight: FontWeight.w800,
                             color: TeacherPalette.muted,
                           ),
@@ -476,7 +476,7 @@ class _TeacherRubricPageState extends State<TeacherRubricPage> {
                       Text(
                         'ลองเปลี่ยนคำค้นหา หรือกดสร้าง Rubric ใหม่ได้ทันที',
                         style: TextStyle(
-                          fontSize: 12.5,
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: TeacherPalette.muted,
                         ),
@@ -564,7 +564,7 @@ class _RubricCardItem extends StatelessWidget {
                     Text(
                       rubric.title,
                       style: const TextStyle(
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.w900,
                         color: TeacherPalette.ink,
                         height: 1.2,
@@ -574,7 +574,7 @@ class _RubricCardItem extends StatelessWidget {
                     Text(
                       rubric.description,
                       style: const TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: TeacherPalette.muted,
                       ),
@@ -700,7 +700,7 @@ class _RubricCardItem extends StatelessWidget {
                 const Text(
                   'รายการเกณฑ์การประเมิน:',
                   style: TextStyle(
-                    fontSize: 11.5,
+                    fontSize: 11,
                     fontWeight: FontWeight.w800,
                     color: TeacherPalette.muted,
                   ),
@@ -722,7 +722,7 @@ class _RubricCardItem extends StatelessWidget {
                             child: Text(
                               c.title,
                               style: const TextStyle(
-                                fontSize: 12.5,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w700,
                                 color: TeacherPalette.ink,
                               ),
@@ -731,7 +731,7 @@ class _RubricCardItem extends StatelessWidget {
                           Text(
                             '(${c.maxPoints.toStringAsFixed(0)} คะแนน)',
                             style: const TextStyle(
-                              fontSize: 11.5,
+                              fontSize: 11,
                               fontWeight: FontWeight.w800,
                               color: TeacherPalette.muted,
                             ),
@@ -796,7 +796,7 @@ class _RubricCardItem extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              fontSize: 11.5,
+              fontSize: 11,
               fontWeight: FontWeight.w700,
               color: textColor,
             ),
@@ -1092,7 +1092,7 @@ class _RubricFormSheetState extends State<_RubricFormSheet> {
                                   : 'แก้ไข Rubric')
                             : 'สร้าง Rubric ใหม่',
                         style: const TextStyle(
-                          fontSize: 18,
+                          fontSize: 17,
                           fontWeight: FontWeight.w900,
                           color: TeacherPalette.ink,
                         ),
