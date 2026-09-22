@@ -158,50 +158,54 @@ void main() {
     },
   );
 
-  testWidgets(
-    'emergency stop reports failure honestly when the RPC throws',
-    (tester) async {
-      await _pump(
-        tester,
-        loadControlData: () async =>
-            _data(schools: [_school()], devices: [_device()]),
-        queueDeviceCommand: ({required deviceId, required command}) async {
-          throw StateError('rpc rejected');
-        },
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('หยุดฉุกเฉิน'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('ยืนยันหยุดทั้งหมด'));
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('หยุดฉุกเฉินไม่สำเร็จ'), findsOneWidget);
-      expect(find.textContaining('ส่งคำสั่งหยุดฉุกเฉิน 1 เครื่องแล้ว'), findsNothing);
-    },
-  );
-
-  testWidgets('emergency stop with no eligible devices does not queue anything', (
+  testWidgets('emergency stop reports failure honestly when the RPC throws', (
     tester,
   ) async {
-    var called = false;
     await _pump(
       tester,
-      loadControlData: () async => _data(
-        schools: [_school()],
-        devices: [_device(poweredOn: false)],
-      ),
+      loadControlData: () async =>
+          _data(schools: [_school()], devices: [_device()]),
       queueDeviceCommand: ({required deviceId, required command}) async {
-        called = true;
-        return 'queued';
+        throw StateError('rpc rejected');
       },
     );
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('หยุดฉุกเฉิน'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('ยืนยันหยุดทั้งหมด'));
+    await tester.pumpAndSettle();
 
-    expect(called, isFalse);
-    expect(find.textContaining('ไม่มีอุปกรณ์ออนไลน์ที่กำลังเปิดอยู่'), findsOneWidget);
+    expect(find.textContaining('หยุดฉุกเฉินไม่สำเร็จ'), findsOneWidget);
+    expect(
+      find.textContaining('ส่งคำสั่งหยุดฉุกเฉิน 1 เครื่องแล้ว'),
+      findsNothing,
+    );
   });
+
+  testWidgets(
+    'emergency stop with no eligible devices does not queue anything',
+    (tester) async {
+      var called = false;
+      await _pump(
+        tester,
+        loadControlData: () async =>
+            _data(schools: [_school()], devices: [_device(poweredOn: false)]),
+        queueDeviceCommand: ({required deviceId, required command}) async {
+          called = true;
+          return 'queued';
+        },
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('หยุดฉุกเฉิน'));
+      await tester.pumpAndSettle();
+
+      expect(called, isFalse);
+      expect(
+        find.textContaining('ไม่มีอุปกรณ์ออนไลน์ที่กำลังเปิดอยู่'),
+        findsOneWidget,
+      );
+    },
+  );
 }

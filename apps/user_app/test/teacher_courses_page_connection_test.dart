@@ -33,7 +33,9 @@ void main() {
     expect(find.textContaining('ว31281'), findsNothing);
   }
 
-  testWidgets('ครูที่ยังไม่มีรายวิชาจริงต้องไม่เห็นรายวิชาปลอม', (tester) async {
+  testWidgets('ครูที่ยังไม่มีรายวิชาจริงต้องไม่เห็นรายวิชาปลอม', (
+    tester,
+  ) async {
     await pumpPage(tester, loadCourses: () async => <CourseSummary>[]);
     await tester.pump();
 
@@ -41,21 +43,25 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
-  testWidgets('โหลดพังต้องขึ้นข้อความผิดพลาด ไม่ใช่รายวิชาปลอม และไม่โชว์ error ดิบ', (
-    tester,
-  ) async {
-    await pumpPage(
-      tester,
-      loadCourses: () async => throw Exception('PostgrestException: boom'),
-    );
-    await tester.pump();
+  testWidgets(
+    'โหลดพังต้องขึ้นข้อความผิดพลาด ไม่ใช่รายวิชาปลอม และไม่โชว์ error ดิบ',
+    (tester) async {
+      await pumpPage(
+        tester,
+        loadCourses: () async => throw Exception('PostgrestException: boom'),
+      );
+      await tester.pump();
 
-    expectNoSeededCourses();
-    expect(find.text('โหลดรายวิชาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), findsOneWidget);
-    // ข้อความ exception ดิบต้องไม่หลุดขึ้นจอ
-    expect(find.textContaining('PostgrestException'), findsNothing);
-    expect(find.text('ลองใหม่'), findsOneWidget);
-  });
+      expectNoSeededCourses();
+      expect(
+        find.text('โหลดรายวิชาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'),
+        findsOneWidget,
+      );
+      // ข้อความ exception ดิบต้องไม่หลุดขึ้นจอ
+      expect(find.textContaining('PostgrestException'), findsNothing);
+      expect(find.text('ลองใหม่'), findsOneWidget);
+    },
+  );
 
   testWidgets('ระหว่างโหลดต้องเป็นสถานะกำลังโหลด ไม่ใช่รายวิชาปลอมค้างจอ', (
     tester,
@@ -98,23 +104,24 @@ void main() {
     expectNoSeededCourses();
   });
 
-  testWidgets('เปิดหน้ารายละเอียดวิชาโดยไม่มีวิชาต้องบอกตรง ๆ ไม่ใช่โชว์วิชาปลอม', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(1400, 1400);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+  testWidgets(
+    'เปิดหน้ารายละเอียดวิชาโดยไม่มีวิชาต้องบอกตรง ๆ ไม่ใช่โชว์วิชาปลอม',
+    (tester) async {
+      tester.view.physicalSize = const Size(1400, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(
-      const MaterialApp(home: TeacherCourseDetailPage()),
-    );
-    await tester.pump();
+      await tester.pumpWidget(
+        const MaterialApp(home: TeacherCourseDetailPage()),
+      );
+      await tester.pump();
 
-    expect(
-      find.text('ยังไม่มีข้อมูลรายวิชา — กรุณาเปิดจากรายการรายวิชาของคุณ'),
-      findsOneWidget,
-    );
-    expectNoSeededCourses();
-  });
+      expect(
+        find.text('ยังไม่มีข้อมูลรายวิชา — กรุณาเปิดจากรายการรายวิชาของคุณ'),
+        findsOneWidget,
+      );
+      expectNoSeededCourses();
+    },
+  );
 }

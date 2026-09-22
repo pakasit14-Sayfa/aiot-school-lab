@@ -34,7 +34,8 @@ Future<void> _pump(
   await tester.pumpWidget(
     MaterialApp(
       home: TeacherLeaveApprovalPage(
-        listPendingLeaveRequests: listPendingLeaveRequests ?? () async => [_request],
+        listPendingLeaveRequests:
+            listPendingLeaveRequests ?? () async => [_request],
         reviewLeaveRequest: reviewLeaveRequest,
       ),
     ),
@@ -43,51 +44,56 @@ Future<void> _pump(
 }
 
 void main() {
-  testWidgets('a real pending request shows the real student/reason, not fabricated data', (
-    tester,
-  ) async {
-    await _pump(tester);
-    expect(find.text('สมชาย ใจดี'), findsOneWidget);
-    expect(find.textContaining('ไข้หวัดใหญ่'), findsOneWidget);
-    expect(find.text('ลาป่วย'), findsOneWidget);
-  });
+  testWidgets(
+    'a real pending request shows the real student/reason, not fabricated data',
+    (tester) async {
+      await _pump(tester);
+      expect(find.text('สมชาย ใจดี'), findsOneWidget);
+      expect(find.textContaining('ไข้หวัดใหญ่'), findsOneWidget);
+      expect(find.text('ลาป่วย'), findsOneWidget);
+    },
+  );
 
-  testWidgets('approving calls the real RPC with the real leave id and approved status', (
-    tester,
-  ) async {
-    String? reviewedId;
-    String? reviewedStatus;
-    await _pump(
-      tester,
-      reviewLeaveRequest: ({required leaveId, required status, reviewNote}) async {
-        reviewedId = leaveId;
-        reviewedStatus = status;
-      },
-    );
+  testWidgets(
+    'approving calls the real RPC with the real leave id and approved status',
+    (tester) async {
+      String? reviewedId;
+      String? reviewedStatus;
+      await _pump(
+        tester,
+        reviewLeaveRequest:
+            ({required leaveId, required status, reviewNote}) async {
+              reviewedId = leaveId;
+              reviewedStatus = status;
+            },
+      );
 
-    await tester.tap(find.text('อนุมัติ'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('อนุมัติ'));
+      await tester.pumpAndSettle();
 
-    expect(reviewedId, 'leave-1');
-    expect(reviewedStatus, 'approved');
-  });
+      expect(reviewedId, 'leave-1');
+      expect(reviewedStatus, 'approved');
+    },
+  );
 
-  testWidgets('rejecting calls the real RPC with the real leave id and rejected status', (
-    tester,
-  ) async {
-    String? reviewedStatus;
-    await _pump(
-      tester,
-      reviewLeaveRequest: ({required leaveId, required status, reviewNote}) async {
-        reviewedStatus = status;
-      },
-    );
+  testWidgets(
+    'rejecting calls the real RPC with the real leave id and rejected status',
+    (tester) async {
+      String? reviewedStatus;
+      await _pump(
+        tester,
+        reviewLeaveRequest:
+            ({required leaveId, required status, reviewNote}) async {
+              reviewedStatus = status;
+            },
+      );
 
-    await tester.tap(find.text('ไม่อนุมัติ'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('ไม่อนุมัติ'));
+      await tester.pumpAndSettle();
 
-    expect(reviewedStatus, 'rejected');
-  });
+      expect(reviewedStatus, 'rejected');
+    },
+  );
 
   testWidgets('zero pending requests shows an honest empty state', (
     tester,
@@ -96,15 +102,16 @@ void main() {
     expect(find.text('ไม่มีคำขอลาเรียนรอดำเนินการ'), findsOneWidget);
   });
 
-  testWidgets('a real load failure shows an honest error, no leaked exception text', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      listPendingLeaveRequests: () async =>
-          throw StateError('backend detail that must stay internal'),
-    );
-    expect(find.text('โหลดคำขอลาไม่สำเร็จ'), findsOneWidget);
-    expect(find.textContaining('backend detail'), findsNothing);
-  });
+  testWidgets(
+    'a real load failure shows an honest error, no leaked exception text',
+    (tester) async {
+      await _pump(
+        tester,
+        listPendingLeaveRequests: () async =>
+            throw StateError('backend detail that must stay internal'),
+      );
+      expect(find.text('โหลดคำขอลาไม่สำเร็จ'), findsOneWidget);
+      expect(find.textContaining('backend detail'), findsNothing);
+    },
+  );
 }

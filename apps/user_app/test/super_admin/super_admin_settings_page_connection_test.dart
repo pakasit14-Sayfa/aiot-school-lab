@@ -90,28 +90,33 @@ Future<void> _pump(
 }
 
 void main() {
-  testWidgets('only the enforced setting is offered; the 16 unenforced ones are gone', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      loadSettings: () async => _settings(offlineMinutes: 12, mqttHost: '10.0.0.5'),
-    );
-    await tester.pumpAndSettle();
+  testWidgets(
+    'only the enforced setting is offered; the 16 unenforced ones are gone',
+    (tester) async {
+      await _pump(
+        tester,
+        loadSettings: () async =>
+            _settings(offlineMinutes: 12, mqttHost: '10.0.0.5'),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('12'), findsOneWidget);
-    expect(find.textContaining('ค่าที่บันทึกในระบบตอนนี้: 12 นาที'), findsOneWidget);
-    // Sensor thresholds / MQTT / alert channels / security policy / backup —
-    // saved "for reference", read by nothing. Not shown any more.
-    expect(find.text('10.0.0.5'), findsNothing);
-    expect(find.textContaining('MQTT'), findsNothing);
-    expect(find.textContaining('Sensor Thresholds'), findsNothing);
-    expect(find.textContaining('Alert Channels'), findsNothing);
-    expect(find.textContaining('Security & Policy'), findsNothing);
-    expect(find.textContaining('System & Maintenance'), findsNothing);
-    expect(find.textContaining('ยังไม่มีการบังคับใช้'), findsNothing);
-    expect(find.byType(Switch), findsNothing);
-  });
+      expect(find.text('12'), findsOneWidget);
+      expect(
+        find.textContaining('ค่าที่บันทึกในระบบตอนนี้: 12 นาที'),
+        findsOneWidget,
+      );
+      // Sensor thresholds / MQTT / alert channels / security policy / backup —
+      // saved "for reference", read by nothing. Not shown any more.
+      expect(find.text('10.0.0.5'), findsNothing);
+      expect(find.textContaining('MQTT'), findsNothing);
+      expect(find.textContaining('Sensor Thresholds'), findsNothing);
+      expect(find.textContaining('Alert Channels'), findsNothing);
+      expect(find.textContaining('Security & Policy'), findsNothing);
+      expect(find.textContaining('System & Maintenance'), findsNothing);
+      expect(find.textContaining('ยังไม่มีการบังคับใช้'), findsNothing);
+      expect(find.byType(Switch), findsNothing);
+    },
+  );
 
   testWidgets('a failed settings load falls back to defaults, visibly', (
     tester,
@@ -192,45 +197,46 @@ void main() {
     expect(find.textContaining('rpc rejected'), findsNothing);
   });
 
-  testWidgets('save sends the typed minutes and trusts only the row the backend returns', (
-    tester,
-  ) async {
-    int? sent;
-    await _pump(
-      tester,
-      saveSettings:
-          ({
-            mq2Threshold,
-            pm25Threshold,
-            temperatureThreshold,
-            offlineMinutes,
-            mqttHost,
-            mqttPort,
-            lineNotify,
-            emailNotify,
-            pushNotify,
-            automaticBackup,
-            maintenanceMode,
-            twoFactorRequired,
-            auditLogEnabled,
-            language,
-            timezone,
-            logRetentionDays,
-            backupTime,
-          }) async {
-            sent = offlineMinutes;
-            return _settings(offlineMinutes: 5); // backend did not change
-          },
-    );
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), '20');
-    await tester.tap(find.text('บันทึกการตั้งค่า'));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'save sends the typed minutes and trusts only the row the backend returns',
+    (tester) async {
+      int? sent;
+      await _pump(
+        tester,
+        saveSettings:
+            ({
+              mq2Threshold,
+              pm25Threshold,
+              temperatureThreshold,
+              offlineMinutes,
+              mqttHost,
+              mqttPort,
+              lineNotify,
+              emailNotify,
+              pushNotify,
+              automaticBackup,
+              maintenanceMode,
+              twoFactorRequired,
+              auditLogEnabled,
+              language,
+              timezone,
+              logRetentionDays,
+              backupTime,
+            }) async {
+              sent = offlineMinutes;
+              return _settings(offlineMinutes: 5); // backend did not change
+            },
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '20');
+      await tester.tap(find.text('บันทึกการตั้งค่า'));
+      await tester.pumpAndSettle();
 
-    expect(sent, 20);
-    expect(find.textContaining('ค่าในระบบยังเป็น 5 นาที'), findsOneWidget);
-    expect(find.textContaining('บันทึกแล้ว —'), findsNothing);
-  });
+      expect(sent, 20);
+      expect(find.textContaining('ค่าในระบบยังเป็น 5 นาที'), findsOneWidget);
+      expect(find.textContaining('บันทึกแล้ว —'), findsNothing);
+    },
+  );
 
   testWidgets('save shows a confirmation once the RPC resolves', (
     tester,
@@ -264,22 +270,26 @@ void main() {
     await tester.tap(find.text('บันทึกการตั้งค่า'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('บันทึกแล้ว — อุปกรณ์ที่เงียบเกิน 20 นาที'), findsOneWidget);
+    expect(
+      find.textContaining('บันทึกแล้ว — อุปกรณ์ที่เงียบเกิน 20 นาที'),
+      findsOneWidget,
+    );
   });
 
   /// เดิม `catch (_)` แค่ปิดสถานะโหลด — "อ่าน audit log ไม่ได้" จึงอ่านเหมือน
   /// "ยังไม่มีใครแก้ไขค่าอะไรเลย" บนหน้าตั้งค่าระดับแพลตฟอร์ม
-  testWidgets('ประวัติการแก้ไขโหลดพัง ต้องบอกตรง ๆ ไม่ใช่ "ยังไม่มีประวัติการแก้ไข"', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      loadAuditLogs: () async => throw Exception('logs_unreachable'),
-    );
-    await tester.pumpAndSettle();
+  testWidgets(
+    'ประวัติการแก้ไขโหลดพัง ต้องบอกตรง ๆ ไม่ใช่ "ยังไม่มีประวัติการแก้ไข"',
+    (tester) async {
+      await _pump(
+        tester,
+        loadAuditLogs: () async => throw Exception('logs_unreachable'),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('โหลดประวัติการแก้ไขไม่สำเร็จ'), findsOneWidget);
-    expect(find.text('ยังไม่มีประวัติการแก้ไข'), findsNothing);
-    expect(find.textContaining('logs_unreachable'), findsNothing);
-  });
+      expect(find.text('โหลดประวัติการแก้ไขไม่สำเร็จ'), findsOneWidget);
+      expect(find.text('ยังไม่มีประวัติการแก้ไข'), findsNothing);
+      expect(find.textContaining('logs_unreachable'), findsNothing);
+    },
+  );
 }

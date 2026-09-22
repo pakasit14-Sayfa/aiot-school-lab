@@ -38,11 +38,18 @@ Future<void> _pump(
   Future<List<SubmissionVersion>> Function(String assignmentId)?
   loadSubmissionVersions,
   Future<void> Function()? signOut,
-  Future<void> Function({required String currentPassword, required String newPassword})? changePassword,
-  Future<void> Function({required String uid, required String name})? updateName,
+  Future<void> Function({
+    required String currentPassword,
+    required String newPassword,
+  })?
+  changePassword,
+  Future<void> Function({required String uid, required String name})?
+  updateName,
   bool phone = false,
 }) async {
-  tester.view.physicalSize = phone ? const Size(390 * 3, 844 * 3) : const Size(1000, 1800);
+  tester.view.physicalSize = phone
+      ? const Size(390 * 3, 844 * 3)
+      : const Size(1000, 1800);
   tester.view.devicePixelRatio = phone ? 3 : 1;
   addTearDown(() {
     tester.view.resetPhysicalSize();
@@ -53,7 +60,8 @@ Future<void> _pump(
       home: StudentProfilePage(
         loadCourses: loadCourses ?? () async => const [_course],
         loadGrades: loadGrades ?? () async => const [],
-        loadAssignmentsForCourse: loadAssignmentsForCourse ?? (_) async => const [],
+        loadAssignmentsForCourse:
+            loadAssignmentsForCourse ?? (_) async => const [],
         loadSubmissionVersions: loadSubmissionVersions ?? (_) async => const [],
         signOut: signOut,
         changePassword: changePassword,
@@ -65,75 +73,79 @@ Future<void> _pump(
 }
 
 void main() {
-  testWidgets('the submitted-count card reflects the real roster/submission numbers, not an invented total', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      loadAssignmentsForCourse: (_) async => const [_assignment],
-      loadSubmissionVersions: (assignmentId) async {
-        expect(assignmentId, 'asg-1');
-        return [
-          SubmissionVersion(
-            version: 1,
-            content: 'ทำแล้ว',
-            submittedAt: DateTime(2026, 9, 1),
-            submissionVersionId: 'sv-1',
-          ),
-        ];
-      },
-    );
+  testWidgets(
+    'the submitted-count card reflects the real roster/submission numbers, not an invented total',
+    (tester) async {
+      await _pump(
+        tester,
+        loadAssignmentsForCourse: (_) async => const [_assignment],
+        loadSubmissionVersions: (assignmentId) async {
+          expect(assignmentId, 'asg-1');
+          return [
+            SubmissionVersion(
+              version: 1,
+              content: 'ทำแล้ว',
+              submittedAt: DateTime(2026, 9, 1),
+              submissionVersionId: 'sv-1',
+            ),
+          ];
+        },
+      );
 
-    expect(find.text('1/1'), findsOneWidget);
-    expect(find.textContaining('ชั้น ม.2'), findsOneWidget);
-  });
+      expect(find.text('1/1'), findsOneWidget);
+      expect(find.textContaining('ชั้น ม.2'), findsOneWidget);
+    },
+  );
 
-  testWidgets('the average-grade card reflects only confirmed grades, not pending ones', (
-    tester,
-  ) async {
-    await _pump(tester, loadGrades: () async => [_confirmedGrade]);
-    expect(find.text('90%'), findsOneWidget);
-    expect(find.text('1 วิชายืนยันแล้ว'), findsOneWidget);
-  });
+  testWidgets(
+    'the average-grade card reflects only confirmed grades, not pending ones',
+    (tester) async {
+      await _pump(tester, loadGrades: () async => [_confirmedGrade]);
+      expect(find.text('90%'), findsOneWidget);
+      expect(find.text('1 วิชายืนยันแล้ว'), findsOneWidget);
+    },
+  );
 
-  testWidgets('a real load failure shows an honest error, no leaked exception text', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      loadCourses: () async =>
-          throw StateError('backend detail that must stay internal'),
-    );
-    expect(find.textContaining('โหลดข้อมูลไม่สำเร็จ'), findsOneWidget);
-    expect(find.textContaining('backend detail'), findsNothing);
-  });
+  testWidgets(
+    'a real load failure shows an honest error, no leaked exception text',
+    (tester) async {
+      await _pump(
+        tester,
+        loadCourses: () async =>
+            throw StateError('backend detail that must stay internal'),
+      );
+      expect(find.textContaining('โหลดข้อมูลไม่สำเร็จ'), findsOneWidget);
+      expect(find.textContaining('backend detail'), findsNothing);
+    },
+  );
 
-  testWidgets('signing out calls the real signOut and navigates to the login page', (
-    tester,
-  ) async {
-    var signOutCalls = 0;
-    await _pump(
-      tester,
-      signOut: () async {
-        signOutCalls++;
-      },
-    );
+  testWidgets(
+    'signing out calls the real signOut and navigates to the login page',
+    (tester) async {
+      var signOutCalls = 0;
+      await _pump(
+        tester,
+        signOut: () async {
+          signOutCalls++;
+        },
+      );
 
-    await tester.tap(find.text('ออกจากระบบ'));
-    await tester.pumpAndSettle();
-    // confirm dialog (added 2026-09-21 — same as the teacher lane); the
-    // sign-out RPC must not fire before ยืนยัน
-    expect(find.text('ยืนยันออกจากระบบ'), findsOneWidget);
-    expect(signOutCalls, 0);
-    await tester.tap(find.widgetWithText(FilledButton, 'ออกจากระบบ'));
-    // Not pumpAndSettle: LoginPage may render an indeterminate animation
-    // that never settles. A few bounded pumps are enough to prove the
-    // real signOut callback fired and navigation was triggered.
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text('ออกจากระบบ'));
+      await tester.pumpAndSettle();
+      // confirm dialog (added 2026-09-21 — same as the teacher lane); the
+      // sign-out RPC must not fire before ยืนยัน
+      expect(find.text('ยืนยันออกจากระบบ'), findsOneWidget);
+      expect(signOutCalls, 0);
+      await tester.tap(find.widgetWithText(FilledButton, 'ออกจากระบบ'));
+      // Not pumpAndSettle: LoginPage may render an indeterminate animation
+      // that never settles. A few bounded pumps are enough to prove the
+      // real signOut callback fired and navigation was triggered.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
-    expect(signOutCalls, 1);
-  });
+      expect(signOutCalls, 1);
+    },
+  );
 
   testWidgets('no placeholder menu item is left; change-password is real', (
     tester,
@@ -141,18 +153,34 @@ void main() {
     String? sentNew;
     await _pump(
       tester,
-      changePassword: ({required currentPassword, required newPassword}) async =>
-          sentNew = newPassword,
+      changePassword:
+          ({required currentPassword, required newPassword}) async =>
+              sentNew = newPassword,
     );
     expect(find.textContaining('ยังไม่เปิดใช้งาน'), findsNothing);
-    for (final gone in ['เคล็ดลับการใช้งาน', 'คำถามที่พบบ่อย', 'ติดต่อทีมงาน', 'การแจ้งเตือน', 'ความเป็นส่วนตัวและ PDPA']) {
+    for (final gone in [
+      'เคล็ดลับการใช้งาน',
+      'คำถามที่พบบ่อย',
+      'ติดต่อทีมงาน',
+      'การแจ้งเตือน',
+      'ความเป็นส่วนตัวและ PDPA',
+    ]) {
       expect(find.text(gone), findsNothing, reason: gone);
     }
     await tester.tap(find.text('เปลี่ยนรหัสผ่าน'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, 'รหัสผ่านปัจจุบัน'), 'Test1234!');
-    await tester.enterText(find.widgetWithText(TextField, 'รหัสผ่านใหม่ (อย่างน้อย 8 ตัว)'), 'NewPass9!');
-    await tester.enterText(find.widgetWithText(TextField, 'ยืนยันรหัสผ่านใหม่'), 'NewPass9!');
+    await tester.enterText(
+      find.widgetWithText(TextField, 'รหัสผ่านปัจจุบัน'),
+      'Test1234!',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'รหัสผ่านใหม่ (อย่างน้อย 8 ตัว)'),
+      'NewPass9!',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'ยืนยันรหัสผ่านใหม่'),
+      'NewPass9!',
+    );
     await tester.tap(find.widgetWithText(FilledButton, 'เปลี่ยนรหัสผ่าน'));
     await tester.pumpAndSettle();
     expect(sentNew, 'NewPass9!');

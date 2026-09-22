@@ -69,101 +69,110 @@ Future<void> _pump(
 }
 
 void main() {
-  testWidgets('a rubric already used to grade shows the real used count and lock state', (
-    tester,
-  ) async {
-    await _pump(tester);
-    expect(find.textContaining('ตรวจไปแล้ว 3 งาน'), findsOneWidget);
-    expect(find.text('ล็อกแล้ว (ใช้ตรวจงานแล้ว)'), findsOneWidget);
-  });
+  testWidgets(
+    'a rubric already used to grade shows the real used count and lock state',
+    (tester) async {
+      await _pump(tester);
+      expect(find.textContaining('ตรวจไปแล้ว 3 งาน'), findsOneWidget);
+      expect(find.text('ล็อกแล้ว (ใช้ตรวจงานแล้ว)'), findsOneWidget);
+    },
+  );
 
-  testWidgets('duplicating a locked rubric calls the real createRubric RPC, not a fake local copy', (
-    tester,
-  ) async {
-    String? sentTitle;
-    List<Map<String, dynamic>>? sentCriteria;
-    var createCalls = 0;
+  testWidgets(
+    'duplicating a locked rubric calls the real createRubric RPC, not a fake local copy',
+    (tester) async {
+      String? sentTitle;
+      List<Map<String, dynamic>>? sentCriteria;
+      var createCalls = 0;
 
-    await _pump(
-      tester,
-      createRubric: ({required title, description, criteria}) async {
-        createCalls++;
-        sentTitle = title;
-        sentCriteria = criteria;
-        return 'real-new-id-from-backend';
-      },
-    );
+      await _pump(
+        tester,
+        createRubric: ({required title, description, criteria}) async {
+          createCalls++;
+          sentTitle = title;
+          sentCriteria = criteria;
+          return 'real-new-id-from-backend';
+        },
+      );
 
-    await tester.tap(find.text('ดูรายละเอียด'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('ดูรายละเอียด'));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('คัดลอกเป็น Rubric ใหม่'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('คัดลอกเป็น Rubric ใหม่'));
+      await tester.pumpAndSettle();
 
-    expect(createCalls, 1, reason: 'duplicate must call the real RPC exactly once');
-    expect(sentTitle, 'เกณฑ์ประเมินโครงงาน (สำเนา)');
-    expect(sentCriteria, isNotNull);
-    expect(sentCriteria!.first['name'], 'คุณภาพงาน');
+      expect(
+        createCalls,
+        1,
+        reason: 'duplicate must call the real RPC exactly once',
+      );
+      expect(sentTitle, 'เกณฑ์ประเมินโครงงาน (สำเนา)');
+      expect(sentCriteria, isNotNull);
+      expect(sentCriteria!.first['name'], 'คุณภาพงาน');
 
-    // The new card in the list must carry the id the backend actually
-    // returned, not a client-generated one — proves the insert used the
-    // real RPC result rather than faking it.
-    expect(find.textContaining('(สำเนา)'), findsOneWidget);
-  });
+      // The new card in the list must carry the id the backend actually
+      // returned, not a client-generated one — proves the insert used the
+      // real RPC result rather than faking it.
+      expect(find.textContaining('(สำเนา)'), findsOneWidget);
+    },
+  );
 
-  testWidgets('a failed duplicate shows an honest message, no leaked exception text', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      createRubric: ({required title, description, criteria}) async =>
-          throw StateError('backend detail that must stay internal'),
-    );
+  testWidgets(
+    'a failed duplicate shows an honest message, no leaked exception text',
+    (tester) async {
+      await _pump(
+        tester,
+        createRubric: ({required title, description, criteria}) async =>
+            throw StateError('backend detail that must stay internal'),
+      );
 
-    await tester.tap(find.text('ดูรายละเอียด'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('คัดลอกเป็น Rubric ใหม่'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('ดูรายละเอียด'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('คัดลอกเป็น Rubric ใหม่'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('คัดลอก Rubric ไม่สำเร็จ กรุณาลองใหม่'), findsOneWidget);
-    expect(find.textContaining('backend detail'), findsNothing);
-  });
+      expect(find.text('คัดลอก Rubric ไม่สำเร็จ กรุณาลองใหม่'), findsOneWidget);
+      expect(find.textContaining('backend detail'), findsNothing);
+    },
+  );
 
-  testWidgets('creating a new rubric from the form calls the real createRubric RPC', (
-    tester,
-  ) async {
-    String? sentTitle;
+  testWidgets(
+    'creating a new rubric from the form calls the real createRubric RPC',
+    (tester) async {
+      String? sentTitle;
 
-    await _pump(
-      tester,
-      listMyRubrics: () async => [],
-      createRubric: ({required title, description, criteria}) async {
-        sentTitle = title;
-        return 'new-id';
-      },
-    );
+      await _pump(
+        tester,
+        listMyRubrics: () async => [],
+        createRubric: ({required title, description, criteria}) async {
+          sentTitle = title;
+          return 'new-id';
+        },
+      );
 
-    expect(find.text('ไม่พบ Rubric ตามเงื่อนไขที่ค้นหา'), findsOneWidget);
+      expect(find.text('ไม่พบ Rubric ตามเงื่อนไขที่ค้นหา'), findsOneWidget);
 
-    await tester.tap(find.text('สร้าง Rubric ใหม่'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('สร้าง Rubric ใหม่'));
+      await tester.pumpAndSettle();
 
-    final titleField = find.ancestor(
-      of: find.text('ชื่อ Rubric *'),
-      matching: find.byType(TextField),
-    );
-    await tester.enterText(titleField, 'เกณฑ์ใหม่ของฉัน');
-    await tester.tap(find.text('บันทึก Rubric'));
-    await tester.pumpAndSettle();
+      final titleField = find.ancestor(
+        of: find.text('ชื่อ Rubric *'),
+        matching: find.byType(TextField),
+      );
+      await tester.enterText(titleField, 'เกณฑ์ใหม่ของฉัน');
+      await tester.tap(find.text('บันทึก Rubric'));
+      await tester.pumpAndSettle();
 
-    expect(sentTitle, 'เกณฑ์ใหม่ของฉัน');
-    expect(find.textContaining('บันทึก Rubric'), findsWidgets);
-  });
+      expect(sentTitle, 'เกณฑ์ใหม่ของฉัน');
+      expect(find.textContaining('บันทึก Rubric'), findsWidgets);
+    },
+  );
 
-  testWidgets('an empty account shows an honest empty state, no fabricated rubrics', (
-    tester,
-  ) async {
-    await _pump(tester, listMyRubrics: () async => []);
-    expect(find.text('ไม่พบ Rubric ตามเงื่อนไขที่ค้นหา'), findsOneWidget);
-  });
+  testWidgets(
+    'an empty account shows an honest empty state, no fabricated rubrics',
+    (tester) async {
+      await _pump(tester, listMyRubrics: () async => []);
+      expect(find.text('ไม่พบ Rubric ตามเงื่อนไขที่ค้นหา'), findsOneWidget);
+    },
+  );
 }

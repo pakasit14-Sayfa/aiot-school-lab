@@ -38,50 +38,53 @@ Future<void> _pump(
 }
 
 void main() {
-  testWidgets('a real pending entry shows the real student/subject/points, not fabricated data', (
-    tester,
-  ) async {
-    await _pump(tester);
-    expect(find.text('สมชาย ใจดี'), findsOneWidget);
-    expect(find.textContaining('วิทยาศาสตร์'), findsOneWidget);
-    expect(find.text('+10'), findsOneWidget);
-  });
+  testWidgets(
+    'a real pending entry shows the real student/subject/points, not fabricated data',
+    (tester) async {
+      await _pump(tester);
+      expect(find.text('สมชาย ใจดี'), findsOneWidget);
+      expect(find.textContaining('วิทยาศาสตร์'), findsOneWidget);
+      expect(find.text('+10'), findsOneWidget);
+    },
+  );
 
-  testWidgets('confirming calls the real RPC with the real entry id and removes it from the list', (
-    tester,
-  ) async {
-    String? confirmedId;
-    await _pump(
-      tester,
-      confirmGScore: (entryId) async {
-        confirmedId = entryId;
-      },
-    );
+  testWidgets(
+    'confirming calls the real RPC with the real entry id and removes it from the list',
+    (tester) async {
+      String? confirmedId;
+      await _pump(
+        tester,
+        confirmGScore: (entryId) async {
+          confirmedId = entryId;
+        },
+      );
 
-    await tester.tap(find.text('ยืนยัน'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('ยืนยัน'));
+      await tester.pumpAndSettle();
 
-    expect(confirmedId, 'gs-1');
-    expect(find.text('สมชาย ใจดี'), findsNothing);
-    expect(find.text('ไม่มีรายการรออนุมัติในตอนนี้'), findsOneWidget);
-  });
+      expect(confirmedId, 'gs-1');
+      expect(find.text('สมชาย ใจดี'), findsNothing);
+      expect(find.text('ไม่มีรายการรออนุมัติในตอนนี้'), findsOneWidget);
+    },
+  );
 
-  testWidgets('a failed confirm keeps the entry in the list, no leaked exception text', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      confirmGScore: (_) async =>
-          throw StateError('backend detail that must stay internal'),
-    );
+  testWidgets(
+    'a failed confirm keeps the entry in the list, no leaked exception text',
+    (tester) async {
+      await _pump(
+        tester,
+        confirmGScore: (_) async =>
+            throw StateError('backend detail that must stay internal'),
+      );
 
-    await tester.tap(find.text('ยืนยัน'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('ยืนยัน'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('สมชาย ใจดี'), findsOneWidget);
-    expect(find.text('ยืนยันไม่สำเร็จ'), findsOneWidget);
-    expect(find.textContaining('backend detail'), findsNothing);
-  });
+      expect(find.text('สมชาย ใจดี'), findsOneWidget);
+      expect(find.text('ยืนยันไม่สำเร็จ'), findsOneWidget);
+      expect(find.textContaining('backend detail'), findsNothing);
+    },
+  );
 
   testWidgets('zero pending entries shows an honest empty state', (
     tester,
@@ -90,15 +93,16 @@ void main() {
     expect(find.text('ไม่มีรายการรออนุมัติในตอนนี้'), findsOneWidget);
   });
 
-  testWidgets('a real load failure shows an honest error, no leaked exception text', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      listPendingGScore: () async =>
-          throw StateError('backend detail that must stay internal'),
-    );
-    expect(find.text('โหลดรายการรออนุมัติไม่สำเร็จ'), findsOneWidget);
-    expect(find.textContaining('backend detail'), findsNothing);
-  });
+  testWidgets(
+    'a real load failure shows an honest error, no leaked exception text',
+    (tester) async {
+      await _pump(
+        tester,
+        listPendingGScore: () async =>
+            throw StateError('backend detail that must stay internal'),
+      );
+      expect(find.text('โหลดรายการรออนุมัติไม่สำเร็จ'), findsOneWidget);
+      expect(find.textContaining('backend detail'), findsNothing);
+    },
+  );
 }

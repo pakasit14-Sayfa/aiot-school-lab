@@ -40,10 +40,8 @@ Future<void> _pump(
           loadSubmissionVersions: (_) async => const [],
           sensorStreamOverride: const Stream.empty(),
           rawReadingsStreamOverride: const Stream.empty(),
-          utilityCardBuilder: (h) => SizedBox(
-            height: h,
-            child: const Text('utility-card-stub'),
-          ),
+          utilityCardBuilder: (h) =>
+              SizedBox(height: h, child: const Text('utility-card-stub')),
         ),
       ),
     ),
@@ -63,36 +61,38 @@ void main() {
   });
   tearDown(() => currentUserModel = null);
 
-  testWidgets('the home page renders from real seams with honest empty states', (
-    tester,
-  ) async {
-    await _pump(tester);
-    expect(find.text('ยังไม่มีประกาศ'), findsOneWidget);
-    expect(find.text('ยังไม่มีคะแนนที่ยืนยันแล้ว'), findsOneWidget);
-    expect(find.text('utility-card-stub'), findsOneWidget);
-    expect(find.textContaining('โหลดข้อมูลหน้าแรกไม่สำเร็จ'), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'the home page renders from real seams with honest empty states',
+    (tester) async {
+      await _pump(tester);
+      expect(find.text('ยังไม่มีประกาศ'), findsOneWidget);
+      expect(find.text('ยังไม่มีคะแนนที่ยืนยันแล้ว'), findsOneWidget);
+      expect(find.text('utility-card-stub'), findsOneWidget);
+      expect(find.textContaining('โหลดข้อมูลหน้าแรกไม่สำเร็จ'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
-  testWidgets('a failed read shows the error banner, hides the exception, and retry re-issues the load', (
-    tester,
-  ) async {
-    var calls = 0;
-    await _pump(
-      tester,
-      loadCourses: () async {
-        calls++;
-        if (calls == 1) throw StateError('home-secret');
-        return const [_course];
-      },
-    );
-    expect(find.textContaining('โหลดข้อมูลหน้าแรกไม่สำเร็จ'), findsOneWidget);
-    expect(find.textContaining('home-secret'), findsNothing);
+  testWidgets(
+    'a failed read shows the error banner, hides the exception, and retry re-issues the load',
+    (tester) async {
+      var calls = 0;
+      await _pump(
+        tester,
+        loadCourses: () async {
+          calls++;
+          if (calls == 1) throw StateError('home-secret');
+          return const [_course];
+        },
+      );
+      expect(find.textContaining('โหลดข้อมูลหน้าแรกไม่สำเร็จ'), findsOneWidget);
+      expect(find.textContaining('home-secret'), findsNothing);
 
-    await tester.tap(find.text('ลองใหม่'));
-    await tester.pumpAndSettle();
-    expect(calls, 2);
-    expect(find.textContaining('โหลดข้อมูลหน้าแรกไม่สำเร็จ'), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
+      await tester.tap(find.text('ลองใหม่'));
+      await tester.pumpAndSettle();
+      expect(calls, 2);
+      expect(find.textContaining('โหลดข้อมูลหน้าแรกไม่สำเร็จ'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

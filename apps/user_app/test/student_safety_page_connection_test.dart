@@ -43,7 +43,9 @@ Future<void> _pump(
   await tester.pumpWidget(
     MaterialApp(
       home: StudentSafetyPage(
-        loadRoom: loadRoom ?? () async => const MyStudentRoom(room: 'ม.1/1', gradeLevel: 'ม.1'),
+        loadRoom:
+            loadRoom ??
+            () async => const MyStudentRoom(room: 'ม.1/1', gradeLevel: 'ม.1'),
         loadIncidents: loadIncidents ?? () async => const [],
         submitIncident: submitIncident,
         watchIncidents: watchIncidents ?? () => const Stream.empty(),
@@ -61,8 +63,7 @@ void main() {
     await _pump(
       tester,
       loadIncidents: () async => [_report],
-      submitIncident:
-          ({required category, room, reason, severity}) async {
+      submitIncident: ({required category, room, reason, severity}) async {
         submitCalls++;
         return 'new-id';
       },
@@ -83,8 +84,7 @@ void main() {
     var submitCalls = 0;
     await _pump(
       tester,
-      submitIncident:
-          ({required category, room, reason, severity}) async {
+      submitIncident: ({required category, room, reason, severity}) async {
         submitCalls++;
         return 'new-id';
       },
@@ -116,8 +116,7 @@ void main() {
 
       await _pump(
         tester,
-        submitIncident:
-            ({required category, room, reason, severity}) async {
+        submitIncident: ({required category, room, reason, severity}) async {
           gotCategory = category;
           gotRoom = room;
           gotReason = reason;
@@ -148,29 +147,33 @@ void main() {
     },
   );
 
-  testWidgets('holding without picking a reason is refused, nothing submitted', (
-    tester,
-  ) async {
-    var submitCalls = 0;
-    await _pump(
-      tester,
-      submitIncident:
-          ({required category, room, reason, severity}) async {
-        submitCalls++;
-        return 'new-id';
-      },
-    );
+  testWidgets(
+    'holding without picking a reason is refused, nothing submitted',
+    (tester) async {
+      var submitCalls = 0;
+      await _pump(
+        tester,
+        submitIncident: ({required category, room, reason, severity}) async {
+          submitCalls++;
+          return 'new-id';
+        },
+      );
 
-    await tester.tap(find.text('SOS'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('SOS'));
+      await tester.pumpAndSettle();
 
-    final holdButton = find.byIcon(Icons.emergency_rounded).last;
-    await tester.tap(holdButton);
-    await tester.pump();
+      final holdButton = find.byIcon(Icons.emergency_rounded).last;
+      await tester.tap(holdButton);
+      await tester.pump();
 
-    expect(submitCalls, 0, reason: 'a required reason must gate the hold-to-confirm');
-    expect(find.textContaining('กรุณาเลือกชิปเหตุผล'), findsOneWidget);
-  });
+      expect(
+        submitCalls,
+        0,
+        reason: 'a required reason must gate the hold-to-confirm',
+      );
+      expect(find.textContaining('กรุณาเลือกชิปเหตุผล'), findsOneWidget);
+    },
+  );
 
   testWidgets('an empty history shows an honest empty state', (tester) async {
     await _pump(tester);

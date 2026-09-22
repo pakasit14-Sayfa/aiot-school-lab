@@ -732,6 +732,382 @@ class _MiniPill extends StatelessWidget {
   );
 }
 
+/// ป้ายหมวดในชีต — ตัวเล็ก เว้นวรรคกว้าง สีจาง
+/// หนึ่งตัวเลือกในชีตเกณฑ์ให้คะแนน
+class _RubricOption extends StatelessWidget {
+  const _RubricOption({
+    required this.title,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String title;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(13),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(13),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(13),
+            border: Border.all(
+              color: selected
+                  ? TeacherPalette.primary
+                  : const Color(0xFFE6E3EE),
+              width: selected ? 1.6 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: TeacherType.body,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    color: AirySpec.ink,
+                  ),
+                ),
+              ),
+              if (selected)
+                const Icon(
+                  Icons.check_circle_rounded,
+                  size: 19,
+                  color: TeacherPalette.primary,
+                ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _SheetLabel extends StatelessWidget {
+  const _SheetLabel(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(2, 18, 2, 8),
+    child: Text(
+      text,
+      style: const TextStyle(
+        fontSize: TeacherType.caption,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0.9,
+        color: AirySpec.chevron,
+      ),
+    ),
+  );
+}
+
+/// แถบเลือกประเภทงาน — แทน dropdown ที่ต้องกดสองครั้งกว่าจะเลือกได้
+///
+/// เลื่อนแนวนอนได้ เพราะใบงานเก่าอาจมีชนิดที่ไม่อยู่ในสามตัวมาตรฐาน
+/// (ค่ามาจากฐานข้อมูล ไม่ใช่ enum) ซึ่งต้องไม่หายไปตอนเปิดแก้ไข
+class _TypeSegmented extends StatelessWidget {
+  const _TypeSegmented({required this.value, required this.onChanged});
+
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  static const _standard = ['ใบงานทดลอง', 'การบ้าน', 'โครงงาน AIoT'];
+
+  @override
+  Widget build(BuildContext context) {
+    final options = <String>[
+      ..._standard,
+      if (!_standard.contains(value)) value,
+    ];
+    return SizedBox(
+      height: 38,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: options.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 7),
+        itemBuilder: (_, i) {
+          final t = options[i];
+          final on = t == value;
+          return Material(
+            color: on ? TeacherPalette.primary : Colors.white,
+            borderRadius: BorderRadius.circular(11),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(11),
+              onTap: () => onChanged(t),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(11),
+                  border: Border.all(
+                    color: on
+                        ? TeacherPalette.primary
+                        : const Color(0xFFE6E3EE),
+                  ),
+                ),
+                child: Text(
+                  t,
+                  style: TextStyle(
+                    fontSize: TeacherType.secondary,
+                    fontWeight: FontWeight.w700,
+                    color: on ? Colors.white : AirySpec.label,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// ช่องกรอกในชีต — ขอบบาง ไม่มีพื้นเทา ไม่มี label ลอยแบบ Material
+class _SheetField extends StatelessWidget {
+  const _SheetField({
+    required this.controller,
+    required this.hint,
+    this.maxLines = 1,
+    this.icon,
+    this.helper,
+    this.fieldKey,
+  });
+
+  final TextEditingController controller;
+  final String hint;
+  final int maxLines;
+  final IconData? icon;
+  final String? helper;
+
+  /// ให้เทสต์อ้างถึงช่องได้โดยไม่ผูกกับข้อความ hint ที่เปลี่ยนตามดีไซน์
+  final Key? fieldKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          key: fieldKey,
+          controller: controller,
+          maxLines: maxLines,
+          style: const TextStyle(
+            fontSize: TeacherType.body,
+            color: AirySpec.ink,
+          ),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: const TextStyle(
+              fontSize: TeacherType.secondary,
+              color: AirySpec.chevron,
+            ),
+            prefixIcon: icon == null
+                ? null
+                : Icon(icon, size: 17, color: AirySpec.chevron),
+            prefixIconConstraints: const BoxConstraints(
+              minWidth: 40,
+              minHeight: 0,
+            ),
+            isDense: true,
+            filled: false,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 13,
+              vertical: 12,
+            ),
+            border: _border(const Color(0xFFE6E3EE)),
+            enabledBorder: _border(const Color(0xFFE6E3EE)),
+            focusedBorder: _border(TeacherPalette.primary, width: 1.6),
+          ),
+        ),
+        if (helper != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 5, 4, 0),
+            child: Text(
+              helper!,
+              style: const TextStyle(
+                fontSize: TeacherType.caption,
+                height: 1.5,
+                color: AirySpec.label,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  OutlineInputBorder _border(Color c, {double width = 1}) => OutlineInputBorder(
+    borderRadius: BorderRadius.circular(12),
+    borderSide: BorderSide(color: c, width: width),
+  );
+}
+
+/// แถวที่กดแล้วเปิดตัวเลือก — ไอคอนนำ ค่าอยู่กลาง ลูกศรท้าย
+class _SheetPickRow extends StatelessWidget {
+  const _SheetPickRow({
+    required this.icon,
+    required this.value,
+    required this.placeholder,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String? value;
+  final String placeholder;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final filled = value != null && value!.trim().isNotEmpty;
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE6E3EE)),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 17, color: AirySpec.chevron),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  filled ? value! : placeholder,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: TeacherType.secondary,
+                    fontWeight: filled ? FontWeight.w600 : FontWeight.w400,
+                    color: filled ? AirySpec.ink : AirySpec.chevron,
+                  ),
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: AirySpec.chevron,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// แถวสวิตช์ — ป้ายบอกผลลัพธ์ปัจจุบันตรง ๆ ไม่ใช่คำอธิบายยาว
+class _SheetSwitchRow extends StatelessWidget {
+  const _SheetSwitchRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.fromLTRB(12, 4, 8, 4),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: const Color(0xFFE6E3EE)),
+    ),
+    child: Row(
+      children: [
+        Icon(icon, size: 17, color: AirySpec.chevron),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: TeacherType.secondary,
+              fontWeight: FontWeight.w600,
+              color: AirySpec.ink,
+            ),
+          ),
+        ),
+        Transform.scale(
+          scale: 0.85,
+          child: Switch(
+            value: value,
+            activeThumbColor: Colors.white,
+            activeTrackColor: TeacherPalette.primary,
+            onChanged: onChanged,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// แถวที่ยังกดไม่ได้ หรือเป็นข้อมูลอ่านอย่างเดียว
+class _SheetLockedRow extends StatelessWidget {
+  const _SheetLockedRow({
+    required this.icon,
+    required this.text,
+    this.muted = true,
+  });
+
+  final IconData icon;
+  final String text;
+  final bool muted;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(
+        color: const Color(0xFFE6E3EE),
+        style: muted ? BorderStyle.solid : BorderStyle.solid,
+      ),
+      color: muted ? const Color(0xFFFAF9FC) : Colors.white,
+    ),
+    child: Row(
+      children: [
+        Icon(icon, size: 17, color: AirySpec.chevron),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: TeacherType.secondary,
+              height: 1.45,
+              color: muted ? AirySpec.chevron : AirySpec.ink,
+            ),
+          ),
+        ),
+        if (muted)
+          const Icon(
+            Icons.lock_outline_rounded,
+            size: 15,
+            color: AirySpec.chevron,
+          ),
+      ],
+    ),
+  );
+}
+
 class _FilterChip extends StatelessWidget {
   const _FilterChip({
     required this.label,
@@ -1418,6 +1794,63 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
     }
   }
 
+  /// ค่าที่ชีตคืนเมื่อครูเลือก "ไม่ใช้เกณฑ์" — ต้องแยกจาก null ที่แปลว่า
+  /// ปิดชีตทิ้ง ไม่งั้นการปัดชีตลงจะไปล้างเกณฑ์ที่ผูกไว้โดยครูไม่ได้สั่ง
+  static const _noRubric = '__none__';
+
+  /// ชีตเลือกเกณฑ์ให้คะแนน — แทน dropdown เดิม ให้เป็นภาษาเดียวกับวันที่
+  /// และประเภทงานในชีตนี้ และเห็นชื่อเกณฑ์เต็มโดยไม่โดนตัด
+  Future<void> _openRubricPicker() async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(22, 20, 22, 12),
+              child: Text(
+                'เกณฑ์ให้คะแนน',
+                style: TextStyle(
+                  fontSize: TeacherType.title,
+                  fontWeight: FontWeight.w800,
+                  color: AirySpec.ink,
+                ),
+              ),
+            ),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                children: [
+                  _RubricOption(
+                    title: 'ไม่ใช้เกณฑ์ — ให้คะแนนดิบ',
+                    selected: _selectedRubricId == null,
+                    onTap: () => Navigator.pop(sheetContext, _noRubric),
+                  ),
+                  for (final r in _rubrics)
+                    _RubricOption(
+                      title: r.title,
+                      selected: _selectedRubricId == r.id,
+                      onTap: () => Navigator.pop(sheetContext, r.id),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || picked == null) return;
+    setState(() => _selectedRubricId = picked == _noRubric ? null : picked);
+  }
+
   @override
   Widget build(BuildContext context) {
     final isEditMode = widget.assignment != null;
@@ -1439,319 +1872,119 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
               padding: const EdgeInsets.all(24),
               child: Column(
                 children: [
-                  // Header Row
+                  // หัวชีต: ไอคอนในกรอบ + ชื่อ + วิชาที่กำลังสร้างให้
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: TeacherPalette.primary.withValues(
-                                alpha: 0.12,
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: TeacherPalette.primary.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: Icon(
+                          isEditMode ? Icons.edit_outlined : Icons.add_rounded,
+                          color: TeacherPalette.primary,
+                          size: 19,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isEditMode ? 'แก้ไขใบงาน' : 'สร้างใบงานใหม่',
+                              style: const TextStyle(
+                                fontSize: TeacherType.title,
+                                fontWeight: FontWeight.w800,
+                                height: 1.3,
+                                color: AirySpec.ink,
                               ),
-                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            // แสดงชื่อวิชาเฉพาะตอนแก้ไข ตอนสร้างใหม่ชีตยัง
+                            // ไม่รู้ว่าวิชาไหนจนกว่าจะบันทึก จึงไม่เดาให้
+                            if (widget.assignment != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  widget.assignment!.courseName,
+                                  style: const TextStyle(
+                                    fontSize: TeacherType.caption,
+                                    height: 1.5,
+                                    color: AirySpec.label,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // ปุ่มปิดเป็นกรอบ 28x28 แทนไอคอนลอยที่กดยาก
+                      Material(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(9),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(9),
+                          onTap: () => Navigator.pop(context),
+                          child: Container(
+                            width: 30,
+                            height: 30,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(9),
+                              border: Border.all(
+                                color: const Color(0xFFE6E3EE),
+                              ),
                             ),
                             child: const Icon(
-                              Icons.add_task_rounded,
-                              color: TeacherPalette.primary,
-                              size: 22,
+                              Icons.close_rounded,
+                              size: 16,
+                              color: AirySpec.chevron,
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Text(
-                            isEditMode ? 'แก้ไขใบงาน' : 'สร้างใบงานใหม่',
-                            style: const TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w900,
-                              color: TeacherPalette.ink,
-                            ),
-                          ),
-                        ],
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close_rounded),
+                        ),
                       ),
                     ],
                   ),
-                  const Divider(height: 24),
+                  const SizedBox(height: 4),
 
                   Expanded(
                     child: ListView(
                       controller: scrollController,
                       children: [
-                        TextField(
+                        const _SheetLabel('ประเภทงาน'),
+                        // แถบเลือกแทน dropdown — เห็นทุกตัวเลือกพร้อมกัน
+                        // กดครั้งเดียวจบ ไม่ต้องเปิดเมนูแล้วค่อยเลือก
+                        _TypeSegmented(
+                          value: _type,
+                          onChanged: (v) => setState(() => _type = v),
+                        ),
+
+                        const _SheetLabel('รายละเอียด'),
+                        _SheetField(
                           controller: _titleController,
-                          decoration: InputDecoration(
-                            labelText: 'ชื่อใบงาน / หัวข้อโจทย์ *',
-                            hintText:
-                                'เช่น ใบงานทดลองที่ 3: การวัดและวิเคราะห์ค่าฝุ่น PM2.5',
-                            filled: true,
-                            fillColor: const Color(0xFFF8FAFC),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
+                          hint: 'ชื่อใบงาน เช่น ใบงานทดลองที่ 3 การวัดค่าฝุ่น',
                         ),
-                        const SizedBox(height: 14),
-                        TextField(
+                        const SizedBox(height: 8),
+                        _SheetField(
                           controller: _instructionsController,
+                          hint: 'คำสั่งงาน — สิ่งที่นักเรียนต้องทำและวิธีส่ง',
                           maxLines: 3,
-                          decoration: InputDecoration(
-                            labelText: 'คำสั่งงาน / รายละเอียดคำอธิบาย',
-                            hintText:
-                                'อธิบายขั้นตอนการทำโจทย์ การทดลอง หรือรูปแบบการส่งงาน',
-                            filled: true,
-                            fillColor: const Color(0xFFF8FAFC),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-
-                        Row(
-                          children: [
-                            Expanded(
-                              child: DropdownButtonFormField<String>(
-                                value: _type,
-                                onChanged: (val) {
-                                  if (val != null) setState(() => _type = val);
-                                },
-                                decoration: InputDecoration(
-                                  labelText: 'ประเภทงาน',
-                                  filled: true,
-                                  fillColor: const Color(0xFFF8FAFC),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                items:
-                                    {
-                                          'ใบงานทดลอง',
-                                          'การบ้าน',
-                                          'โครงงาน AIoT',
-                                          _type,
-                                        }
-                                        .map(
-                                          (t) => DropdownMenuItem(
-                                            value: t,
-                                            child: Text(t),
-                                          ),
-                                        )
-                                        .toList(),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextField(
-                                controller: _dueDateController,
-                                decoration: InputDecoration(
-                                  labelText: 'กำหนดส่งงาน',
-                                  hintText: '2027-01-25 16:30',
-                                  helperText:
-                                      'ปี ค.ศ. เวลาท้องถิ่น · เว้นว่างหากไม่กำหนด',
-                                  suffixIcon: const Icon(
-                                    Icons.calendar_today_rounded,
-                                    size: 18,
-                                  ),
-                                  filled: true,
-                                  fillColor: const Color(0xFFF8FAFC),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
                         ),
 
-                        const SizedBox(height: 16),
-
-                        // Group Work Switch
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Expanded(
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.groups_rounded,
-                                      color: Color(0xFF0284C7),
-                                    ),
-                                    SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'กำหนดเป็นงานกลุ่ม',
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w800,
-                                              color: TeacherPalette.ink,
-                                            ),
-                                          ),
-                                          Text(
-                                            'นักเรียนทำโจทย์ร่วมกันและส่งงานเพียง 1 คนต่อกลุ่ม',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w600,
-                                              color: TeacherPalette.muted,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Switch(
-                                value: _isGroupWork,
-                                activeColor: const Color(0xFF0284C7),
-                                onChanged: (val) =>
-                                    setState(() => _isGroupWork = val),
-                              ),
-                            ],
-                          ),
+                        const _SheetLabel('กำหนดและเกณฑ์'),
+                        _SheetField(
+                          fieldKey: const Key('assignment-due-field'),
+                          controller: _dueDateController,
+                          hint: 'กำหนดส่ง เช่น 2027-01-25 16:30',
+                          icon: Icons.calendar_today_outlined,
+                          helper: 'ปี ค.ศ. เวลาท้องถิ่น · เว้นว่างหากไม่กำหนด',
                         ),
-
-                        const SizedBox(height: 20),
-
-                        // Rubric Selector Header & Dropdown
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Expanded(
-                              child: Text(
-                                'ผูก Rubric เกณฑ์การประเมิน',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w800,
-                                  color: TeacherPalette.ink,
-                                ),
-                              ),
-                            ),
-                            TextButton.icon(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const TeacherRubricPage(),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(
-                                Icons.open_in_new_rounded,
-                                size: 14,
-                              ),
-                              label: const Text('จัดการ Rubric ทั้งหมด'),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        // เดิม dropdown มีตัวเลือกที่แต่งขึ้นเอง 4 ตัวเลือกตายตัว
-                        // เลือกแล้วไม่เคยถูกส่งไป backend เลย — ตอนนี้โหลด rubric
-                        // จริงของครูคนนี้ผ่าน RubricService และส่ง rubricId จริง
+                        const SizedBox(height: 8),
                         if (_rubricsLoading)
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 12),
-                            child: Center(
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                            ),
-                          )
-                        else
-                          DropdownButtonFormField<String?>(
-                            value: _selectedRubricId,
-                            onChanged: (val) =>
-                                setState(() => _selectedRubricId = val),
-                            decoration: InputDecoration(
-                              filled: true,
-                              fillColor: const Color(0xFFF8FAFC),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            items: [
-                              const DropdownMenuItem<String?>(
-                                value: null,
-                                child: Text('ไม่มี Rubric (ประเมินคะแนนดิบ)'),
-                              ),
-                              ..._rubrics.map(
-                                (r) => DropdownMenuItem<String?>(
-                                  value: r.id,
-                                  child: Text(
-                                    r.title,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-
-                        const SizedBox(height: 16),
-                        // PBL-4: this heading used to be removed with a comment
-                        // saying a link made here would be invisible to
-                        // students — true when written (2026-09-16), no longer
-                        // true since PBL-6 (2026-09-18) made the redesigned
-                        // student assignment sheet render pinned sensor
-                        // datasets via StudentSensorDatasetPage.
-                        Row(
-                          children: [
-                            const Expanded(
-                              child: Text(
-                                'ชุดข้อมูลเซนเซอร์ AIoT',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 13,
-                                  color: TeacherPalette.ink,
-                                ),
-                              ),
-                            ),
-                            if (widget.assignment != null)
-                              TextButton.icon(
-                                onPressed: _openLinkSensorDialog,
-                                icon: const Icon(
-                                  Icons.sensors_rounded,
-                                  size: 16,
-                                ),
-                                label: const Text('ผูกข้อมูล'),
-                              ),
-                          ],
-                        ),
-                        if (widget.assignment == null)
-                          const Padding(
-                            padding: EdgeInsets.only(top: 4),
-                            child: Text(
-                              'บันทึกร่างใบงานนี้ก่อน แล้วค่อยกลับมาผูกชุดข้อมูลเซนเซอร์ทีหลังได้',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF64748B),
-                              ),
-                            ),
-                          )
-                        else if (_sensorDatasetsLoading)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 8),
                             child: Center(
                               child: SizedBox(
                                 width: 18,
@@ -1762,52 +1995,99 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
                               ),
                             ),
                           )
-                        else if (_sensorDatasets.isEmpty)
+                        else
+                          _SheetPickRow(
+                            icon: Icons.checklist_rounded,
+                            value: _selectedRubricId == null
+                                ? null
+                                : _rubrics
+                                      .where((r) => r.id == _selectedRubricId)
+                                      .map((r) => r.title)
+                                      .firstOrNull,
+                            placeholder: 'ยังไม่ได้กำหนดเกณฑ์ให้คะแนน',
+                            onTap: _openRubricPicker,
+                          ),
+                        const SizedBox(height: 8),
+                        _SheetSwitchRow(
+                          icon: Icons.groups_outlined,
+                          label: _isGroupWork
+                              ? 'ส่งเป็นกลุ่ม'
+                              : 'นักเรียนส่งงานรายคน',
+                          value: _isGroupWork,
+                          onChanged: (v) => setState(() => _isGroupWork = v),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.fromLTRB(4, 6, 4, 0),
+                          child: Text(
+                            'เปิดไว้ = หนึ่งกลุ่มส่งงานหนึ่งชิ้น · '
+                            'ปิด = ทุกคนส่งของตัวเอง',
+                            style: TextStyle(
+                              fontSize: TeacherType.caption,
+                              height: 1.5,
+                              color: AirySpec.label,
+                            ),
+                          ),
+                        ),
+
+                        const _SheetLabel('ข้อมูลเซนเซอร์'),
+                        if (widget.assignment == null)
+                          const _SheetLockedRow(
+                            icon: Icons.insights_outlined,
+                            text: 'ผูกได้หลังบันทึกร่าง',
+                          )
+                        else if (_sensorDatasetsLoading)
                           const Padding(
-                            padding: EdgeInsets.only(top: 4),
-                            child: Text(
-                              'ยังไม่มีชุดข้อมูลเซนเซอร์ผูกกับใบงานนี้',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF64748B),
+                            padding: EdgeInsets.symmetric(vertical: 10),
+                            child: Center(
+                              child: SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               ),
                             ),
                           )
                         else ...[
+                          _SheetPickRow(
+                            icon: Icons.insights_outlined,
+                            value: null,
+                            placeholder: 'ผูกชุดข้อมูลเซนเซอร์',
+                            onTap: _openLinkSensorDialog,
+                          ),
                           for (final d in _sensorDatasets)
-                            Container(
-                              margin: const EdgeInsets.only(top: 6),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF8FAFC),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: const Color(0xFFE2E8F0),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.sensors_rounded,
-                                    size: 14,
-                                    color: TeacherPalette.primary,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      '${_deviceNames[d.deviceId] ?? d.deviceId} · ${d.metric}'
-                                      '${d.label != null && d.label!.isNotEmpty ? ' — ${d.label}' : ''}',
-                                      style: const TextStyle(fontSize: 12),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: _SheetLockedRow(
+                                icon: Icons.sensors_rounded,
+                                text:
+                                    '${_deviceNames[d.deviceId] ?? d.deviceId}'
+                                    ' · ${d.metric}'
+                                    '${d.label != null && d.label!.isNotEmpty ? ' — ${d.label}' : ''}',
+                                muted: false,
                               ),
                             ),
                         ],
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const TeacherRubricPage(),
+                              ),
+                            ),
+                            icon: const Icon(
+                              Icons.open_in_new_rounded,
+                              size: 14,
+                            ),
+                            label: const Text(
+                              'จัดการเกณฑ์ให้คะแนนทั้งหมด',
+                              style: TextStyle(fontSize: TeacherType.label),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -1833,7 +2113,13 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
                             ? null
                             : () => _handleSave(publish: false),
                         icon: const Icon(Icons.save_as_rounded, size: 16),
-                        label: const Text('บันทึกร่าง'),
+                        label: const Text(
+                          'บันทึกร่าง',
+                          style: TextStyle(
+                            fontSize: TeacherType.secondary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: TeacherPalette.ink,
                           side: const BorderSide(color: Color(0xFFCBD5E1)),
@@ -1849,7 +2135,13 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
                             ? null
                             : () => _handleSave(publish: true),
                         icon: const Icon(Icons.send_rounded, size: 16),
-                        label: const Text('เผยแพร่ใบงาน'),
+                        label: const Text(
+                          'เผยแพร่ให้นักเรียน',
+                          style: TextStyle(
+                            fontSize: TeacherType.secondary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: TeacherPalette.primary,
                           foregroundColor: Colors.white,

@@ -29,9 +29,7 @@ Future<void> _pump(
 
 void main() {
   scanModeTests();
-  testWidgets('a real pairing session renders a real QR code', (
-    tester,
-  ) async {
+  testWidgets('a real pairing session renders a real QR code', (tester) async {
     await _pump(
       tester,
       createSession: ({terminalName}) async => (
@@ -107,7 +105,8 @@ void main() {
 Future<void> _pumpScan(
   WidgetTester tester, {
   Future<TerminalPairingPeek> Function(String)? peek,
-  Future<({bool success, String studentName, String message})> Function(String)? claim,
+  Future<({bool success, String studentName, String message})> Function(String)?
+  claim,
   bool signedIn = true,
 }) async {
   tester.view.physicalSize = const Size(800, 1600);
@@ -138,21 +137,34 @@ Future<void> _typeCode(WidgetTester tester, String code) async {
 }
 
 void scanModeTests() {
-  testWidgets('no session: scanning is refused, never a sample device', (tester) async {
-    await _pumpScan(tester, signedIn: false, peek: (_) async => throw StateError('must not be called'));
+  testWidgets('no session: scanning is refused, never a sample device', (
+    tester,
+  ) async {
+    await _pumpScan(
+      tester,
+      signedIn: false,
+      peek: (_) async => throw StateError('must not be called'),
+    );
     await _typeCode(tester, 'aiot-pairing:ABC');
     expect(find.text('ยังไม่ได้เข้าสู่ระบบ'), findsOneWidget);
     expect(find.textContaining('แท็บเล็ตประจำโต๊ะแล็บ AIoT #01'), findsNothing);
     expect(find.textContaining('(ตัวอย่าง)'), findsNothing);
   });
 
-  testWidgets('a typed code is peeked for real and an invalid one says so', (tester) async {
+  testWidgets('a typed code is peeked for real and an invalid one says so', (
+    tester,
+  ) async {
     String? peeked;
     await _pumpScan(
       tester,
       peek: (code) async {
         peeked = code;
-        return const TerminalPairingPeek(isValid: false, terminalName: '', createdAt: null, expiresAt: null);
+        return const TerminalPairingPeek(
+          isValid: false,
+          terminalName: '',
+          createdAt: null,
+          expiresAt: null,
+        );
       },
     );
     await _typeCode(tester, 'aiot-pairing:EXPIRED');
@@ -161,13 +173,18 @@ void scanModeTests() {
   });
 
   testWidgets('a peek failure hides the raw exception', (tester) async {
-    await _pumpScan(tester, peek: (_) async => throw StateError('secret-backend'));
+    await _pumpScan(
+      tester,
+      peek: (_) async => throw StateError('secret-backend'),
+    );
     await _typeCode(tester, 'aiot-pairing:X');
     expect(find.text('ตรวจสอบรหัสไม่สำเร็จ'), findsOneWidget);
     expect(find.textContaining('secret-backend'), findsNothing);
   });
 
-  testWidgets('a valid code shows the real device, and confirming claims it', (tester) async {
+  testWidgets('a valid code shows the real device, and confirming claims it', (
+    tester,
+  ) async {
     String? claimed;
     await _pumpScan(
       tester,

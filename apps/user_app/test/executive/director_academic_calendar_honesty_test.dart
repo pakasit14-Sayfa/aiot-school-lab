@@ -273,9 +273,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text(currentMonthLabel), findsOneWidget);
-      expect(find.text('สิงหาคม 2569'), currentMonthLabel == 'สิงหาคม 2569'
-          ? findsOneWidget
-          : findsNothing);
+      expect(
+        find.text('สิงหาคม 2569'),
+        currentMonthLabel == 'สิงหาคม 2569' ? findsOneWidget : findsNothing,
+      );
     },
   );
 }

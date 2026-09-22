@@ -140,36 +140,37 @@ void main() {
     expect(find.text('กำหนดสายการเรียนให้ห้องไม่สำเร็จ'), findsWidgets);
   });
 
-  testWidgets('create success shows the new track only after canonical refetch', (
-    tester,
-  ) async {
-    var backend = <LearningTrack>[];
-    await _pump(
-      tester,
-      _controller(
-        loadTracks: () async => List<LearningTrack>.of(backend),
-        createTrack: ({required name, required color}) async {
-          backend = <LearningTrack>[
-            LearningTrack(
-              trackId: 'track-new',
-              name: name,
-              color: color,
-              sortOrder: 0,
-            ),
-          ];
-          return 'track-new';
-        },
-      ),
-    );
-    await tester.tap(find.text('เพิ่มสาย'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'สายภาษา');
-    await tester.tap(find.text('บันทึก'));
-    await tester.pumpAndSettle();
-    expect(find.text('สายภาษา'), findsOneWidget);
-    expect(find.text('บันทึกสายการเรียนเรียบร้อยแล้ว'), findsWidgets);
-    expect(find.byType(AlertDialog), findsNothing);
-  });
+  testWidgets(
+    'create success shows the new track only after canonical refetch',
+    (tester) async {
+      var backend = <LearningTrack>[];
+      await _pump(
+        tester,
+        _controller(
+          loadTracks: () async => List<LearningTrack>.of(backend),
+          createTrack: ({required name, required color}) async {
+            backend = <LearningTrack>[
+              LearningTrack(
+                trackId: 'track-new',
+                name: name,
+                color: color,
+                sortOrder: 0,
+              ),
+            ];
+            return 'track-new';
+          },
+        ),
+      );
+      await tester.tap(find.text('เพิ่มสาย'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'สายภาษา');
+      await tester.tap(find.text('บันทึก'));
+      await tester.pumpAndSettle();
+      expect(find.text('สายภาษา'), findsOneWidget);
+      expect(find.text('บันทึกสายการเรียนเรียบร้อยแล้ว'), findsWidgets);
+      expect(find.byType(AlertDialog), findsNothing);
+    },
+  );
 
   testWidgets('update success renders the confirmed fields after refetch', (
     tester,
@@ -243,64 +244,66 @@ void main() {
     expect(find.text('ลบสายการเรียนไม่สำเร็จ'), findsWidgets);
   });
 
-  testWidgets('room assignment success is visible only after canonical refetch', (
-    tester,
-  ) async {
-    var rooms = <LearningTrackRoom>[_room(trackId: null)];
-    await _pump(
-      tester,
-      _controller(
-        loadTracks: () async => <LearningTrack>[
-          _track(),
-          _track(id: 'track-2', name: 'ภาษา'),
-        ],
-        loadRooms: () async => List<LearningTrackRoom>.of(rooms),
-        setTrackRoom:
-            ({required gradeLevel, required room, required trackId}) async {
-              rooms = <LearningTrackRoom>[
-                _room(trackId: trackId, trackName: 'ภาษา'),
-              ];
-            },
-      ),
-    );
-    await tester.tap(find.byType(DropdownButtonFormField<String?>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('ภาษา').last);
-    await tester.pumpAndSettle();
-    final dropdown = tester.widget<DropdownButtonFormField<String?>>(
-      find.byType(DropdownButtonFormField<String?>),
-    );
-    expect(dropdown.initialValue, 'track-2');
-    expect(find.text('กำหนดสายการเรียนเรียบร้อยแล้ว'), findsWidgets);
-  });
+  testWidgets(
+    'room assignment success is visible only after canonical refetch',
+    (tester) async {
+      var rooms = <LearningTrackRoom>[_room(trackId: null)];
+      await _pump(
+        tester,
+        _controller(
+          loadTracks: () async => <LearningTrack>[
+            _track(),
+            _track(id: 'track-2', name: 'ภาษา'),
+          ],
+          loadRooms: () async => List<LearningTrackRoom>.of(rooms),
+          setTrackRoom:
+              ({required gradeLevel, required room, required trackId}) async {
+                rooms = <LearningTrackRoom>[
+                  _room(trackId: trackId, trackName: 'ภาษา'),
+                ];
+              },
+        ),
+      );
+      await tester.tap(find.byType(DropdownButtonFormField<String?>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ภาษา').last);
+      await tester.pumpAndSettle();
+      final dropdown = tester.widget<DropdownButtonFormField<String?>>(
+        find.byType(DropdownButtonFormField<String?>),
+      );
+      expect(dropdown.initialValue, 'track-2');
+      expect(find.text('กำหนดสายการเรียนเรียบร้อยแล้ว'), findsWidgets);
+    },
+  );
 
-  testWidgets('clearing a room assignment persists only after canonical refetch', (
-    tester,
-  ) async {
-    var rooms = <LearningTrackRoom>[
-      _room(trackId: 'track-1', trackName: 'วิทย์-คณิต'),
-    ];
-    await _pump(
-      tester,
-      _controller(
-        loadTracks: () async => <LearningTrack>[_track()],
-        loadRooms: () async => List<LearningTrackRoom>.of(rooms),
-        setTrackRoom:
-            ({required gradeLevel, required room, required trackId}) async {
-              rooms = <LearningTrackRoom>[_room(trackId: trackId)];
-            },
-      ),
-    );
-    await tester.tap(find.byType(DropdownButtonFormField<String?>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('ไม่ระบุสาย').last);
-    await tester.pumpAndSettle();
-    final dropdown = tester.widget<DropdownButtonFormField<String?>>(
-      find.byType(DropdownButtonFormField<String?>),
-    );
-    expect(dropdown.initialValue, isNull);
-    expect(find.text('กำหนดสายการเรียนเรียบร้อยแล้ว'), findsWidgets);
-  });
+  testWidgets(
+    'clearing a room assignment persists only after canonical refetch',
+    (tester) async {
+      var rooms = <LearningTrackRoom>[
+        _room(trackId: 'track-1', trackName: 'วิทย์-คณิต'),
+      ];
+      await _pump(
+        tester,
+        _controller(
+          loadTracks: () async => <LearningTrack>[_track()],
+          loadRooms: () async => List<LearningTrackRoom>.of(rooms),
+          setTrackRoom:
+              ({required gradeLevel, required room, required trackId}) async {
+                rooms = <LearningTrackRoom>[_room(trackId: trackId)];
+              },
+        ),
+      );
+      await tester.tap(find.byType(DropdownButtonFormField<String?>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ไม่ระบุสาย').last);
+      await tester.pumpAndSettle();
+      final dropdown = tester.widget<DropdownButtonFormField<String?>>(
+        find.byType(DropdownButtonFormField<String?>),
+      );
+      expect(dropdown.initialValue, isNull);
+      expect(find.text('กำหนดสายการเรียนเรียบร้อยแล้ว'), findsWidgets);
+    },
+  );
 
   testWidgets('controls stay disabled while their own mutation is active', (
     tester,

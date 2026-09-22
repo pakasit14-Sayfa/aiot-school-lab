@@ -278,7 +278,10 @@ void main() {
       await t.pumpAndSettle();
       expect(target, isNull, reason: 'ควรเปิด popup ไม่ใช่เปลี่ยนหน้า');
       expect(find.text('การเข้าเรียนของนักเรียน'), findsWidgets);
-      expect(find.textContaining('สรุปการเข้าเรียนของนักเรียนรายวัน'), findsOneWidget);
+      expect(
+        find.textContaining('สรุปการเข้าเรียนของนักเรียนรายวัน'),
+        findsOneWidget,
+      );
       expect(find.text('มาเรียน 28 / 30 คน (93.3%)'), findsOneWidget);
       expect(find.text('มาเรียน 25 / 30 คน (83.3%)'), findsOneWidget);
       expect(find.text('ข้อมูลจำลอง'), findsNothing);

@@ -139,12 +139,14 @@ void main() {
         loadAssignmentDetail: (_) async => detailNoDatasets,
       );
 
-      expect(
-        find.text('ยังไม่มีชุดข้อมูลเซนเซอร์ผูกกับใบงานนี้'),
-        findsOneWidget,
-      );
+      // ไม่มีชุดข้อมูลผูกอยู่ = ต้องเห็นแถวชวนผูกเป็น placeholder ไม่ใช่
+      // ว่างเปล่า (เดิมเป็นข้อความ 'ยังไม่มีชุดข้อมูลเซนเซอร์ผูกกับใบงานนี้'
+      // แยกอีกบรรทัด ซึ่งซ้ำกับ placeholder ของแถว)
+      expect(find.text('ผูกชุดข้อมูลเซนเซอร์'), findsOneWidget);
 
-      await tester.tap(find.text('ผูกข้อมูล'));
+      // แถวเปิดชีตเปลี่ยนชื่อเป็น 'ผูกชุดข้อมูลเซนเซอร์' ตอนออกแบบชีตใหม่
+      // 2026-09-22 — ปุ่มยืนยันในชีตยังชื่อ 'ผูกข้อมูล' เหมือนเดิม
+      await tester.tap(find.text('ผูกชุดข้อมูลเซนเซอร์'));
       await tester.pumpAndSettle();
 
       // มิเตอร์น้ำ (metric ไม่อยู่ใน enum) และรีเลย์ (ไม่ใช่เซนเซอร์) ต้องไม่โผล่
@@ -210,7 +212,9 @@ void main() {
         },
       );
 
-      await tester.tap(find.text('ผูกข้อมูล'));
+      // แถวเปิดชีตเปลี่ยนชื่อเป็น 'ผูกชุดข้อมูลเซนเซอร์' ตอนออกแบบชีตใหม่
+      // 2026-09-22 — ปุ่มยืนยันในชีตยังชื่อ 'ผูกข้อมูล' เหมือนเดิม
+      await tester.tap(find.text('ผูกชุดข้อมูลเซนเซอร์'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('ผูกข้อมูล').last);
@@ -247,7 +251,9 @@ void main() {
         loadAssignmentDetail: (_) async => detailNoDatasets,
       );
 
-      await tester.tap(find.text('ผูกข้อมูล'));
+      // แถวเปิดชีตเปลี่ยนชื่อเป็น 'ผูกชุดข้อมูลเซนเซอร์' ตอนออกแบบชีตใหม่
+      // 2026-09-22 — ปุ่มยืนยันในชีตยังชื่อ 'ผูกข้อมูล' เหมือนเดิม
+      await tester.tap(find.text('ผูกชุดข้อมูลเซนเซอร์'));
       await tester.pumpAndSettle();
 
       // ค่าเริ่มต้นคือ "ไม่กำหนด" ทั้งสองช่อง — นักเรียนได้ 24 ชม.ล่าสุด

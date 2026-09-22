@@ -14,9 +14,7 @@ void main() {
       // TeacherCoursesPage renders the shared persistent sidebar, which is
       // where _SidebarMiniClassCard lives — it used to hardcode the same
       // homeroom size for literally every teacher, on every page.
-      await tester.pumpWidget(
-        const MaterialApp(home: TeacherCoursesPage()),
-      );
+      await tester.pumpWidget(const MaterialApp(home: TeacherCoursesPage()));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 

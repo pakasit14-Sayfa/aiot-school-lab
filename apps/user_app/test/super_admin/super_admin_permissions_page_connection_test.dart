@@ -115,34 +115,37 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('ระงับบัญชี ครู สมศรี แล้ว'), findsNothing);
-      expect(find.textContaining('ไม่สามารถเปลี่ยนสถานะบัญชีได้'), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'suspending reports success once suspendUser actually resolves',
-    (tester) async {
-      var suspended = false;
-      await _pump(
-        tester,
-        loadUsers: () async =>
-            [_teacher(status: suspended ? 'suspended' : 'active')],
-        suspendUser: (uid) async {
-          suspended = true;
-        },
+      expect(
+        find.textContaining('ไม่สามารถเปลี่ยนสถานะบัญชีได้'),
+        findsOneWidget,
       );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byType(PopupMenuButton<String>).first);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('ระงับการใช้งาน'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('ระงับบัญชี'));
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('ระงับบัญชี ครู สมศรี แล้ว'), findsOneWidget);
     },
   );
+
+  testWidgets('suspending reports success once suspendUser actually resolves', (
+    tester,
+  ) async {
+    var suspended = false;
+    await _pump(
+      tester,
+      loadUsers: () async => [
+        _teacher(status: suspended ? 'suspended' : 'active'),
+      ],
+      suspendUser: (uid) async {
+        suspended = true;
+      },
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(PopupMenuButton<String>).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ระงับการใช้งาน'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ระงับบัญชี'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('ระงับบัญชี ครู สมศรี แล้ว'), findsOneWidget);
+  });
 
   testWidgets('a super admin cannot be suspended from this page', (
     tester,
@@ -166,7 +169,10 @@ void main() {
     await tester.tap(find.text('ระงับการใช้งาน'));
     await tester.pumpAndSettle();
 
-    expect(find.text('ไม่สามารถระงับ Super Admin หลักจากหน้านี้ได้'), findsOneWidget);
+    expect(
+      find.text('ไม่สามารถระงับ Super Admin หลักจากหน้านี้ได้'),
+      findsOneWidget,
+    );
     // The confirmation dialog must never even open for this case.
     expect(find.text('ระงับการใช้งานบัญชี'), findsNothing);
   });
@@ -238,11 +244,16 @@ void main() {
 
   /// รหัสผู้ใช้ที่โชว์และส่งออก CSV เคยเป็น `USR-0001` ที่สร้างจาก **ลำดับใน
   /// ลิสต์** — ดูเหมือนรหัสประจำตัวจริงแต่เปลี่ยนไปมาทุกครั้งที่ลิสต์เปลี่ยน
-  testWidgets('รหัสผู้ใช้ต้องมาจาก uid จริง ไม่ใช่ลำดับในลิสต์', (tester) async {
+  testWidgets('รหัสผู้ใช้ต้องมาจาก uid จริง ไม่ใช่ลำดับในลิสต์', (
+    tester,
+  ) async {
     await _pump(
       tester,
       loadUsers: () async => [
-        _teacher(uid: 'aaaaaaaa-1111-2222-3333-444444444444', name: 'ครู สมศรี'),
+        _teacher(
+          uid: 'aaaaaaaa-1111-2222-3333-444444444444',
+          name: 'ครู สมศรี',
+        ),
         _teacher(
           uid: 'bbbbbbbb-5555-6666-7777-888888888888',
           name: 'ครู สมชาย',

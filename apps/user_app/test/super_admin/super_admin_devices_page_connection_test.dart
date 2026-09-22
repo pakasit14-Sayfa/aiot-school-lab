@@ -223,7 +223,10 @@ void main() {
     await tester.tap(find.text('ลงทะเบียนอุปกรณ์ใหม่'));
     await tester.pumpAndSettle();
 
-    expect(find.text('ยังไม่มีโรงเรียนในระบบให้ลงทะเบียนอุปกรณ์'), findsOneWidget);
+    expect(
+      find.text('ยังไม่มีโรงเรียนในระบบให้ลงทะเบียนอุปกรณ์'),
+      findsOneWidget,
+    );
     expect(calls, 0);
   });
 }

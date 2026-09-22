@@ -46,28 +46,28 @@ Finder _unreadDot() => find.byWidgetPredicate(
 );
 
 void main() {
-  testWidgets('no unread notifications → no red dot; the bell still opens the real (empty) list', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      loadNotifications: () async => [_note(id: 'n1', readAt: DateTime(2026, 9, 11))],
-    );
+  testWidgets(
+    'no unread notifications → no red dot; the bell still opens the real (empty) list',
+    (tester) async {
+      await _pump(
+        tester,
+        loadNotifications: () async => [
+          _note(id: 'n1', readAt: DateTime(2026, 9, 11)),
+        ],
+      );
 
-    expect(_unreadDot(), findsNothing);
+      expect(_unreadDot(), findsNothing);
 
-    await tester.tap(find.byTooltip('การแจ้งเตือน'));
-    await tester.pumpAndSettle();
-    expect(find.text('ประกาศ n1'), findsOneWidget);
-  });
+      await tester.tap(find.byTooltip('การแจ้งเตือน'));
+      await tester.pumpAndSettle();
+      expect(find.text('ประกาศ n1'), findsOneWidget);
+    },
+  );
 
   testWidgets('an unread notification shows the dot, and the sheet lists it', (
     tester,
   ) async {
-    await _pump(
-      tester,
-      loadNotifications: () async => [_note(id: 'n2')],
-    );
+    await _pump(tester, loadNotifications: () async => [_note(id: 'n2')]);
 
     expect(_unreadDot(), findsOneWidget);
 
@@ -79,34 +79,38 @@ void main() {
 
   /// จุดแดงต้องเคลียร์ได้จากในแผ่นเอง: แตะรายการ → mark_notification_read →
   /// อ่านกลับ → readAt ไม่ null → จุดหาย (เดิมแผ่นไม่มีทางทำให้อ่านแล้วเลย)
-  testWidgets('tapping an unread row marks it read through the RPC and clears the dot', (
-    tester,
-  ) async {
-    final marked = <String>[];
-    final read = <String>{};
-    await _pump(
-      tester,
-      loadNotifications: () async => [
-        _note(id: 'n3', readAt: read.contains('n3') ? DateTime(2026, 9, 12) : null),
-      ],
-      markNotificationRead: (id) async {
-        marked.add(id);
-        read.add(id);
-      },
-    );
-    expect(_unreadDot(), findsOneWidget);
+  testWidgets(
+    'tapping an unread row marks it read through the RPC and clears the dot',
+    (tester) async {
+      final marked = <String>[];
+      final read = <String>{};
+      await _pump(
+        tester,
+        loadNotifications: () async => [
+          _note(
+            id: 'n3',
+            readAt: read.contains('n3') ? DateTime(2026, 9, 12) : null,
+          ),
+        ],
+        markNotificationRead: (id) async {
+          marked.add(id);
+          read.add(id);
+        },
+      );
+      expect(_unreadDot(), findsOneWidget);
 
-    await tester.tap(find.byTooltip('การแจ้งเตือน'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('ประกาศ n3'));
-    await tester.pumpAndSettle();
-    expect(marked, ['n3']);
+      await tester.tap(find.byTooltip('การแจ้งเตือน'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ประกาศ n3'));
+      await tester.pumpAndSettle();
+      expect(marked, ['n3']);
 
-    // ปิดแผ่น → shell โหลดใหม่ → ไม่มีของค้างอ่าน → จุดแดงหาย
-    await tester.tapAt(const Offset(10, 10));
-    await tester.pumpAndSettle();
-    expect(_unreadDot(), findsNothing);
-  });
+      // ปิดแผ่น → shell โหลดใหม่ → ไม่มีของค้างอ่าน → จุดแดงหาย
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+      expect(_unreadDot(), findsNothing);
+    },
+  );
 
   testWidgets('an empty account says so — never a fake dot', (tester) async {
     await _pump(tester, loadNotifications: () async => const []);
@@ -121,7 +125,8 @@ void main() {
   ) async {
     await _pump(
       tester,
-      loadNotifications: () async => throw Exception('PostgrestException: notif_boom'),
+      loadNotifications: () async =>
+          throw Exception('PostgrestException: notif_boom'),
     );
     expect(_unreadDot(), findsNothing);
     await tester.tap(find.byTooltip('การแจ้งเตือน'));

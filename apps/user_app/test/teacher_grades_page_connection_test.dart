@@ -60,119 +60,124 @@ Future<void> _pump(
 }
 
 void main() {
-  testWidgets('exporting CSV downloads real bytes built from the loaded grades', (
-    tester,
-  ) async {
-    String? capturedFilename;
-    List<int>? capturedBytes;
-    String? capturedMime;
+  testWidgets(
+    'exporting CSV downloads real bytes built from the loaded grades',
+    (tester) async {
+      String? capturedFilename;
+      List<int>? capturedBytes;
+      String? capturedMime;
 
-    await _pump(
-      tester,
-      loadCourseGrades: (_) async => const [_confirmedRecord],
-      downloadBytesOverride:
-          ({required filename, required bytes, required mimeType}) {
-        capturedFilename = filename;
-        capturedBytes = bytes;
-        capturedMime = mimeType;
-      },
-    );
+      await _pump(
+        tester,
+        loadCourseGrades: (_) async => const [_confirmedRecord],
+        downloadBytesOverride:
+            ({required filename, required bytes, required mimeType}) {
+              capturedFilename = filename;
+              capturedBytes = bytes;
+              capturedMime = mimeType;
+            },
+      );
 
-    await tester.tap(find.byType(PopupMenuButton<String>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('ส่งออกเป็น CSV'));
-    await tester.pumpAndSettle();
-
-    expect(capturedFilename, contains('.csv'));
-    expect(capturedMime, 'text/csv');
-    final csvText = utf8.decode(capturedBytes!);
-    expect(csvText, contains('สมชาย'));
-    expect(csvText, contains('คณิตศาสตร์'));
-    expect(csvText, contains('8'));
-  });
-
-  testWidgets('exporting Excel downloads a real .xlsx file (valid ZIP magic bytes)', (
-    tester,
-  ) async {
-    List<int>? capturedBytes;
-    String? capturedMime;
-
-    await _pump(
-      tester,
-      loadCourseGrades: (_) async => const [_confirmedRecord],
-      downloadBytesOverride:
-          ({required filename, required bytes, required mimeType}) {
-        capturedBytes = bytes;
-        capturedMime = mimeType;
-      },
-    );
-
-    await tester.tap(find.byType(PopupMenuButton<String>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('ส่งออกเป็น Excel'));
-    await tester.pumpAndSettle();
-
-    expect(
-      capturedMime,
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    );
-    // .xlsx is a real ZIP archive - PK magic bytes prove it's not a fake
-    // placeholder file.
-    expect(capturedBytes!.take(2).toList(), [0x50, 0x4B]);
-  });
-
-  testWidgets('exporting with no grades at all refuses instead of downloading an empty file', (
-    tester,
-  ) async {
-    var downloadCalls = 0;
-    await _pump(
-      tester,
-      downloadBytesOverride:
-          ({required filename, required bytes, required mimeType}) {
-        downloadCalls++;
-      },
-    );
-
-    await tester.tap(find.byType(PopupMenuButton<String>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('ส่งออกเป็น CSV'));
-    await tester.pumpAndSettle();
-
-    expect(downloadCalls, 0);
-    expect(find.text('ยังไม่มีข้อมูลคะแนนให้ส่งออก'), findsOneWidget);
-  });
-
-  testWidgets('confirming a grade calls the real RPC with the correct record id', (
-    tester,
-  ) async {
-    String? confirmedId;
-    await _pump(
-      tester,
-      loadCourseGrades: (_) async => const [_confirmedRecord],
-      confirmGrade: (recordId) async {
-        confirmedId = recordId;
-      },
-    );
-
-    // The pending-confirmation section only renders when there's something
-    // to confirm; find and tap the confirm control for the seeded record.
-    final confirmButtons = find.text('ยืนยัน');
-    if (confirmButtons.evaluate().isNotEmpty) {
-      await tester.tap(confirmButtons.first);
+      await tester.tap(find.byType(PopupMenuButton<String>));
       await tester.pumpAndSettle();
-      expect(confirmedId, 'g-1');
-    }
-  });
+      await tester.tap(find.text('ส่งออกเป็น CSV'));
+      await tester.pumpAndSettle();
 
-  testWidgets('a failed load shows an honest message, no leaked exception text', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      loadCourses: () async =>
-          throw StateError('backend detail that must stay internal'),
-    );
+      expect(capturedFilename, contains('.csv'));
+      expect(capturedMime, 'text/csv');
+      final csvText = utf8.decode(capturedBytes!);
+      expect(csvText, contains('สมชาย'));
+      expect(csvText, contains('คณิตศาสตร์'));
+      expect(csvText, contains('8'));
+    },
+  );
 
-    expect(find.textContaining('backend detail'), findsNothing);
-  });
+  testWidgets(
+    'exporting Excel downloads a real .xlsx file (valid ZIP magic bytes)',
+    (tester) async {
+      List<int>? capturedBytes;
+      String? capturedMime;
+
+      await _pump(
+        tester,
+        loadCourseGrades: (_) async => const [_confirmedRecord],
+        downloadBytesOverride:
+            ({required filename, required bytes, required mimeType}) {
+              capturedBytes = bytes;
+              capturedMime = mimeType;
+            },
+      );
+
+      await tester.tap(find.byType(PopupMenuButton<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ส่งออกเป็น Excel'));
+      await tester.pumpAndSettle();
+
+      expect(
+        capturedMime,
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      // .xlsx is a real ZIP archive - PK magic bytes prove it's not a fake
+      // placeholder file.
+      expect(capturedBytes!.take(2).toList(), [0x50, 0x4B]);
+    },
+  );
+
+  testWidgets(
+    'exporting with no grades at all refuses instead of downloading an empty file',
+    (tester) async {
+      var downloadCalls = 0;
+      await _pump(
+        tester,
+        downloadBytesOverride:
+            ({required filename, required bytes, required mimeType}) {
+              downloadCalls++;
+            },
+      );
+
+      await tester.tap(find.byType(PopupMenuButton<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ส่งออกเป็น CSV'));
+      await tester.pumpAndSettle();
+
+      expect(downloadCalls, 0);
+      expect(find.text('ยังไม่มีข้อมูลคะแนนให้ส่งออก'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'confirming a grade calls the real RPC with the correct record id',
+    (tester) async {
+      String? confirmedId;
+      await _pump(
+        tester,
+        loadCourseGrades: (_) async => const [_confirmedRecord],
+        confirmGrade: (recordId) async {
+          confirmedId = recordId;
+        },
+      );
+
+      // The pending-confirmation section only renders when there's something
+      // to confirm; find and tap the confirm control for the seeded record.
+      final confirmButtons = find.text('ยืนยัน');
+      if (confirmButtons.evaluate().isNotEmpty) {
+        await tester.tap(confirmButtons.first);
+        await tester.pumpAndSettle();
+        expect(confirmedId, 'g-1');
+      }
+    },
+  );
+
+  testWidgets(
+    'a failed load shows an honest message, no leaked exception text',
+    (tester) async {
+      await _pump(
+        tester,
+        loadCourses: () async =>
+            throw StateError('backend detail that must stay internal'),
+      );
+
+      expect(find.textContaining('backend detail'), findsNothing);
+    },
+  );
 }

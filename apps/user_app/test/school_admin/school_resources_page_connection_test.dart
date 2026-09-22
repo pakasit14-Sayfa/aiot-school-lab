@@ -239,37 +239,38 @@ void main() {
     expect(find.text('ส่งออกรายงานแล้ว (CSV)'), findsOneWidget);
   });
 
-  testWidgets('export downloads a real Excel file built from the loaded figures', (
-    tester,
-  ) async {
-    String? downloadedFilename;
-    List<int>? downloadedBytes;
+  testWidgets(
+    'export downloads a real Excel file built from the loaded figures',
+    (tester) async {
+      String? downloadedFilename;
+      List<int>? downloadedBytes;
 
-    await _pump(
-      tester,
-      downloadBytesOverride:
-          ({
-            required String filename,
-            required List<int> bytes,
-            required String mimeType,
-          }) {
-            downloadedFilename = filename;
-            downloadedBytes = bytes;
-          },
-    );
-    await tester.pumpAndSettle();
+      await _pump(
+        tester,
+        downloadBytesOverride:
+            ({
+              required String filename,
+              required List<int> bytes,
+              required String mimeType,
+            }) {
+              downloadedFilename = filename;
+              downloadedBytes = bytes;
+            },
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('ส่งออกรายงาน'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('ส่งออกเป็น Excel'));
-    await tester.pump();
+      await tester.tap(find.text('ส่งออกรายงาน'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ส่งออกเป็น Excel'));
+      await tester.pump();
 
-    expect(downloadedFilename, endsWith('.xlsx'));
-    expect(downloadedBytes, isNotNull);
-    expect(downloadedBytes![0], 0x50);
-    expect(downloadedBytes![1], 0x4B);
-    expect(find.text('ส่งออกรายงานแล้ว (Excel)'), findsOneWidget);
-  });
+      expect(downloadedFilename, endsWith('.xlsx'));
+      expect(downloadedBytes, isNotNull);
+      expect(downloadedBytes![0], 0x50);
+      expect(downloadedBytes![1], 0x4B);
+      expect(find.text('ส่งออกรายงานแล้ว (Excel)'), findsOneWidget);
+    },
+  );
 
   testWidgets('loading is not shown as an empty state', (tester) async {
     final gate = Completer<EnergyUsageSummary?>();
@@ -289,14 +290,19 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('คุณภาพอากาศ (PM2.5)'), findsOneWidget);
       // KPI sub-line + the IoT meter row both say it — both must be honest.
-      expect(find.text('ยังไม่มีเซนเซอร์ PM2.5 ที่ส่งค่าเข้ามา'), findsNWidgets(2));
+      expect(
+        find.text('ยังไม่มีเซนเซอร์ PM2.5 ที่ส่งค่าเข้ามา'),
+        findsNWidgets(2),
+      );
       expect(find.textContaining('PM2.5 18.2'), findsNothing);
       expect(find.textContaining('0.21 tCO2e'), findsNothing);
       expect(find.textContaining('อากาศบริสุทธิ์'), findsNothing);
     },
   );
 
-  testWidgets('the air-quality KPI shows the average of real pm25 readings', (tester) async {
+  testWidgets('the air-quality KPI shows the average of real pm25 readings', (
+    tester,
+  ) async {
     await _pump(
       tester,
       sensorLatest: () async => const [
@@ -375,11 +381,26 @@ void main() {
         tester,
         usageByLocation: (metric, days) async => metric == 'energy_kwh'
             ? const [
-                UtilityLocationUsage(building: 'อาคาร 1', room: 'ห้อง 101', deviceCount: 1, total: 120.5),
-                UtilityLocationUsage(building: 'อาคาร 2', room: 'ยังไม่ระบุ', deviceCount: 1, total: 40),
+                UtilityLocationUsage(
+                  building: 'อาคาร 1',
+                  room: 'ห้อง 101',
+                  deviceCount: 1,
+                  total: 120.5,
+                ),
+                UtilityLocationUsage(
+                  building: 'อาคาร 2',
+                  room: 'ยังไม่ระบุ',
+                  deviceCount: 1,
+                  total: 40,
+                ),
               ]
             : const [
-                UtilityLocationUsage(building: 'อาคาร 1', room: 'ห้อง 101', deviceCount: 1, total: 3.25),
+                UtilityLocationUsage(
+                  building: 'อาคาร 1',
+                  room: 'ห้อง 101',
+                  deviceCount: 1,
+                  total: 3.25,
+                ),
               ],
       );
       await tester.pumpAndSettle();
@@ -391,10 +412,17 @@ void main() {
       expect(find.text('ห้องปฏิบัติการ 1'), findsNothing);
 
       final buildingDropdown = find.byWidgetPredicate(
-        (w) => w is DropdownButtonFormField<String> && w.initialValue == 'ทุกอาคาร',
+        (w) =>
+            w is DropdownButtonFormField<String> &&
+            w.initialValue == 'ทุกอาคาร',
       );
       expect(buildingDropdown, findsOneWidget);
-      expect(tester.widget<DropdownButtonFormField<String>>(buildingDropdown).onChanged, isNotNull);
+      expect(
+        tester
+            .widget<DropdownButtonFormField<String>>(buildingDropdown)
+            .onChanged,
+        isNotNull,
+      );
 
       await tester.tap(buildingDropdown);
       await tester.pumpAndSettle();

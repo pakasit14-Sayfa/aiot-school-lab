@@ -65,43 +65,56 @@ void main() {
   });
 
   /// กล่องรหัสชั่วคราว: แสดงทุกบัญชี ดาวน์โหลดเป็น CSV ได้จริง
-  testWidgets('the credentials dialog lists each new account and downloads a real CSV', (
-    tester,
-  ) async {
-    String? savedName;
-    List<int>? savedBytes;
-    late BuildContext ctx;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) {
-            ctx = context;
-            return const Scaffold(body: SizedBox());
-          },
+  testWidgets(
+    'the credentials dialog lists each new account and downloads a real CSV',
+    (tester) async {
+      String? savedName;
+      List<int>? savedBytes;
+      late BuildContext ctx;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              ctx = context;
+              return const Scaffold(body: SizedBox());
+            },
+          ),
         ),
-      ),
-    );
-    showImportedCredentialsDialog(
-      ctx,
-      const [
-        ImportedCredential(row: 1, email: 'a@school.test', tempPassword: 'Xk3pQ7mN2r'),
-        ImportedCredential(row: 2, email: 'b@school.test', tempPassword: 'Ht8wZ4cL6v'),
-      ],
-      downloadBytesOverride: ({required filename, required bytes, required mimeType}) {
-        savedName = filename;
-        savedBytes = bytes;
-      },
-    );
-    await tester.pumpAndSettle();
+      );
+      showImportedCredentialsDialog(
+        ctx,
+        const [
+          ImportedCredential(
+            row: 1,
+            email: 'a@school.test',
+            tempPassword: 'Xk3pQ7mN2r',
+          ),
+          ImportedCredential(
+            row: 2,
+            email: 'b@school.test',
+            tempPassword: 'Ht8wZ4cL6v',
+          ),
+        ],
+        downloadBytesOverride:
+            ({required filename, required bytes, required mimeType}) {
+              savedName = filename;
+              savedBytes = bytes;
+            },
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('a@school.test'), findsOneWidget);
-    expect(find.text('Xk3pQ7mN2r'), findsOneWidget);
-    expect(find.textContaining('ต้องตั้งรหัสใหม่ในการเข้าสู่ระบบครั้งแรก'), findsOneWidget);
+      expect(find.text('a@school.test'), findsOneWidget);
+      expect(find.text('Xk3pQ7mN2r'), findsOneWidget);
+      expect(
+        find.textContaining('ต้องตั้งรหัสใหม่ในการเข้าสู่ระบบครั้งแรก'),
+        findsOneWidget,
+      );
 
-    await tester.tap(find.text('ดาวน์โหลด CSV'));
-    await tester.pumpAndSettle();
-    expect(savedName, startsWith('temp_passwords_'));
-    final csv = utf8.decode(savedBytes!);
-    expect(csv, contains('b@school.test,Ht8wZ4cL6v'));
-  });
+      await tester.tap(find.text('ดาวน์โหลด CSV'));
+      await tester.pumpAndSettle();
+      expect(savedName, startsWith('temp_passwords_'));
+      final csv = utf8.decode(savedBytes!);
+      expect(csv, contains('b@school.test,Ht8wZ4cL6v'));
+    },
+  );
 }

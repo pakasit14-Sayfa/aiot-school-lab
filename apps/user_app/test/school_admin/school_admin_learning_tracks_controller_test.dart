@@ -117,23 +117,20 @@ void main() {
     expect(error.previousData!.tracks.single.trackId, 'track-1');
   });
 
-  test(
-    'create returns false and keeps previous data when the backend '
-    'confirms no id',
-    () async {
-      final controller = _controller(
-        loadTracks: () async => <LearningTrack>[_track()],
-        createTrack: ({required name, required color}) async => '',
-      );
-      await controller.load();
+  test('create returns false and keeps previous data when the backend '
+      'confirms no id', () async {
+    final controller = _controller(
+      loadTracks: () async => <LearningTrack>[_track()],
+      createTrack: ({required name, required color}) async => '',
+    );
+    await controller.load();
 
-      expect(await controller.create(name: 'ภาษา', color: '#0284C7'), isFalse);
-      final error =
-          controller.state as SchoolAdminError<SchoolAdminLearningTracksSnapshot>;
-      expect(error.message, 'บันทึกสายการเรียนไม่สำเร็จ');
-      expect(error.previousData!.tracks.single.trackId, 'track-1');
-    },
-  );
+    expect(await controller.create(name: 'ภาษา', color: '#0284C7'), isFalse);
+    final error =
+        controller.state as SchoolAdminError<SchoolAdminLearningTracksSnapshot>;
+    expect(error.message, 'บันทึกสายการเรียนไม่สำเร็จ');
+    expect(error.previousData!.tracks.single.trackId, 'track-1');
+  });
 
   test('update validates and confirms all canonical fields', () async {
     var backend = <LearningTrack>[_track()];
@@ -186,36 +183,33 @@ void main() {
     );
   });
 
-  test(
-    'update returns false and keeps previous data when the backend '
-    'does not confirm the change',
-    () async {
-      final controller = _controller(
-        loadTracks: () async => <LearningTrack>[_track()],
-        updateTrack:
-            ({
-              required trackId,
-              required name,
-              required color,
-              required sortOrder,
-            }) async {}, // backend silently ignores the write
-      );
-      await controller.load();
-      expect(
-        await controller.update(
-          trackId: 'track-1',
-          name: 'ภาษา',
-          color: '#0284C7',
-          sortOrder: 2,
-        ),
-        isFalse,
-      );
-      final error =
-          controller.state as SchoolAdminError<SchoolAdminLearningTracksSnapshot>;
-      expect(error.message, 'บันทึกสายการเรียนไม่สำเร็จ');
-      expect(error.previousData!.tracks.single.name, 'วิทย์-คณิต');
-    },
-  );
+  test('update returns false and keeps previous data when the backend '
+      'does not confirm the change', () async {
+    final controller = _controller(
+      loadTracks: () async => <LearningTrack>[_track()],
+      updateTrack:
+          ({
+            required trackId,
+            required name,
+            required color,
+            required sortOrder,
+          }) async {}, // backend silently ignores the write
+    );
+    await controller.load();
+    expect(
+      await controller.update(
+        trackId: 'track-1',
+        name: 'ภาษา',
+        color: '#0284C7',
+        sortOrder: 2,
+      ),
+      isFalse,
+    );
+    final error =
+        controller.state as SchoolAdminError<SchoolAdminLearningTracksSnapshot>;
+    expect(error.message, 'บันทึกสายการเรียนไม่สำเร็จ');
+    expect(error.previousData!.tracks.single.name, 'วิทย์-คณิต');
+  });
 
   test('delete and room assignment require canonical confirmation', () async {
     var tracks = <LearningTrack>[_track()];
@@ -281,49 +275,43 @@ void main() {
     },
   );
 
-  test(
-    'delete returns false and keeps previous data when the backend '
-    'does not remove the track',
-    () async {
-      final controller = _controller(
-        loadTracks: () async => <LearningTrack>[_track()],
-        deleteTrack: (id) async {}, // backend silently ignores the delete
-      );
-      await controller.load();
-      expect(await controller.delete('track-1'), isFalse);
-      final error =
-          controller.state as SchoolAdminError<SchoolAdminLearningTracksSnapshot>;
-      expect(error.message, 'ลบสายการเรียนไม่สำเร็จ');
-      expect(error.previousData!.tracks.single.trackId, 'track-1');
-    },
-  );
+  test('delete returns false and keeps previous data when the backend '
+      'does not remove the track', () async {
+    final controller = _controller(
+      loadTracks: () async => <LearningTrack>[_track()],
+      deleteTrack: (id) async {}, // backend silently ignores the delete
+    );
+    await controller.load();
+    expect(await controller.delete('track-1'), isFalse);
+    final error =
+        controller.state as SchoolAdminError<SchoolAdminLearningTracksSnapshot>;
+    expect(error.message, 'ลบสายการเรียนไม่สำเร็จ');
+    expect(error.previousData!.tracks.single.trackId, 'track-1');
+  });
 
-  test(
-    'failed room assignment keeps the previous track id and reports '
-    'a stable error',
-    () async {
-      final controller = _controller(
-        loadRooms: () async => <LearningTrackRoom>[_room(trackId: null)],
-        setTrackRoom:
-            ({required gradeLevel, required room, required trackId}) async {
-              // backend accepts the write but never actually persists it
-            },
-      );
-      await controller.load();
-      expect(
-        await controller.assignRoom(
-          gradeLevel: 'ม.1',
-          room: '1',
-          trackId: 'track-1',
-        ),
-        isFalse,
-      );
-      final error =
-          controller.state as SchoolAdminError<SchoolAdminLearningTracksSnapshot>;
-      expect(error.message, 'กำหนดสายการเรียนให้ห้องไม่สำเร็จ');
-      expect(error.previousData!.rooms.single.trackId, isNull);
-    },
-  );
+  test('failed room assignment keeps the previous track id and reports '
+      'a stable error', () async {
+    final controller = _controller(
+      loadRooms: () async => <LearningTrackRoom>[_room(trackId: null)],
+      setTrackRoom:
+          ({required gradeLevel, required room, required trackId}) async {
+            // backend accepts the write but never actually persists it
+          },
+    );
+    await controller.load();
+    expect(
+      await controller.assignRoom(
+        gradeLevel: 'ม.1',
+        room: '1',
+        trackId: 'track-1',
+      ),
+      isFalse,
+    );
+    final error =
+        controller.state as SchoolAdminError<SchoolAdminLearningTracksSnapshot>;
+    expect(error.message, 'กำหนดสายการเรียนให้ห้องไม่สำเร็จ');
+    expect(error.previousData!.rooms.single.trackId, isNull);
+  });
 }
 
 SchoolAdminLearningTracksController _controller({

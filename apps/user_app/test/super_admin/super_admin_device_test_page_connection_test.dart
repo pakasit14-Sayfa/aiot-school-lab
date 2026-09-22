@@ -146,7 +146,10 @@ void main() {
     await tester.tap(find.text('เริ่มทดสอบระบบทั้งหมด'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('ยังไม่เคยส่งค่าเซนเซอร์เข้าระบบ'), findsOneWidget);
+    expect(
+      find.textContaining('ยังไม่เคยส่งค่าเซนเซอร์เข้าระบบ'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('a device with fresh telemetry passes the freshness check', (
@@ -157,7 +160,9 @@ void main() {
       loadDevices: () async => _data(
         schools: [_school()],
         devices: [
-          _device(readingAt: DateTime.now().subtract(const Duration(minutes: 5))),
+          _device(
+            readingAt: DateTime.now().subtract(const Duration(minutes: 5)),
+          ),
         ],
       ),
     );

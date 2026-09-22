@@ -83,7 +83,10 @@ void main() {
     await _pump(tester);
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('ยังไม่มีการตั้งเวลาปฏิบัติงาน'), findsOneWidget);
+    expect(
+      find.textContaining('ยังไม่มีการตั้งเวลาปฏิบัติงาน'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('a slow load shows progress, not an empty result', (
@@ -110,7 +113,8 @@ void main() {
     int? capturedGrace;
     await _pump(
       tester,
-      loadWorkHours: () async => _hours(start: '08:00:00', end: '16:30:00', grace: 15),
+      loadWorkHours: () async =>
+          _hours(start: '08:00:00', end: '16:30:00', grace: 15),
       saveWorkHours:
           ({
             required workStartTime,

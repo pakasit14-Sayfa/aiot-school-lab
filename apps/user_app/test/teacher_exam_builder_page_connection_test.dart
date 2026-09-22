@@ -47,48 +47,50 @@ void main() {
     final titleField = tester.widget<TextField>(
       find
           .byWidgetPredicate(
-            (w) => w is TextField && w.controller?.text.contains('ข้อสอบ') == true,
+            (w) =>
+                w is TextField && w.controller?.text.contains('ข้อสอบ') == true,
           )
           .first,
     );
     expect(titleField.controller!.text, 'ข้อสอบก่อนเรียน: ');
   });
 
-  testWidgets('บันทึกตอนยังไม่มีโจทย์ต้องถูกบล็อก ไม่ใช่บันทึกชุดเปล่าเงียบ ๆ', (
-    tester,
-  ) async {
-    var listMyCoursesCalled = false;
-    tester.view.physicalSize = const Size(1400, 1600);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+  testWidgets(
+    'บันทึกตอนยังไม่มีโจทย์ต้องถูกบล็อก ไม่ใช่บันทึกชุดเปล่าเงียบ ๆ',
+    (tester) async {
+      var listMyCoursesCalled = false;
+      tester.view.physicalSize = const Size(1400, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: TeacherExamBuilderPage(
-          courseId: 'the-real-course-id',
-          listMyCourses: () async {
-            listMyCoursesCalled = true;
-            return [];
-          },
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TeacherExamBuilderPage(
+            courseId: 'the-real-course-id',
+            listMyCourses: () async {
+              listMyCoursesCalled = true;
+              return [];
+            },
+          ),
         ),
-      ),
-    );
-    await tester.pump();
+      );
+      await tester.pump();
 
-    await tester.ensureVisible(find.text('บันทึกร่างข้อสอบ'));
-    await tester.pump();
-    await tester.tap(find.text('บันทึกร่างข้อสอบ'));
-    await tester.pump();
+      await tester.ensureVisible(find.text('บันทึกร่างข้อสอบ'));
+      await tester.pump();
+      await tester.tap(find.text('บันทึกร่างข้อสอบ'));
+      await tester.pump();
 
-    expect(
-      find.text('ยังไม่มีโจทย์ในชุดข้อสอบ กรุณาเพิ่มอย่างน้อย 1 ข้อ'),
-      findsOneWidget,
-    );
-    // ต้องไม่มีการยิงอะไรไปหลังบ้านเลย
-    expect(listMyCoursesCalled, isFalse);
-    expect(find.textContaining('not_signed_in'), findsNothing);
-  });
+      expect(
+        find.text('ยังไม่มีโจทย์ในชุดข้อสอบ กรุณาเพิ่มอย่างน้อย 1 ข้อ'),
+        findsOneWidget,
+      );
+      // ต้องไม่มีการยิงอะไรไปหลังบ้านเลย
+      expect(listMyCoursesCalled, isFalse);
+      expect(find.textContaining('not_signed_in'), findsNothing);
+    },
+  );
 
   testWidgets('กดเพิ่มโจทย์แล้ว empty state ต้องหายไปและนับจำนวนถูก', (
     tester,

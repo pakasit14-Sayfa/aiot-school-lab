@@ -45,8 +45,7 @@ Future<List<BankQuestion>?> _pumpAsPushedRoute(
   WidgetTester tester, {
   Future<List<CourseSummary>> Function()? loadCourses,
   Future<List<QuizSummary>> Function(String courseId)? listQuizzesForCourse,
-  Future<List<QuizQuestionSummary>> Function(String quizId)?
-  listQuizQuestions,
+  Future<List<QuizQuestionSummary>> Function(String quizId)? listQuizQuestions,
 }) async {
   tester.view.physicalSize = const Size(1200, 2000);
   tester.view.devicePixelRatio = 1;
@@ -101,58 +100,59 @@ void main() {
     expect(find.textContaining('1 ข้อ'), findsWidgets);
   });
 
-  testWidgets('confirming a real selection returns the actual question text, not an empty list', (
-    tester,
-  ) async {
-    List<BankQuestion>? result;
-    tester.view.physicalSize = const Size(1200, 2000);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(() {
-      tester.view.resetPhysicalSize();
-      tester.view.resetDevicePixelRatio();
-    });
+  testWidgets(
+    'confirming a real selection returns the actual question text, not an empty list',
+    (tester) async {
+      List<BankQuestion>? result;
+      tester.view.physicalSize = const Size(1200, 2000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => Scaffold(
-            body: Center(
-              child: ElevatedButton(
-                onPressed: () async {
-                  result = await Navigator.push<List<BankQuestion>>(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const TeacherQuestionBankPage(
-                        loadCourses: _loadCourses,
-                        listQuizzesForCourse: _listQuizzes,
-                        listQuizQuestions: _listQuestions,
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: ElevatedButton(
+                  onPressed: () async {
+                    result = await Navigator.push<List<BankQuestion>>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const TeacherQuestionBankPage(
+                          loadCourses: _loadCourses,
+                          listQuizzesForCourse: _listQuizzes,
+                          listQuizQuestions: _listQuestions,
+                        ),
                       ),
-                    ),
-                  );
-                },
-                child: const Text('open bank'),
+                    );
+                  },
+                  child: const Text('open bank'),
+                ),
               ),
             ),
           ),
         ),
-      ),
-    );
-    await tester.tap(find.text('open bank'));
-    await tester.pumpAndSettle();
+      );
+      await tester.tap(find.text('open bank'));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('แบบทดสอบก่อนเรียน บทที่ 1'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.textContaining('เพิ่มทั้งชุด'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.textContaining('ยืนยันการเลือก'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('แบบทดสอบก่อนเรียน บทที่ 1'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('เพิ่มทั้งชุด'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('ยืนยันการเลือก'));
+      await tester.pumpAndSettle();
 
-    expect(result, isNotNull);
-    expect(result!.length, 1);
-    expect(result!.first.questionText, 'น้ำเดือดที่กี่องศา?');
-    expect(result!.first.options, ['100', '50']);
-    expect(result!.first.correctIndex, 0);
-  });
+      expect(result, isNotNull);
+      expect(result!.length, 1);
+      expect(result!.first.questionText, 'น้ำเดือดที่กี่องศา?');
+      expect(result!.first.options, ['100', '50']);
+      expect(result!.first.correctIndex, 0);
+    },
+  );
 }
 
 Future<List<CourseSummary>> _loadCourses() async => const [_course];

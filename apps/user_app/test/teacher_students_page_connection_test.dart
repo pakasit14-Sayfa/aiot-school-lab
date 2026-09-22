@@ -43,31 +43,31 @@ Future<void> _pump(
 }
 
 void main() {
-  testWidgets('a real roster shows the real student name/email/room, not fabricated data', (
-    tester,
-  ) async {
-    await _pump(tester);
-    expect(find.text('สมชาย ใจดี'), findsOneWidget);
-    expect(find.textContaining('somchai@test.local'), findsOneWidget);
-    expect(find.text('1'), findsNWidgets(2)); // total students + room count
-  });
+  testWidgets(
+    'a real roster shows the real student name/email/room, not fabricated data',
+    (tester) async {
+      await _pump(tester);
+      expect(find.text('สมชาย ใจดี'), findsOneWidget);
+      expect(find.textContaining('somchai@test.local'), findsOneWidget);
+      expect(find.text('1'), findsNWidgets(2)); // total students + room count
+    },
+  );
 
-  testWidgets('zero real students shows an honest empty state', (
-    tester,
-  ) async {
+  testWidgets('zero real students shows an honest empty state', (tester) async {
     await _pump(tester, loadCourseStudents: (_) async => const []);
     expect(find.text('ไม่พบนักเรียนในห้องที่เลือก'), findsOneWidget);
   });
 
-  testWidgets('a real load failure shows an honest error, no leaked exception text', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      loadCourses: () async =>
-          throw StateError('backend detail that must stay internal'),
-    );
-    expect(find.text('โหลดรายชื่อนักเรียนไม่สำเร็จ'), findsOneWidget);
-    expect(find.textContaining('backend detail'), findsNothing);
-  });
+  testWidgets(
+    'a real load failure shows an honest error, no leaked exception text',
+    (tester) async {
+      await _pump(
+        tester,
+        loadCourses: () async =>
+            throw StateError('backend detail that must stay internal'),
+      );
+      expect(find.text('โหลดรายชื่อนักเรียนไม่สำเร็จ'), findsOneWidget);
+      expect(find.textContaining('backend detail'), findsNothing);
+    },
+  );
 }

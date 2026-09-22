@@ -65,10 +65,7 @@ Future<void> _pumpAndLookup(
 
 void main() {
   testWidgets('a matching device shows its real fields', (tester) async {
-    await _pumpAndLookup(
-      tester,
-      loadDevices: () async => [_device()],
-    );
+    await _pumpAndLookup(tester, loadDevices: () async => [_device()]);
     await tester.pumpAndSettle();
 
     expect(find.text('เซนเซอร์ห้องทดลอง'), findsOneWidget);
@@ -167,33 +164,32 @@ void main() {
     expect(find.text('DEV-AIR-0002'), findsNothing);
   });
 
-  testWidgets(
-    'manually entering a code records a real history entry',
-    (tester) async {
-      tester.view.physicalSize = const Size(1200, 2000);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
-      await tester.pumpWidget(
-        _ScanHarness(page: SchoolScanPage(loadDevices: () async => [])),
-      );
-      await tester.pump();
+  testWidgets('manually entering a code records a real history entry', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 2000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    await tester.pumpWidget(
+      _ScanHarness(page: SchoolScanPage(loadDevices: () async => [])),
+    );
+    await tester.pump();
 
-      await tester.tap(find.text('กรอกรหัส'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'MANUAL-CODE-42');
-      await tester.tap(find.text('ค้นหา'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('กรอกรหัส'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'MANUAL-CODE-42');
+    await tester.tap(find.text('ค้นหา'));
+    await tester.pumpAndSettle();
 
-      // The scan-result sheet shows the raw value straight away — proof the
-      // manual-entry path reached _recordScan/_showScanResult.
-      expect(find.text('MANUAL-CODE-42'), findsOneWidget);
+    // The scan-result sheet shows the raw value straight away — proof the
+    // manual-entry path reached _recordScan/_showScanResult.
+    expect(find.text('MANUAL-CODE-42'), findsOneWidget);
 
-      final state = tester.state(find.byType(SchoolScanPage)) as dynamic;
-      // ignore: avoid_dynamic_calls
-      expect(state.historyForTest, contains('MANUAL-CODE-42'));
-    },
-  );
+    final state = tester.state(find.byType(SchoolScanPage)) as dynamic;
+    // ignore: avoid_dynamic_calls
+    expect(state.historyForTest, contains('MANUAL-CODE-42'));
+  });
 }

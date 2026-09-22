@@ -90,14 +90,8 @@ void main() {
     await pumpLogin(tester);
 
     expect(find.text('ยังไม่มีบัญชี?'), findsOneWidget);
-    expect(
-      find.text('มีรหัสเชิญจากโรงเรียน — สร้างบัญชี'),
-      findsOneWidget,
-    );
-    expect(
-      find.text('ผู้ปกครอง — มีรหัสผูกบัญชีนักเรียน'),
-      findsOneWidget,
-    );
+    expect(find.text('มีรหัสเชิญจากโรงเรียน — สร้างบัญชี'), findsOneWidget);
+    expect(find.text('ผู้ปกครอง — มีรหัสผูกบัญชีนักเรียน'), findsOneWidget);
   });
 
   /// การจับคู่เครื่องแล็บด้วย QR มีครบทั้ง backend และหน้าจอ แต่เดิมเข้าถึงได้
@@ -108,10 +102,7 @@ void main() {
   ) async {
     await pumpLogin(tester);
 
-    expect(
-      find.text('เข้าสู่ระบบด้วย QR (เครื่องแล็บ)'),
-      findsOneWidget,
-    );
+    expect(find.text('เข้าสู่ระบบด้วย QR (เครื่องแล็บ)'), findsOneWidget);
     expect(find.byIcon(Icons.qr_code_2_rounded), findsOneWidget);
     // และต้องอธิบายว่ามันทำอะไร ไม่ใช่ปุ่มลอย ๆ
     expect(

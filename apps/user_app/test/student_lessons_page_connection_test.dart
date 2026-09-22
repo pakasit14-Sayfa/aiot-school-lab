@@ -27,77 +27,81 @@ const _draftLesson = LessonSummary(
 );
 
 void main() {
-  testWidgets('a real published lesson shows the real title/subject, unpublished drafts are hidden', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: StudentLessonsPage(
-          loadCourses: () async => const [_course],
-          listLessons: (_) async => const [_publishedLesson, _draftLesson],
+  testWidgets(
+    'a real published lesson shows the real title/subject, unpublished drafts are hidden',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StudentLessonsPage(
+            loadCourses: () async => const [_course],
+            listLessons: (_) async => const [_publishedLesson, _draftLesson],
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('บทที่ 1: จำนวนเต็ม'), findsOneWidget);
-    expect(find.text('คณิตศาสตร์'), findsOneWidget);
-    expect(find.text('บทที่ 2: ยังไม่เผยแพร่'), findsNothing);
-    expect(find.text('1 บทเรียนที่เปิดสอน'), findsOneWidget);
-  });
+      expect(find.text('บทที่ 1: จำนวนเต็ม'), findsOneWidget);
+      expect(find.text('คณิตศาสตร์'), findsOneWidget);
+      expect(find.text('บทที่ 2: ยังไม่เผยแพร่'), findsNothing);
+      expect(find.text('1 บทเรียนที่เปิดสอน'), findsOneWidget);
+    },
+  );
 
-  testWidgets('zero real lessons shows an honest empty state, not fabricated content', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: StudentLessonsPage(
-          loadCourses: () async => const [_course],
-          listLessons: (_) async => const [],
+  testWidgets(
+    'zero real lessons shows an honest empty state, not fabricated content',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StudentLessonsPage(
+            loadCourses: () async => const [_course],
+            listLessons: (_) async => const [],
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('ยังไม่มีบทเรียนที่เปิดสอน'), findsOneWidget);
-  });
+      expect(find.text('ยังไม่มีบทเรียนที่เปิดสอน'), findsOneWidget);
+    },
+  );
 
-  testWidgets('a real load failure shows an honest error, no leaked exception text', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: StudentLessonsPage(
-          loadCourses: () async =>
-              throw StateError('backend detail that must stay internal'),
+  testWidgets(
+    'a real load failure shows an honest error, no leaked exception text',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StudentLessonsPage(
+            loadCourses: () async =>
+                throw StateError('backend detail that must stay internal'),
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('โหลดข้อมูลไม่สำเร็จ'), findsOneWidget);
-    expect(find.textContaining('backend detail'), findsNothing);
-  });
+      expect(find.text('โหลดข้อมูลไม่สำเร็จ'), findsOneWidget);
+      expect(find.textContaining('backend detail'), findsNothing);
+    },
+  );
 
-  testWidgets('a single-course view (courseId given) uses listLessons for that course only', (
-    tester,
-  ) async {
-    String? requestedCourseId;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: StudentLessonsPage(
-          courseId: 'course-1',
-          courseName: 'คณิตศาสตร์',
-          listLessons: (courseId) async {
-            requestedCourseId = courseId;
-            return const [_publishedLesson];
-          },
+  testWidgets(
+    'a single-course view (courseId given) uses listLessons for that course only',
+    (tester) async {
+      String? requestedCourseId;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StudentLessonsPage(
+            courseId: 'course-1',
+            courseName: 'คณิตศาสตร์',
+            listLessons: (courseId) async {
+              requestedCourseId = courseId;
+              return const [_publishedLesson];
+            },
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    expect(requestedCourseId, 'course-1');
-    expect(find.text('บทที่ 1: จำนวนเต็ม'), findsOneWidget);
-  });
+      expect(requestedCourseId, 'course-1');
+      expect(find.text('บทที่ 1: จำนวนเต็ม'), findsOneWidget);
+    },
+  );
 }

@@ -72,11 +72,28 @@ Future<void> _pump(
   Future<List<DeviceOption>> Function()? loadDevices,
   Future<List<SchoolAdminAuditLog>> Function()? loadLogs,
   Future<SchoolDeviceDetail?> Function(String)? loadDeviceDetail,
-  Future<Map<String, dynamic>> Function({required String type, required String name, String? serialNo, String? location, String? kitCode})?
+  Future<Map<String, dynamic>> Function({
+    required String type,
+    required String name,
+    String? serialNo,
+    String? location,
+    String? kitCode,
+  })?
   registerDevice,
-  Future<void> Function({required String deviceId, required String name, String? location, String? building, String? room, String? status})?
+  Future<void> Function({
+    required String deviceId,
+    required String name,
+    String? location,
+    String? building,
+    String? room,
+    String? status,
+  })?
   updateDevice,
-  void Function({required String filename, required List<int> bytes, required String mimeType})?
+  void Function({
+    required String filename,
+    required List<int> bytes,
+    required String mimeType,
+  })?
   downloadBytesOverride,
 }) async {
   tester.view.physicalSize = const Size(1500, 3200);
@@ -93,7 +110,8 @@ Future<void> _pump(
         loadDeviceDetail: loadDeviceDetail ?? (_) async => _detail(),
         registerDevice: registerDevice,
         updateDevice: updateDevice,
-        downloadBytesOverride: downloadBytesOverride ??
+        downloadBytesOverride:
+            downloadBytesOverride ??
             ({required filename, required bytes, required mimeType}) {},
       ),
     ),
@@ -116,86 +134,146 @@ void main() {
   /// รอบแรกแผ่นรายละเอียดแต่ง serial/IP/เฟิร์มแวร์จาก uuid → ถูกเปลี่ยนเป็น
   /// "ยังไม่มีข้อมูล" ทั้งที่คอลัมน์มีจริง → ตอนนี้อ่านจาก get_school_device_detail:
   /// ค่าที่อุปกรณ์เคยรายงานแสดงจริง ค่าที่ไม่เคยรายงานบอกว่าไม่เคยรายงาน
-  testWidgets('device detail sheet shows the stored serial/room and marks never-reported fields honestly', (
+  testWidgets(
+    'device detail sheet shows the stored serial/room and marks never-reported fields honestly',
+    (tester) async {
+      await _pump(
+        tester,
+        loadDevices: () async => [_device()],
+        loadDeviceDetail: (id) async => _detail(firmwareVersion: 'v3.1.0'),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('รายละเอียด'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('SN-REAL-0001'), findsOneWidget);
+      expect(find.text('ห้องทดลอง'), findsWidgets);
+      expect(
+        find.text('v3.1.0'),
+        findsOneWidget,
+        reason: 'reported by heartbeat → shown',
+      );
+      // IP / last seen never reported → said so, never '192.168.1.100' / now()
+      expect(find.text('ยังไม่เคยรายงาน'), findsNWidgets(2));
+      expect(find.textContaining('192.168.'), findsNothing);
+      expect(find.byType(QrImageView), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'registering a device sends the form to register_device and shows the one-time token',
+    (tester) async {
+      Map<String, Object?>? sent;
+      await _pump(
+        tester,
+        registerDevice:
+            ({
+              required type,
+              required name,
+              serialNo,
+              location,
+              kitCode,
+            }) async {
+              sent = {
+                'type': type,
+                'name': name,
+                'serialNo': serialNo,
+                'location': location,
+                'kitCode': kitCode,
+              };
+              return {'device_id': 'dev-new', 'device_token': 'dev_abc123'};
+            },
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('เพิ่มอุปกรณ์'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'ชื่ออุปกรณ์'),
+        'มิเตอร์ใหม่',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Serial Number (ถ้ามี)'),
+        'SN-9',
+      );
+      await tester.tap(find.text('ลงทะเบียน'));
+      await tester.pumpAndSettle();
+
+      expect(sent, {
+        'type': 'mini_pc',
+        'name': 'มิเตอร์ใหม่',
+        'serialNo': 'SN-9',
+        'location': null,
+        'kitCode': null,
+      });
+      expect(
+        find.text('dev_abc123'),
+        findsOneWidget,
+        reason: 'token shown once for provisioning',
+      );
+    },
+  );
+
+  testWidgets(
+    'editing a device from the detail sheet writes through update_school_device',
+    (tester) async {
+      Map<String, Object?>? sent;
+      await _pump(
+        tester,
+        loadDevices: () async => [_device()],
+        updateDevice:
+            ({
+              required deviceId,
+              required name,
+              location,
+              building,
+              room,
+              status,
+            }) async {
+              sent = {
+                'id': deviceId,
+                'name': name,
+                'room': room,
+                'status': status,
+              };
+            },
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('รายละเอียด'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('แก้ไขข้อมูลอุปกรณ์'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'ห้อง'),
+        'ห้อง 202',
+      );
+      await tester.tap(find.text('บันทึก'));
+      await tester.pumpAndSettle();
+
+      expect(sent, {
+        'id': 'dev-1',
+        'name': 'เซนเซอร์ห้องทดลอง',
+        'room': 'ห้อง 202',
+        'status': 'online',
+      });
+    },
+  );
+
+  testWidgets('export produces a real CSV of the loaded devices', (
     tester,
   ) async {
-    await _pump(
-      tester,
-      loadDevices: () async => [_device()],
-      loadDeviceDetail: (id) async => _detail(firmwareVersion: 'v3.1.0'),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('รายละเอียด'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('SN-REAL-0001'), findsOneWidget);
-    expect(find.text('ห้องทดลอง'), findsWidgets);
-    expect(find.text('v3.1.0'), findsOneWidget, reason: 'reported by heartbeat → shown');
-    // IP / last seen never reported → said so, never '192.168.1.100' / now()
-    expect(find.text('ยังไม่เคยรายงาน'), findsNWidgets(2));
-    expect(find.textContaining('192.168.'), findsNothing);
-    expect(find.byType(QrImageView), findsOneWidget);
-  });
-
-  testWidgets('registering a device sends the form to register_device and shows the one-time token', (
-    tester,
-  ) async {
-    Map<String, Object?>? sent;
-    await _pump(
-      tester,
-      registerDevice: ({required type, required name, serialNo, location, kitCode}) async {
-        sent = {'type': type, 'name': name, 'serialNo': serialNo, 'location': location, 'kitCode': kitCode};
-        return {'device_id': 'dev-new', 'device_token': 'dev_abc123'};
-      },
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('เพิ่มอุปกรณ์'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, 'ชื่ออุปกรณ์'), 'มิเตอร์ใหม่');
-    await tester.enterText(find.widgetWithText(TextField, 'Serial Number (ถ้ามี)'), 'SN-9');
-    await tester.tap(find.text('ลงทะเบียน'));
-    await tester.pumpAndSettle();
-
-    expect(sent, {'type': 'mini_pc', 'name': 'มิเตอร์ใหม่', 'serialNo': 'SN-9', 'location': null, 'kitCode': null});
-    expect(find.text('dev_abc123'), findsOneWidget, reason: 'token shown once for provisioning');
-  });
-
-  testWidgets('editing a device from the detail sheet writes through update_school_device', (
-    tester,
-  ) async {
-    Map<String, Object?>? sent;
-    await _pump(
-      tester,
-      loadDevices: () async => [_device()],
-      updateDevice: ({required deviceId, required name, location, building, room, status}) async {
-        sent = {'id': deviceId, 'name': name, 'room': room, 'status': status};
-      },
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('รายละเอียด'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('แก้ไขข้อมูลอุปกรณ์'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, 'ห้อง'), 'ห้อง 202');
-    await tester.tap(find.text('บันทึก'));
-    await tester.pumpAndSettle();
-
-    expect(sent, {'id': 'dev-1', 'name': 'เซนเซอร์ห้องทดลอง', 'room': 'ห้อง 202', 'status': 'online'});
-  });
-
-  testWidgets('export produces a real CSV of the loaded devices', (tester) async {
     String? savedName;
     List<int>? savedBytes;
     await _pump(
       tester,
       loadDevices: () async => [_device()],
-      downloadBytesOverride: ({required filename, required bytes, required mimeType}) {
-        savedName = filename;
-        savedBytes = bytes;
-      },
+      downloadBytesOverride:
+          ({required filename, required bytes, required mimeType}) {
+            savedName = filename;
+            savedBytes = bytes;
+          },
     );
     await tester.pumpAndSettle();
 
@@ -214,7 +292,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('ไม่พบอุปกรณ์'), findsOneWidget);
-    expect(find.text('ยังไม่มีอุปกรณ์ที่ลงทะเบียนกับสถานศึกษานี้'), findsOneWidget);
+    expect(
+      find.text('ยังไม่มีอุปกรณ์ที่ลงทะเบียนกับสถานศึกษานี้'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('a failed device load is distinct from empty, with retry', (

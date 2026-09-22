@@ -142,7 +142,10 @@ void main() {
 
       expect(find.text('อุปกรณ์ออนไลน์ครบ'), findsOneWidget);
       expect(find.text('ไม่มีการแจ้งเตือนค้าง'), findsOneWidget);
-      expect(find.text('มีนักเรียนลงทะเบียนในระบบทั้งหมด 42 คน'), findsOneWidget);
+      expect(
+        find.text('มีนักเรียนลงทะเบียนในระบบทั้งหมด 42 คน'),
+        findsOneWidget,
+      );
       // The old insights invented specific, unsourced claims that must
       // never reappear. (PM2.5 still legitimately appears as a report-type
       // label elsewhere on this page, so it isn't checked here.)
@@ -249,40 +252,41 @@ void main() {
     expect(find.text('ส่งออกรายงานแล้ว (CSV)'), findsOneWidget);
   });
 
-  testWidgets('export downloads a real Excel file built from the loaded summary', (
-    tester,
-  ) async {
-    String? downloadedFilename;
-    List<int>? downloadedBytes;
-    await _pump(
-      tester,
-      loadSummary: () async => _summary(),
-      loadLogs: () async => <SchoolAdminAuditLog>[],
-      downloadBytesOverride:
-          ({
-            required String filename,
-            required List<int> bytes,
-            required String mimeType,
-          }) {
-            downloadedFilename = filename;
-            downloadedBytes = bytes;
-          },
-    );
-    await tester.pumpAndSettle();
+  testWidgets(
+    'export downloads a real Excel file built from the loaded summary',
+    (tester) async {
+      String? downloadedFilename;
+      List<int>? downloadedBytes;
+      await _pump(
+        tester,
+        loadSummary: () async => _summary(),
+        loadLogs: () async => <SchoolAdminAuditLog>[],
+        downloadBytesOverride:
+            ({
+              required String filename,
+              required List<int> bytes,
+              required String mimeType,
+            }) {
+              downloadedFilename = filename;
+              downloadedBytes = bytes;
+            },
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('ส่งออกรายงาน'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('ส่งออกเป็น Excel'));
-    await tester.pump();
+      await tester.tap(find.text('ส่งออกรายงาน'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ส่งออกเป็น Excel'));
+      await tester.pump();
 
-    expect(downloadedFilename, endsWith('.xlsx'));
-    expect(downloadedBytes, isNotNull);
-    // .xlsx is a zip archive — 'PK' magic bytes confirm a real file was
-    // encoded, not an empty/placeholder byte list.
-    expect(downloadedBytes![0], 0x50);
-    expect(downloadedBytes![1], 0x4B);
-    expect(find.text('ส่งออกรายงานแล้ว (Excel)'), findsOneWidget);
-  });
+      expect(downloadedFilename, endsWith('.xlsx'));
+      expect(downloadedBytes, isNotNull);
+      // .xlsx is a zip archive — 'PK' magic bytes confirm a real file was
+      // encoded, not an empty/placeholder byte list.
+      expect(downloadedBytes![0], 0x50);
+      expect(downloadedBytes![1], 0x4B);
+      expect(find.text('ส่งออกรายงานแล้ว (Excel)'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'export with no data loaded yet refuses instead of downloading an empty file',
@@ -318,7 +322,9 @@ void main() {
   /// ค่าที่เลือกถูกเอาไปพิมพ์เป็นหัวข้อ "ช่วง เดือนนี้ • อาคารเรียน B • A-101"
   /// เหนือตัวเลขของทั้งโรงเรียน ผู้ดูแลจึงอ่านตัวเลขรวมโดยเข้าใจว่าเป็นของ
   /// อาคารเดียว แถมชื่ออาคาร/ห้องในลิสต์ก็เป็นชื่อที่แต่งขึ้น ไม่มีในฐานข้อมูล
-  testWidgets('ต้องไม่มีตัวกรองอาคาร/ห้องที่กรองอะไรไม่ได้จริง', (tester) async {
+  testWidgets('ต้องไม่มีตัวกรองอาคาร/ห้องที่กรองอะไรไม่ได้จริง', (
+    tester,
+  ) async {
     await _pump(
       tester,
       loadSummary: () async => _summary(),

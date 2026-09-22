@@ -51,14 +51,16 @@ Future<void> _pump(
     MaterialApp(
       home: Scaffold(
         body: DirectorStudentFollowupPage(
-          loadStudents: loadStudents ?? (_) async => [_student('s1', 'นักเรียนทดสอบ')],
+          loadStudents:
+              loadStudents ?? (_) async => [_student('s1', 'นักเรียนทดสอบ')],
           loadStaff: loadStaff ?? () async => [_teacher('t1', 'ครูทดสอบ')],
           loadHomeVisits: loadHomeVisits ?? () async => const [],
           createHomeVisit: createHomeVisit,
           loadSdq: loadSdq ?? () async => const [],
           recordSdq: recordSdq,
           loadScholarships: loadScholarships ?? () async => const [],
-          loadScholarshipAwards: loadScholarshipAwards ?? ({scholarshipId}) async => const [],
+          loadScholarshipAwards:
+              loadScholarshipAwards ?? ({scholarshipId}) async => const [],
           createScholarship: createScholarship,
           nominateAward: nominateAward,
           setAwardStatus: setAwardStatus,
@@ -175,27 +177,32 @@ void main() {
     Map<String, dynamic>? captured;
     await _pump(
       tester,
-      createHomeVisit: ({
-        required studentId,
-        required visitDate,
-        required purpose,
-        familySituation,
-        followUpNeeded = false,
-        followUpNotes,
-      }) async {
-        captured = {
-          'studentId': studentId,
-          'purpose': purpose,
-          'followUpNeeded': followUpNeeded,
-        };
-        return 'new-visit-id';
-      },
+      createHomeVisit:
+          ({
+            required studentId,
+            required visitDate,
+            required purpose,
+            familySituation,
+            followUpNeeded = false,
+            followUpNotes,
+          }) async {
+            captured = {
+              'studentId': studentId,
+              'purpose': purpose,
+              'followUpNeeded': followUpNeeded,
+            };
+            return 'new-visit-id';
+          },
     );
 
     await tester.tap(find.text('+ บันทึกการเยี่ยมบ้าน'));
     await tester.pumpAndSettle();
     // Student picker dialog opens first.
-    expect(find.text('เลือกนักเรียน'), findsOneWidget, reason: 'picker did not open');
+    expect(
+      find.text('เลือกนักเรียน'),
+      findsOneWidget,
+      reason: 'picker did not open',
+    );
     await tester.tap(find.text('นักเรียนทดสอบ'));
     await tester.pumpAndSettle();
     expect(
@@ -212,7 +219,11 @@ void main() {
     final saveButton = tester.widget<ElevatedButton>(
       find.widgetWithText(ElevatedButton, 'บันทึก'),
     );
-    expect(saveButton.onPressed, isNotNull, reason: 'save button still disabled');
+    expect(
+      saveButton.onPressed,
+      isNotNull,
+      reason: 'save button still disabled',
+    );
     await tester.tap(find.text('บันทึก'));
     await tester.pumpAndSettle();
 
@@ -227,14 +238,15 @@ void main() {
   ) async {
     await _pump(
       tester,
-      createHomeVisit: ({
-        required studentId,
-        required visitDate,
-        required purpose,
-        familySituation,
-        followUpNeeded = false,
-        followUpNotes,
-      }) async => throw StateError('rpc_unreachable'),
+      createHomeVisit:
+          ({
+            required studentId,
+            required visitDate,
+            required purpose,
+            familySituation,
+            followUpNeeded = false,
+            followUpNotes,
+          }) async => throw StateError('rpc_unreachable'),
     );
 
     await tester.tap(find.text('+ บันทึกการเยี่ยมบ้าน'));

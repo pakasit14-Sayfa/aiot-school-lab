@@ -70,7 +70,8 @@ Future<void> _pump(
         loadCourses: loadCourses ?? () async => const [],
         loadSchedule: loadSchedule ?? () async => const [],
         loadTasks: loadTasks ?? () async => const [],
-        loadAssignmentsForCourse: loadAssignmentsForCourse ?? (_) async => const [],
+        loadAssignmentsForCourse:
+            loadAssignmentsForCourse ?? (_) async => const [],
         createTask: createTask,
         deleteTask: deleteTask,
         toggleTask: toggleTask,
@@ -81,151 +82,182 @@ Future<void> _pump(
 }
 
 void main() {
-  testWidgets('deleting a personal task calls the real RPC, not just local state', (
+  testWidgets(
+    'deleting a personal task calls the real RPC, not just local state',
+    (tester) async {
+      var deleteCalls = 0;
+      var reloadCalls = 0;
+      final tasks = [_task()];
+
+      await _pump(
+        tester,
+        loadTasks: () async {
+          reloadCalls++;
+          return tasks;
+        },
+        deleteTask: (taskId) async {
+          deleteCalls++;
+          expect(taskId, 'task-1');
+        },
+      );
+
+      expect(reloadCalls, 1, reason: 'initial load');
+      expect(find.textContaining('ทบทวนวิชาเคมี'), findsWidgets);
+
+      // Tap the event to select it, then delete via the detail panel/action.
+      await tester.tap(find.textContaining('ทบทวนวิชาเคมี').first);
+      await tester.pumpAndSettle();
+
+      // Used to `return` silently when the icon was missing — which is exactly
+      // what happened every weekend, so the RPC assertions below never ran.
+      final deleteButton = find.byIcon(Icons.delete_outline_rounded);
+      expect(
+        deleteButton,
+        findsWidgets,
+        reason: 'selecting a personal task must offer delete',
+      );
+      await tester.tap(deleteButton.first);
+      await tester.pumpAndSettle();
+
+      expect(
+        deleteCalls,
+        1,
+        reason: 'delete must call the real RPC exactly once',
+      );
+      expect(
+        reloadCalls,
+        2,
+        reason:
+            'a successful delete reloads from the canonical list, not just local state',
+      );
+    },
+  );
+
+  testWidgets(
+    'toggling a personal task calls the real RPC with the flipped value',
+    (tester) async {
+      var toggleCalls = 0;
+      final tasks = [_task(done: false)];
+
+      await _pump(
+        tester,
+        loadTasks: () async => tasks,
+        toggleTask: ({required taskId, required done}) async {
+          toggleCalls++;
+          expect(taskId, 'task-1');
+          expect(
+            done,
+            true,
+            reason: 'toggling an undone task must send done: true',
+          );
+        },
+      );
+
+      // There is no Checkbox anywhere on this page — the old finder never
+      // matched, so the `if (isEmpty) return` that followed it made this test
+      // pass without ever tapping anything. The real affordance is the
+      // "ทำเครื่องหมายว่าเสร็จ" button in the detail panel of a selected event.
+      await tester.tap(find.textContaining('ทบทวนวิชาเคมี').first);
+      await tester.pumpAndSettle();
+
+      final markDone = find.text('ทำเครื่องหมายว่าเสร็จ');
+      expect(
+        markDone,
+        findsOneWidget,
+        reason: 'an undone personal task must offer mark-as-done',
+      );
+      await tester.tap(markDone);
+      await tester.pumpAndSettle();
+
+      expect(
+        toggleCalls,
+        1,
+        reason: 'toggle must call the real RPC exactly once',
+      );
+    },
+  );
+
+  testWidgets(
+    'an empty account shows an honest empty state, no fabricated events',
+    (tester) async {
+      await _pump(tester);
+
+      expect(find.textContaining('428'), findsNothing);
+      expect(find.textContaining('เคมี'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'class schedule and assignment due-dates are read-only, never deletable',
+    (tester) async {
+      var deleteCalls = 0;
+      await _pump(
+        tester,
+        loadSchedule: () async => [
+          ClassScheduleSlot(
+            id: 'sch-1',
+            courseId: 'course-1',
+            subjectName: 'คณิตศาสตร์',
+            dayOfWeek: 0, // จันทร์ — คอลัมน์แรกของบอร์ด แสดงเสมอ
+            startTime: '09:00:00',
+            endTime: '10:00:00',
+            room: '101',
+          ),
+        ],
+        deleteTask: (_) async => deleteCalls++,
+      );
+
+      expect(find.textContaining('คณิตศาสตร์'), findsWidgets);
+      // No assertion on tap-to-delete here — _EventSource.classSchedule
+      // sets isEditable=false, so the delete affordance shouldn't even be
+      // offered; this just confirms no accidental delete call happens from
+      // rendering alone.
+      expect(deleteCalls, 0);
+    },
+  );
+
+  testWidgets(
+    'add sheet: disabled until titled, then creates at the chosen day 16:00',
+    (tester) async {
+      String? gotTitle;
+      DateTime? gotDueAt;
+      await _pump(
+        tester,
+        phone: true,
+        createTask: ({required String title, required DateTime dueAt}) async {
+          gotTitle = title;
+          gotDueAt = dueAt;
+        },
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'เพิ่ม').first);
+      await tester.pumpAndSettle();
+      expect(find.text('กิจกรรมส่วนตัว'), findsOneWidget);
+
+      // Nothing typed → the primary button is disabled, tapping does nothing.
+      final save = find.text('เพิ่มลงปฏิทิน');
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect(gotTitle, isNull);
+      expect(find.text('กิจกรรมส่วนตัว'), findsOneWidget);
+
+      await tester.enterText(
+        find.byType(TextField).last,
+        'อ่านหนังสือสอบวิทย์',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+
+      final today = DateTime.now();
+      expect(gotTitle, 'อ่านหนังสือสอบวิทย์');
+      expect(gotDueAt, DateTime(today.year, today.month, today.day, 16, 0));
+      expect(find.text('กิจกรรมส่วนตัว'), findsNothing);
+    },
+  );
+
+  testWidgets('add sheet: ยกเลิก closes without creating anything', (
     tester,
   ) async {
-    var deleteCalls = 0;
-    var reloadCalls = 0;
-    final tasks = [_task()];
-
-    await _pump(
-      tester,
-      loadTasks: () async {
-        reloadCalls++;
-        return tasks;
-      },
-      deleteTask: (taskId) async {
-        deleteCalls++;
-        expect(taskId, 'task-1');
-      },
-    );
-
-    expect(reloadCalls, 1, reason: 'initial load');
-    expect(find.textContaining('ทบทวนวิชาเคมี'), findsWidgets);
-
-    // Tap the event to select it, then delete via the detail panel/action.
-    await tester.tap(find.textContaining('ทบทวนวิชาเคมี').first);
-    await tester.pumpAndSettle();
-
-    // Used to `return` silently when the icon was missing — which is exactly
-    // what happened every weekend, so the RPC assertions below never ran.
-    final deleteButton = find.byIcon(Icons.delete_outline_rounded);
-    expect(deleteButton, findsWidgets, reason: 'selecting a personal task must offer delete');
-    await tester.tap(deleteButton.first);
-    await tester.pumpAndSettle();
-
-    expect(deleteCalls, 1, reason: 'delete must call the real RPC exactly once');
-    expect(
-      reloadCalls,
-      2,
-      reason: 'a successful delete reloads from the canonical list, not just local state',
-    );
-  });
-
-  testWidgets('toggling a personal task calls the real RPC with the flipped value', (
-    tester,
-  ) async {
-    var toggleCalls = 0;
-    final tasks = [_task(done: false)];
-
-    await _pump(
-      tester,
-      loadTasks: () async => tasks,
-      toggleTask: ({required taskId, required done}) async {
-        toggleCalls++;
-        expect(taskId, 'task-1');
-        expect(done, true, reason: 'toggling an undone task must send done: true');
-      },
-    );
-
-    // There is no Checkbox anywhere on this page — the old finder never
-    // matched, so the `if (isEmpty) return` that followed it made this test
-    // pass without ever tapping anything. The real affordance is the
-    // "ทำเครื่องหมายว่าเสร็จ" button in the detail panel of a selected event.
-    await tester.tap(find.textContaining('ทบทวนวิชาเคมี').first);
-    await tester.pumpAndSettle();
-
-    final markDone = find.text('ทำเครื่องหมายว่าเสร็จ');
-    expect(markDone, findsOneWidget, reason: 'an undone personal task must offer mark-as-done');
-    await tester.tap(markDone);
-    await tester.pumpAndSettle();
-
-    expect(toggleCalls, 1, reason: 'toggle must call the real RPC exactly once');
-  });
-
-  testWidgets('an empty account shows an honest empty state, no fabricated events', (
-    tester,
-  ) async {
-    await _pump(tester);
-
-    expect(find.textContaining('428'), findsNothing);
-    expect(find.textContaining('เคมี'), findsNothing);
-  });
-
-  testWidgets('class schedule and assignment due-dates are read-only, never deletable', (
-    tester,
-  ) async {
-    var deleteCalls = 0;
-    await _pump(
-      tester,
-      loadSchedule: () async => [
-        ClassScheduleSlot(
-          id: 'sch-1',
-          courseId: 'course-1',
-          subjectName: 'คณิตศาสตร์',
-          dayOfWeek: 0, // จันทร์ — คอลัมน์แรกของบอร์ด แสดงเสมอ
-          startTime: '09:00:00',
-          endTime: '10:00:00',
-          room: '101',
-        ),
-      ],
-      deleteTask: (_) async => deleteCalls++,
-    );
-
-    expect(find.textContaining('คณิตศาสตร์'), findsWidgets);
-    // No assertion on tap-to-delete here — _EventSource.classSchedule
-    // sets isEditable=false, so the delete affordance shouldn't even be
-    // offered; this just confirms no accidental delete call happens from
-    // rendering alone.
-    expect(deleteCalls, 0);
-  });
-
-  testWidgets('add sheet: disabled until titled, then creates at the chosen day 16:00', (
-    tester,
-  ) async {
-    String? gotTitle;
-    DateTime? gotDueAt;
-    await _pump(
-      tester,
-      phone: true,
-      createTask: ({required String title, required DateTime dueAt}) async {
-        gotTitle = title;
-        gotDueAt = dueAt;
-      },
-    );
-    await tester.tap(find.widgetWithText(FilledButton, 'เพิ่ม').first);
-    await tester.pumpAndSettle();
-    expect(find.text('กิจกรรมส่วนตัว'), findsOneWidget);
-
-    // Nothing typed → the primary button is disabled, tapping does nothing.
-    final save = find.text('เพิ่มลงปฏิทิน');
-    await tester.tap(save);
-    await tester.pumpAndSettle();
-    expect(gotTitle, isNull);
-    expect(find.text('กิจกรรมส่วนตัว'), findsOneWidget);
-
-    await tester.enterText(find.byType(TextField).last, 'อ่านหนังสือสอบวิทย์');
-    await tester.pumpAndSettle();
-    await tester.tap(save);
-    await tester.pumpAndSettle();
-
-    final today = DateTime.now();
-    expect(gotTitle, 'อ่านหนังสือสอบวิทย์');
-    expect(gotDueAt, DateTime(today.year, today.month, today.day, 16, 0));
-    expect(find.text('กิจกรรมส่วนตัว'), findsNothing);
-  });
-
-  testWidgets('add sheet: ยกเลิก closes without creating anything', (tester) async {
     var created = false;
     await _pump(
       tester,

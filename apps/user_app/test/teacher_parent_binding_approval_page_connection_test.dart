@@ -33,7 +33,8 @@ Future<void> _pump(
     MaterialApp(
       home: TeacherParentBindingApprovalPage(
         listParentLinks:
-            listParentLinks ?? ({status = 'pending', schoolId}) async => [_link],
+            listParentLinks ??
+            ({status = 'pending', schoolId}) async => [_link],
         approveParentLink: approveParentLink,
         rejectParentLink: rejectParentLink,
       ),
@@ -91,10 +92,19 @@ void main() {
       await tester.pumpAndSettle();
 
       // Confirm button stays disabled until a reason is entered.
-      final confirmButtonFinder = find.widgetWithText(FilledButton, 'ปฏิเสธคำขอ');
-      expect(tester.widget<FilledButton>(confirmButtonFinder).onPressed, isNull);
+      final confirmButtonFinder = find.widgetWithText(
+        FilledButton,
+        'ปฏิเสธคำขอ',
+      );
+      expect(
+        tester.widget<FilledButton>(confirmButtonFinder).onPressed,
+        isNull,
+      );
 
-      await tester.enterText(find.byType(TextField), 'ข้อมูลไม่ตรงกับทะเบียนนักเรียน');
+      await tester.enterText(
+        find.byType(TextField),
+        'ข้อมูลไม่ตรงกับทะเบียนนักเรียน',
+      );
       await tester.pumpAndSettle();
       await tester.tap(confirmButtonFinder);
       await tester.pumpAndSettle();
@@ -105,21 +115,25 @@ void main() {
   );
 
   testWidgets('zero pending links shows an honest empty state', (tester) async {
-    await _pump(tester, listParentLinks: ({status = 'pending', schoolId}) async => const []);
+    await _pump(
+      tester,
+      listParentLinks: ({status = 'pending', schoolId}) async => const [],
+    );
     expect(find.text('ไม่มีคำขอรออนุมัติแล้ว'), findsOneWidget);
   });
 
-  testWidgets('a real load failure shows an honest error, no leaked exception text', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      listParentLinks: ({status = 'pending', schoolId}) async =>
-          throw StateError('backend detail that must stay internal'),
-    );
-    expect(find.text('โหลดคำขอผูกบัญชีไม่สำเร็จ'), findsOneWidget);
-    expect(find.textContaining('backend detail'), findsNothing);
-  });
+  testWidgets(
+    'a real load failure shows an honest error, no leaked exception text',
+    (tester) async {
+      await _pump(
+        tester,
+        listParentLinks: ({status = 'pending', schoolId}) async =>
+            throw StateError('backend detail that must stay internal'),
+      );
+      expect(find.text('โหลดคำขอผูกบัญชีไม่สำเร็จ'), findsOneWidget);
+      expect(find.textContaining('backend detail'), findsNothing);
+    },
+  );
 
   /// ตั้งแต่ migration 20260909010000 ครูเห็น/อนุมัติได้เฉพาะนักเรียนในห้องที่
   /// ตัวเองเป็นครูประจำชั้น — ครูที่เคยเห็นคำขอทั้งโรงเรียนจะเห็นหน้าว่างเปล่า

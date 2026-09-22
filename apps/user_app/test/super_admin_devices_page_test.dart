@@ -8,20 +8,19 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('SuperAdminDevicesPage renders gracefully in unmocked environment', (tester) async {
-    tester.view.physicalSize = const Size(1200, 1200);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(() => tester.view.resetPhysicalSize());
+  testWidgets(
+    'SuperAdminDevicesPage renders gracefully in unmocked environment',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
 
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: SuperAdminDevicesPage(),
-      ),
-    );
+      await tester.pumpWidget(const MaterialApp(home: SuperAdminDevicesPage()));
 
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.text('ทะเบียนและรหัสอุปกรณ์ (Devices & QR)'), findsOneWidget);
-  });
+      expect(find.text('ทะเบียนและรหัสอุปกรณ์ (Devices & QR)'), findsOneWidget);
+    },
+  );
 }

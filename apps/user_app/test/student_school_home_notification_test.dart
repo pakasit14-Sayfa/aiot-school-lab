@@ -22,24 +22,25 @@ AppNotification _note(String id) => AppNotification(
 );
 
 void main() {
-  testWidgets('empty account shows the honest ยังไม่มีประกาศ state, no fabricated card', (
-    tester,
-  ) async {
-    var viewedCount = 0;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SchoolAnnouncementsCard(
-            notification: null,
-            onViewed: () => viewedCount++,
+  testWidgets(
+    'empty account shows the honest ยังไม่มีประกาศ state, no fabricated card',
+    (tester) async {
+      var viewedCount = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SchoolAnnouncementsCard(
+              notification: null,
+              onViewed: () => viewedCount++,
+            ),
           ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('ยังไม่มีประกาศ'), findsOneWidget);
-    expect(viewedCount, 0);
-  });
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('ยังไม่มีประกาศ'), findsOneWidget);
+      expect(viewedCount, 0);
+    },
+  );
 
   testWidgets('a real notification renders its title and body', (tester) async {
     await tester.pumpWidget(
@@ -54,10 +55,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('เปิดเทอมภาคเรียนที่ 2'), findsOneWidget);
-    expect(
-      find.text('body of เปิดเทอมภาคเรียนที่ 2'),
-      findsOneWidget,
-    );
+    expect(find.text('body of เปิดเทอมภาคเรียนที่ 2'), findsOneWidget);
     expect(find.text('ยังไม่มีประกาศ'), findsNothing);
   });
 

@@ -82,25 +82,26 @@ void main() {
     expect(find.textContaining('ผู้อำนวยการโรงเรียน'), findsNothing);
   });
 
-  testWidgets('nothing without storage is offered — no phone field, no photo button, no dead tabs', (
-    tester,
-  ) async {
-    await _pump(tester);
+  testWidgets(
+    'nothing without storage is offered — no phone field, no photo button, no dead tabs',
+    (tester) async {
+      await _pump(tester);
 
-    // `users` has no phone/avatar column; there is no per-user preference
-    // table, report generator or digest mailer. All of those used to be on
-    // screen as "ยังไม่รองรับ"/"ยังไม่เปิดใช้งาน" placeholders.
-    expect(find.text('ยังไม่รองรับ'), findsNothing);
-    expect(find.text('เปลี่ยนรูป'), findsNothing);
-    for (final tab in ['การแจ้งเตือน', 'การแสดงผล', 'รายงาน']) {
-      expect(find.text(tab), findsNothing, reason: tab);
-    }
-    expect(find.text('ยังไม่เปิดใช้งาน'), findsNothing);
-    expect(find.byType(Switch), findsNothing);
-    // What is left is real: profile + security.
-    expect(find.text('บัญชีส่วนตัว'), findsWidgets);
-    expect(find.text('ความปลอดภัย'), findsWidgets);
-  });
+      // `users` has no phone/avatar column; there is no per-user preference
+      // table, report generator or digest mailer. All of those used to be on
+      // screen as "ยังไม่รองรับ"/"ยังไม่เปิดใช้งาน" placeholders.
+      expect(find.text('ยังไม่รองรับ'), findsNothing);
+      expect(find.text('เปลี่ยนรูป'), findsNothing);
+      for (final tab in ['การแจ้งเตือน', 'การแสดงผล', 'รายงาน']) {
+        expect(find.text(tab), findsNothing, reason: tab);
+      }
+      expect(find.text('ยังไม่เปิดใช้งาน'), findsNothing);
+      expect(find.byType(Switch), findsNothing);
+      // What is left is real: profile + security.
+      expect(find.text('บัญชีส่วนตัว'), findsWidgets);
+      expect(find.text('ความปลอดภัย'), findsWidgets);
+    },
+  );
 
   testWidgets('2FA is reported as enforced, not offered as a switch', (
     tester,
@@ -146,66 +147,76 @@ void main() {
     expect(saveButton().onPressed, isNotNull);
   });
 
-  testWidgets('the password dialog calls change_my_password and reports success only then', (
-    tester,
-  ) async {
-    String? sentCurrent, sentNext;
-    await _pump(
-      tester,
-      changePassword: ({required currentPassword, required newPassword}) async {
-        sentCurrent = currentPassword;
-        sentNext = newPassword;
-      },
-    );
+  testWidgets(
+    'the password dialog calls change_my_password and reports success only then',
+    (tester) async {
+      String? sentCurrent, sentNext;
+      await _pump(
+        tester,
+        changePassword:
+            ({required currentPassword, required newPassword}) async {
+              sentCurrent = currentPassword;
+              sentNext = newPassword;
+            },
+      );
 
-    await tester.tap(find.text('ความปลอดภัย'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('เปลี่ยนรหัส').first);
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('ความปลอดภัย'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('เปลี่ยนรหัส').first);
+      await tester.pumpAndSettle();
 
-    expect(find.textContaining('ต้องยืนยันผ่านรหัส OTP'), findsNothing);
-    await tester.enterText(
-      find.widgetWithText(TextField, 'รหัสผ่านปัจจุบัน'),
-      'Test1234!',
-    );
-    await tester.enterText(
-      find.widgetWithText(TextField, 'รหัสผ่านใหม่ (อย่างน้อย 8 ตัว)'),
-      'NewPass9!',
-    );
-    await tester.enterText(
-      find.widgetWithText(TextField, 'ยืนยันรหัสผ่านใหม่'),
-      'NewPass9!',
-    );
-    await tester.tap(find.widgetWithText(FilledButton, 'เปลี่ยนรหัสผ่าน'));
-    await tester.pumpAndSettle();
+      expect(find.textContaining('ต้องยืนยันผ่านรหัส OTP'), findsNothing);
+      await tester.enterText(
+        find.widgetWithText(TextField, 'รหัสผ่านปัจจุบัน'),
+        'Test1234!',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'รหัสผ่านใหม่ (อย่างน้อย 8 ตัว)'),
+        'NewPass9!',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'ยืนยันรหัสผ่านใหม่'),
+        'NewPass9!',
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'เปลี่ยนรหัสผ่าน'));
+      await tester.pumpAndSettle();
 
-    expect(sentCurrent, 'Test1234!');
-    expect(sentNext, 'NewPass9!');
-    expect(find.textContaining('เปลี่ยนรหัสผ่านแล้ว'), findsOneWidget);
-  });
+      expect(sentCurrent, 'Test1234!');
+      expect(sentNext, 'NewPass9!');
+      expect(find.textContaining('เปลี่ยนรหัสผ่านแล้ว'), findsOneWidget);
+    },
+  );
 
-  testWidgets('a wrong current password is reported, never claimed as changed', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      changePassword: ({required currentPassword, required newPassword}) async =>
-          throw StateError('wrong_current_password'),
-    );
-    await tester.tap(find.text('ความปลอดภัย'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('เปลี่ยนรหัส').first);
-    await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, 'รหัสผ่านปัจจุบัน'), 'x');
-    await tester.enterText(
-      find.widgetWithText(TextField, 'รหัสผ่านใหม่ (อย่างน้อย 8 ตัว)'),
-      'NewPass9!',
-    );
-    await tester.enterText(find.widgetWithText(TextField, 'ยืนยันรหัสผ่านใหม่'), 'NewPass9!');
-    await tester.tap(find.widgetWithText(FilledButton, 'เปลี่ยนรหัสผ่าน'));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'a wrong current password is reported, never claimed as changed',
+    (tester) async {
+      await _pump(
+        tester,
+        changePassword:
+            ({required currentPassword, required newPassword}) async =>
+                throw StateError('wrong_current_password'),
+      );
+      await tester.tap(find.text('ความปลอดภัย'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('เปลี่ยนรหัส').first);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'รหัสผ่านปัจจุบัน'),
+        'x',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'รหัสผ่านใหม่ (อย่างน้อย 8 ตัว)'),
+        'NewPass9!',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'ยืนยันรหัสผ่านใหม่'),
+        'NewPass9!',
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'เปลี่ยนรหัสผ่าน'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('รหัสผ่านปัจจุบันไม่ถูกต้อง'), findsOneWidget);
-    expect(find.textContaining('เปลี่ยนรหัสผ่านแล้ว'), findsNothing);
-  });
+      expect(find.text('รหัสผ่านปัจจุบันไม่ถูกต้อง'), findsOneWidget);
+      expect(find.textContaining('เปลี่ยนรหัสผ่านแล้ว'), findsNothing);
+    },
+  );
 }

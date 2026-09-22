@@ -107,7 +107,8 @@ Future<void> _pump(
           },
           loadLeaveRequests: () async =>
               pendingLeave ?? const <StaffLeaveRequest>[],
-          loadPeriodsNeedingSubstitute: loadPeriodsNeedingSubstitute ??
+          loadPeriodsNeedingSubstitute:
+              loadPeriodsNeedingSubstitute ??
               (_) async => const <PeriodNeedingSubstitute>[],
           recordSubstitution: recordSubstitution,
         ),
@@ -251,7 +252,10 @@ void main() {
   testWidgets('today\'s attendance comes from the summary RPC', (tester) async {
     await _pump(
       tester,
-      staff: [_staff(name: 'ก'), _staff(name: 'ข')],
+      staff: [
+        _staff(name: 'ก'),
+        _staff(name: 'ข'),
+      ],
       attendance: _summary(
         total: 6,
         present: 3,
@@ -344,11 +348,11 @@ void main() {
     final departmentDropdown = tester.widget<DropdownButton<String>>(
       find.byType(DropdownButton<String>).first,
     );
-    expect(
-      departmentDropdown.items?.map((i) => i.value).toList(),
-      ['ทุกฝ่าย', 'ฝ่ายวิชาการ', 'วิทยาศาสตร์'],
-      reason: 'ตัวเลือกฝ่ายต้องมาจาก departments ที่โหลดมา',
-    );
+    expect(departmentDropdown.items?.map((i) => i.value).toList(), [
+      'ทุกฝ่าย',
+      'ฝ่ายวิชาการ',
+      'วิทยาศาสตร์',
+    ], reason: 'ตัวเลือกฝ่ายต้องมาจาก departments ที่โหลดมา');
 
     // Status is a segmented pill toggle, not a dropdown — scope to its own
     // subtree since 'ใช้งานอยู่'/'ระงับการใช้งาน' also appear on the roster
@@ -362,11 +366,11 @@ void main() {
         )
         .map((t) => t.data)
         .toList();
-    expect(
-      statusLabels,
-      ['ทุกสถานะ', 'ระงับการใช้งาน', 'ใช้งานอยู่'],
-      reason: 'สถานะต้องเป็นสถานะบัญชีจริงที่ตัวกรองเทียบได้',
-    );
+    expect(statusLabels, [
+      'ทุกสถานะ',
+      'ระงับการใช้งาน',
+      'ใช้งานอยู่',
+    ], reason: 'สถานะต้องเป็นสถานะบัญชีจริงที่ตัวกรองเทียบได้');
 
     // The five invented ฝ่าย and the six attendance states that the status
     // filter used to offer — none of which its own comparison could match.
@@ -383,10 +387,7 @@ void main() {
   testWidgets('a failed load is stated and shows no counts', (tester) async {
     await _pump(tester, fail: true);
 
-    expect(
-      find.textContaining('โหลดข้อมูลบุคลากรไม่สำเร็จ'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('โหลดข้อมูลบุคลากรไม่สำเร็จ'), findsOneWidget);
     expect(find.text('—'), findsWidgets);
     expect(find.textContaining('staff_unreachable'), findsNothing);
   });
@@ -550,17 +551,18 @@ void main() {
                 ]
               : const [];
         },
-        recordSubstitution: ({
-          required String classScheduleId,
-          required DateTime date,
-          required String originalTeacherId,
-          required String substituteTeacherId,
-          String? note,
-        }) async {
-          recordedClassScheduleId = classScheduleId;
-          recordedSubstituteId = substituteTeacherId;
-          return 'sub-1';
-        },
+        recordSubstitution:
+            ({
+              required String classScheduleId,
+              required DateTime date,
+              required String originalTeacherId,
+              required String substituteTeacherId,
+              String? note,
+            }) async {
+              recordedClassScheduleId = classScheduleId;
+              recordedSubstituteId = substituteTeacherId;
+              return 'sub-1';
+            },
       );
 
       await tester.tap(find.text('มอบหมายครูสอนแทน'));
@@ -576,7 +578,11 @@ void main() {
 
       expect(recordedClassScheduleId, 'cs-1');
       expect(recordedSubstituteId, 'u-ครูสำรอง ทดสอบ');
-      expect(reloadCount, 2, reason: 'ต้องโหลดใหม่หลังบันทึกสำเร็จเพื่อยืนยันจาก backend');
+      expect(
+        reloadCount,
+        2,
+        reason: 'ต้องโหลดใหม่หลังบันทึกสำเร็จเพื่อยืนยันจาก backend',
+      );
       expect(find.text('ไม่มีคาบที่ต้องจัดครูสอนแทนในวันนี้'), findsOneWidget);
     },
   );

@@ -61,7 +61,10 @@ void main() {
       expect(find.textContaining('AA:BB:CC:DD:EE:01'), findsNothing);
       expect(find.textContaining('โรงเรียนสาธิต AIoT'), findsNothing);
       expect(find.text('ยังไม่มีวิชาที่สอน'), findsOneWidget);
-      expect(find.text('ยังไม่มีอุปกรณ์แล็บ AIoT ที่ผูกกับบัญชีนี้'), findsOneWidget);
+      expect(
+        find.text('ยังไม่มีอุปกรณ์แล็บ AIoT ที่ผูกกับบัญชีนี้'),
+        findsOneWidget,
+      );
     },
   );
 
@@ -100,19 +103,23 @@ void main() {
     expect(find.textContaining('ไม่สำเร็จ'), findsWidgets);
   });
 
-  testWidgets('editing the display name calls update_user_profile with the typed name', (
-    tester,
-  ) async {
-    String? sent;
-    await _pump(tester, updateName: (n) async => sent = n);
-    await tester.tap(find.text('แก้ไขชื่อที่แสดง'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, 'ชื่อ-นามสกุล'), 'ครูใหม่ นามสกุลใหม่');
-    await tester.tap(find.widgetWithText(FilledButton, 'บันทึก'));
-    await tester.pumpAndSettle();
-    expect(sent, 'ครูใหม่ นามสกุลใหม่');
-    expect(find.text('บันทึกชื่อแล้ว'), findsOneWidget);
-  });
+  testWidgets(
+    'editing the display name calls update_user_profile with the typed name',
+    (tester) async {
+      String? sent;
+      await _pump(tester, updateName: (n) async => sent = n);
+      await tester.tap(find.text('แก้ไขชื่อที่แสดง'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'ชื่อ-นามสกุล'),
+        'ครูใหม่ นามสกุลใหม่',
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'บันทึก'));
+      await tester.pumpAndSettle();
+      expect(sent, 'ครูใหม่ นามสกุลใหม่');
+      expect(find.text('บันทึกชื่อแล้ว'), findsOneWidget);
+    },
+  );
 
   testWidgets('a failed name save is reported and never claimed as saved', (
     tester,
@@ -120,10 +127,16 @@ void main() {
     await _pump(tester, updateName: (_) async => throw StateError('nope'));
     await tester.tap(find.text('แก้ไขชื่อที่แสดง'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, 'ชื่อ-นามสกุล'), 'x y');
+    await tester.enterText(
+      find.widgetWithText(TextField, 'ชื่อ-นามสกุล'),
+      'x y',
+    );
     await tester.tap(find.widgetWithText(FilledButton, 'บันทึก'));
     await tester.pumpAndSettle();
-    expect(find.text('บันทึกชื่อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), findsOneWidget);
+    expect(
+      find.text('บันทึกชื่อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'),
+      findsOneWidget,
+    );
     expect(find.text('บันทึกชื่อแล้ว'), findsNothing);
     expect(find.textContaining('nope'), findsNothing);
   });
@@ -141,12 +154,18 @@ void main() {
     );
     await tester.tap(find.text('เปลี่ยนรหัสผ่าน'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, 'รหัสผ่านปัจจุบัน'), 'Test1234!');
+    await tester.enterText(
+      find.widgetWithText(TextField, 'รหัสผ่านปัจจุบัน'),
+      'Test1234!',
+    );
     await tester.enterText(
       find.widgetWithText(TextField, 'รหัสผ่านใหม่ (อย่างน้อย 8 ตัว)'),
       'NewPass9!',
     );
-    await tester.enterText(find.widgetWithText(TextField, 'ยืนยันรหัสผ่านใหม่'), 'NewPass9!');
+    await tester.enterText(
+      find.widgetWithText(TextField, 'ยืนยันรหัสผ่านใหม่'),
+      'NewPass9!',
+    );
     await tester.tap(find.widgetWithText(FilledButton, 'เปลี่ยนรหัสผ่าน'));
     await tester.pumpAndSettle();
     expect(current, 'Test1234!');

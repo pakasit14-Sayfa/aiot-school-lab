@@ -65,82 +65,89 @@ Future<void> _pump(
 }
 
 void main() {
-  testWidgets('a real load failure shows an honest error state, no fabricated demo courses', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      loadCourses: () async =>
-          throw StateError('backend detail that must stay internal'),
-    );
+  testWidgets(
+    'a real load failure shows an honest error state, no fabricated demo courses',
+    (tester) async {
+      await _pump(
+        tester,
+        loadCourses: () async =>
+            throw StateError('backend detail that must stay internal'),
+      );
 
-    expect(find.text('โหลดข้อมูลคลังความรู้ไม่สำเร็จ'), findsOneWidget);
-    expect(find.textContaining('backend detail'), findsNothing);
-    // The old fake fallback subjects must never appear.
-    expect(find.textContaining('AIoT สมาร์ตแล็บ'), findsNothing);
-    expect(find.textContaining('ฟิสิกส์ประยุกต์'), findsNothing);
-  });
+      expect(find.text('โหลดข้อมูลคลังความรู้ไม่สำเร็จ'), findsOneWidget);
+      expect(find.textContaining('backend detail'), findsNothing);
+      // The old fake fallback subjects must never appear.
+      expect(find.textContaining('AIoT สมาร์ตแล็บ'), findsNothing);
+      expect(find.textContaining('ฟิสิกส์ประยุกต์'), findsNothing);
+    },
+  );
 
-  testWidgets('a signed-out session shows the error state too, not a silent fake library', (
-    tester,
-  ) async {
-    await _pump(tester, hasSessionOverride: false);
-    expect(find.text('โหลดข้อมูลคลังความรู้ไม่สำเร็จ'), findsOneWidget);
-  });
+  testWidgets(
+    'a signed-out session shows the error state too, not a silent fake library',
+    (tester) async {
+      await _pump(tester, hasSessionOverride: false);
+      expect(find.text('โหลดข้อมูลคลังความรู้ไม่สำเร็จ'), findsOneWidget);
+    },
+  );
 
-  testWidgets('real files load and show the real name/size, not fabricated content', (
-    tester,
-  ) async {
-    await _pump(tester);
-    expect(find.text('เอกสารประกอบ.pdf'), findsOneWidget);
-    expect(find.textContaining('200.0 KB'), findsOneWidget);
-  });
+  testWidgets(
+    'real files load and show the real name/size, not fabricated content',
+    (tester) async {
+      await _pump(tester);
+      expect(find.text('เอกสารประกอบ.pdf'), findsOneWidget);
+      expect(find.textContaining('200.0 KB'), findsOneWidget);
+    },
+  );
 
   /// list_course_files ของวิชาหนึ่งล้ม เคยถูกกลืนเงียบแล้วโชว์ "ยังไม่มีไฟล์
   /// ในวิชานี้" — ครูอ่านว่าวิชาว่างทั้งที่โหลดไม่ขึ้น
-  testWidgets('a failed per-subject file load is distinct from an empty subject', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      listFiles: (_) async => throw Exception('PostgrestException: files_boom'),
-    );
-    expect(find.text('โหลดไฟล์ของวิชานี้ไม่สำเร็จ'), findsOneWidget);
-    expect(find.text('ยังไม่มีไฟล์ในวิชานี้'), findsNothing);
-    expect(find.textContaining('files_boom'), findsNothing);
-  });
+  testWidgets(
+    'a failed per-subject file load is distinct from an empty subject',
+    (tester) async {
+      await _pump(
+        tester,
+        listFiles: (_) async =>
+            throw Exception('PostgrestException: files_boom'),
+      );
+      expect(find.text('โหลดไฟล์ของวิชานี้ไม่สำเร็จ'), findsOneWidget);
+      expect(find.text('ยังไม่มีไฟล์ในวิชานี้'), findsNothing);
+      expect(find.textContaining('files_boom'), findsNothing);
+    },
+  );
 
-  testWidgets('downloading a file resolves the real signed URL for its real id', (
-    tester,
-  ) async {
-    String? requestedId;
-    await _pump(
-      tester,
-      getDownloadUrl: (fileId) async {
-        requestedId = fileId;
-        return 'https://example.com/signed';
-      },
-    );
+  testWidgets(
+    'downloading a file resolves the real signed URL for its real id',
+    (tester) async {
+      String? requestedId;
+      await _pump(
+        tester,
+        getDownloadUrl: (fileId) async {
+          requestedId = fileId;
+          return 'https://example.com/signed';
+        },
+      );
 
-    await tester.tap(find.byIcon(Icons.download_rounded));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.download_rounded));
+      await tester.pumpAndSettle();
 
-    expect(requestedId, 'file-1');
-  });
+      expect(requestedId, 'file-1');
+    },
+  );
 
-  testWidgets('a failed download shows an honest message, no leaked exception text', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      getDownloadUrl: (_) async =>
-          throw StateError('backend detail that must stay internal'),
-    );
+  testWidgets(
+    'a failed download shows an honest message, no leaked exception text',
+    (tester) async {
+      await _pump(
+        tester,
+        getDownloadUrl: (_) async =>
+            throw StateError('backend detail that must stay internal'),
+      );
 
-    await tester.tap(find.byIcon(Icons.download_rounded));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.download_rounded));
+      await tester.pumpAndSettle();
 
-    expect(find.text('ไม่สามารถดาวน์โหลดไฟล์ได้'), findsOneWidget);
-    expect(find.textContaining('backend detail'), findsNothing);
-  });
+      expect(find.text('ไม่สามารถดาวน์โหลดไฟล์ได้'), findsOneWidget);
+      expect(find.textContaining('backend detail'), findsNothing);
+    },
+  );
 }

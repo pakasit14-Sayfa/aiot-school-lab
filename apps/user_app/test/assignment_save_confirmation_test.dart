@@ -73,7 +73,7 @@ void main() {
       read: (_) async => [],
     );
     await tester.enterText(
-      find.widgetWithText(TextField, 'กำหนดส่งงาน'),
+      find.byKey(const Key('assignment-due-field')),
       '2027-02-31 16:30',
     );
     await tester.tap(find.text('บันทึกร่าง'));
@@ -122,7 +122,7 @@ void main() {
       },
     );
     await tester.enterText(
-      find.widgetWithText(TextField, 'กำหนดส่งงาน'),
+      find.byKey(const Key('assignment-due-field')),
       '2027-01-25 16:30',
     );
     await tester.tap(find.text('บันทึกร่าง'));

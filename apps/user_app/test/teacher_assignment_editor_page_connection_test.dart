@@ -190,7 +190,9 @@ void main() {
 
       // Pick the real rubric from the dropdown (previously discarded
       // silently — dropdown had 4 hardcoded fake choices sent nowhere).
-      await tester.tap(find.byType(DropdownButtonFormField<String?>).last);
+      // เกณฑ์เปลี่ยนจาก dropdown เป็นแถวที่เปิดชีตเลือก 2026-09-22 —
+      // ที่เทสต์นี้ตรึงคือเกณฑ์ที่เลือกต้องถูกส่งเป็น rubricId จริง
+      await tester.tap(find.text('ยังไม่ได้กำหนดเกณฑ์ให้คะแนน'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('เกณฑ์วิทย์').last);
       await tester.pumpAndSettle();
@@ -199,11 +201,11 @@ void main() {
       // reached the backend.
       await tester.tap(find.byType(Switch).first);
       await tester.enterText(
-        find.widgetWithText(TextField, 'กำหนดส่งงาน'),
+        find.byKey(const Key('assignment-due-field')),
         '2027-02-10 09:15',
       );
       await tester.pump();
-      await tester.tap(find.text('เผยแพร่ใบงาน'));
+      await tester.tap(find.text('เผยแพร่ให้นักเรียน'));
       await tester.pumpAndSettle();
 
       expect(updatedId, 'asg-1');

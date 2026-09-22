@@ -253,47 +253,48 @@ void main() {
     expect(published, 'a10');
   });
 
-  testWidgets('ชีตเลือกเกณฑ์: เลือกแล้วค่าขึ้นที่แถว และส่ง rubricId จริงตอนบันทึก', (
-    tester,
-  ) async {
-    String? sentRubric;
-    await _pump(
-      tester,
-      existing: const AssignmentSummary(
-        id: 'a11',
-        type: 'worksheet',
-        title: 'เดิม',
-        dueAt: null,
-        status: 'published',
-      ),
-      rubrics: [
-        RubricModel(id: 'r9', title: 'เกณฑ์โครงงาน AIoT', criteriaCount: 6),
-      ],
-      update:
-          ({
-            required assignmentId,
-            title,
-            instructions,
-            dueAt,
-            rubricId,
-            isGroup,
-          }) async => sentRubric = rubricId,
-    );
-    // ช่องกรอกสูงขึ้นหลังออกแบบใหม่ (คำอธิบายเป็นกล่อง 3 บรรทัด) แถวเกณฑ์จึง
-    // อยู่ต่ำกว่าขอบจอทดสอบ — เลื่อนก่อนเหมือนผู้ใช้จริง
-    await tester.ensureVisible(find.text('เกณฑ์การให้คะแนน'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('เกณฑ์การให้คะแนน'));
-    await tester.pumpAndSettle();
-    expect(find.text('ไม่ใช้เกณฑ์'), findsOneWidget); // หัวชีตของจริง
-    await tester.tap(find.text('เกณฑ์โครงงาน AIoT'));
-    await tester.pumpAndSettle();
-    // ค่าที่แถวต้องเปลี่ยนตามทันที ไม่ต้องรอบันทึก
-    expect(find.text('เกณฑ์โครงงาน AIoT'), findsOneWidget);
-    await tester.tap(find.text('บันทึก'));
-    await tester.pumpAndSettle();
-    expect(sentRubric, 'r9');
-  });
+  testWidgets(
+    'ชีตเลือกเกณฑ์: เลือกแล้วค่าขึ้นที่แถว และส่ง rubricId จริงตอนบันทึก',
+    (tester) async {
+      String? sentRubric;
+      await _pump(
+        tester,
+        existing: const AssignmentSummary(
+          id: 'a11',
+          type: 'worksheet',
+          title: 'เดิม',
+          dueAt: null,
+          status: 'published',
+        ),
+        rubrics: [
+          RubricModel(id: 'r9', title: 'เกณฑ์โครงงาน AIoT', criteriaCount: 6),
+        ],
+        update:
+            ({
+              required assignmentId,
+              title,
+              instructions,
+              dueAt,
+              rubricId,
+              isGroup,
+            }) async => sentRubric = rubricId,
+      );
+      // ช่องกรอกสูงขึ้นหลังออกแบบใหม่ (คำอธิบายเป็นกล่อง 3 บรรทัด) แถวเกณฑ์จึง
+      // อยู่ต่ำกว่าขอบจอทดสอบ — เลื่อนก่อนเหมือนผู้ใช้จริง
+      await tester.ensureVisible(find.text('เกณฑ์การให้คะแนน'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('เกณฑ์การให้คะแนน'));
+      await tester.pumpAndSettle();
+      expect(find.text('ไม่ใช้เกณฑ์'), findsOneWidget); // หัวชีตของจริง
+      await tester.tap(find.text('เกณฑ์โครงงาน AIoT'));
+      await tester.pumpAndSettle();
+      // ค่าที่แถวต้องเปลี่ยนตามทันที ไม่ต้องรอบันทึก
+      expect(find.text('เกณฑ์โครงงาน AIoT'), findsOneWidget);
+      await tester.tap(find.text('บันทึก'));
+      await tester.pumpAndSettle();
+      expect(sentRubric, 'r9');
+    },
+  );
 
   testWidgets('ชีตเลือกเกณฑ์: ครูที่ยังไม่มีเกณฑ์เห็นบล็อกว่าง + ปุ่มสร้าง', (
     tester,

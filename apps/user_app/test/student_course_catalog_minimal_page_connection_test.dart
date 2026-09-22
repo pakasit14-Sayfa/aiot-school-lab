@@ -75,52 +75,56 @@ Future<void> _pump(
 }
 
 void main() {
-  testWidgets('a real course shows the real teacher name and lesson/assignment counts, not fabricated data', (
-    tester,
-  ) async {
-    await _pump(tester);
-    expect(find.text('วิทยาศาสตร์'), findsWidgets);
-    expect(find.textContaining('ครูสมศรี'), findsOneWidget);
-    expect(find.text('1 วิชา'), findsOneWidget);
-  });
+  testWidgets(
+    'a real course shows the real teacher name and lesson/assignment counts, not fabricated data',
+    (tester) async {
+      await _pump(tester);
+      expect(find.text('วิทยาศาสตร์'), findsWidgets);
+      expect(find.textContaining('ครูสมศรี'), findsOneWidget);
+      expect(find.text('1 วิชา'), findsOneWidget);
+    },
+  );
 
-  testWidgets('submission progress reflects the real submission count, not an invented total', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      loadSubmissionVersions: (assignmentId) async {
-        expect(assignmentId, 'asg-1');
-        return [
-          SubmissionVersion(
-            version: 1,
-            content: 'ทำแล้ว',
-            submittedAt: DateTime(2026, 9, 1),
-            submissionVersionId: 'sv-1',
-          ),
-        ];
-      },
-    );
-    expect(find.text('100%'), findsOneWidget);
-    expect(find.textContaining('ส่งครบแล้ว'), findsOneWidget);
-  });
+  testWidgets(
+    'submission progress reflects the real submission count, not an invented total',
+    (tester) async {
+      await _pump(
+        tester,
+        loadSubmissionVersions: (assignmentId) async {
+          expect(assignmentId, 'asg-1');
+          return [
+            SubmissionVersion(
+              version: 1,
+              content: 'ทำแล้ว',
+              submittedAt: DateTime(2026, 9, 1),
+              submissionVersionId: 'sv-1',
+            ),
+          ];
+        },
+      );
+      expect(find.text('100%'), findsOneWidget);
+      expect(find.textContaining('ส่งครบแล้ว'), findsOneWidget);
+    },
+  );
 
-  testWidgets('zero real courses shows an honest empty state, not fabricated ones', (
-    tester,
-  ) async {
-    await _pump(tester, loadCourses: () async => const []);
-    expect(find.text('0 วิชา'), findsOneWidget);
-  });
+  testWidgets(
+    'zero real courses shows an honest empty state, not fabricated ones',
+    (tester) async {
+      await _pump(tester, loadCourses: () async => const []);
+      expect(find.text('0 วิชา'), findsOneWidget);
+    },
+  );
 
-  testWidgets('a real load failure shows an honest error, no leaked exception text', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      loadCourses: () async =>
-          throw StateError('backend detail that must stay internal'),
-    );
-    expect(find.textContaining('โหลดข้อมูลไม่สำเร็จ'), findsOneWidget);
-    expect(find.textContaining('backend detail'), findsNothing);
-  });
+  testWidgets(
+    'a real load failure shows an honest error, no leaked exception text',
+    (tester) async {
+      await _pump(
+        tester,
+        loadCourses: () async =>
+            throw StateError('backend detail that must stay internal'),
+      );
+      expect(find.textContaining('โหลดข้อมูลไม่สำเร็จ'), findsOneWidget);
+      expect(find.textContaining('backend detail'), findsNothing);
+    },
+  );
 }

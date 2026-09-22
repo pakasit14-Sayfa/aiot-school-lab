@@ -173,14 +173,13 @@ void main() {
       // ทำงานได้จริงแล้ว (WORK_LOG 2026-09-08) เทสต์ไม่ได้ตามมาแก้ เลยค้าง
       // เป็นเทสต์แดงที่บังคับให้หน้าจอโกหกว่าฟีเจอร์ยังใช้ไม่ได้
       expect(
-        find.text('ระบบยังไม่เก็บประวัติไฟล์รายงานที่เคยส่งออกไว้ในเวอร์ชันนี้'),
+        find.text(
+          'ระบบยังไม่เก็บประวัติไฟล์รายงานที่เคยส่งออกไว้ในเวอร์ชันนี้',
+        ),
         findsOneWidget,
       );
       // และต้องไม่กลับไปอ้างว่าส่งออกไม่ได้อีก เพราะตอนนี้ส่งออกได้จริง
-      expect(
-        find.textContaining('ส่งออกไฟล์ยังไม่พร้อมใช้งาน'),
-        findsNothing,
-      );
+      expect(find.textContaining('ส่งออกไฟล์ยังไม่พร้อมใช้งาน'), findsNothing);
       expect(find.text('ส่งออกรายงาน'), findsWidgets);
       expect(find.text('ยังไม่มีข้อมูลประวัติการใช้งานรายงาน'), findsOneWidget);
       // An empty school must not be reported as a failed load.
@@ -204,7 +203,10 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(find.text('โหลดประวัติการแก้ไขการตั้งค่าไม่สำเร็จ'), findsOneWidget);
+      expect(
+        find.text('โหลดประวัติการแก้ไขการตั้งค่าไม่สำเร็จ'),
+        findsOneWidget,
+      );
     },
   );
 
@@ -220,10 +222,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(
-        find.textContaining('บันทึกลงระบบได้จากหน้านี้'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('บันทึกลงระบบได้จากหน้านี้'), findsOneWidget);
       expect(find.text('โหลดประวัติไม่สำเร็จ'), findsOneWidget);
     },
   );

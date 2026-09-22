@@ -176,10 +176,7 @@ void main() {
       ),
     );
 
-    expect(
-      find.text('ยังไม่ได้ตั้งเวลาปฏิบัติงานของโรงเรียน'),
-      findsOneWidget,
-    );
+    expect(find.text('ยังไม่ได้ตั้งเวลาปฏิบัติงานของโรงเรียน'), findsOneWidget);
     expect(find.text('มาปฏิบัติงาน'), findsNothing);
   });
 }

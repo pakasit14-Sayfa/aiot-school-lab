@@ -88,9 +88,7 @@ void main() {
           onToggle: (_, _) => toggled = true,
         );
 
-        final Switch switchWidget = tester.widget<Switch>(
-          find.byType(Switch),
-        );
+        final Switch switchWidget = tester.widget<Switch>(find.byType(Switch));
         expect(switchWidget.onChanged, isNull);
 
         await tester.tap(find.byType(Switch), warnIfMissed: false);
@@ -151,10 +149,7 @@ void main() {
       await pumpCard(tester, item: device);
 
       expect(find.text('ออฟไลน์'), findsOneWidget);
-      expect(
-        find.textContaining('ยังส่งคำขอเปิด–ปิดได้'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('ยังส่งคำขอเปิด–ปิดได้'), findsOneWidget);
     });
   });
 
@@ -237,19 +232,14 @@ void main() {
       expect(rejectedItem, same(approval));
     });
 
-    testWidgets(
-      'canDecide false hides the approve/reject actions entirely',
-      (tester) async {
-        await pumpTile(
-          tester,
-          item: buildApproval(),
-          canDecide: false,
-        );
+    testWidgets('canDecide false hides the approve/reject actions entirely', (
+      tester,
+    ) async {
+      await pumpTile(tester, item: buildApproval(), canDecide: false);
 
-        expect(find.text('ยืนยันด้วยรหัสผ่าน'), findsNothing);
-        expect(find.text('ไม่อนุมัติ'), findsNothing);
-      },
-    );
+      expect(find.text('ยืนยันด้วยรหัสผ่าน'), findsNothing);
+      expect(find.text('ไม่อนุมัติ'), findsNothing);
+    });
 
     testWidgets('an already-approved request shows the approved label', (
       tester,

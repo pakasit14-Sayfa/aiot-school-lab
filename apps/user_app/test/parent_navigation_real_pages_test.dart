@@ -146,11 +146,9 @@ void main() {
       ]) {
         await tester.tap(find.text(destination.$1).first);
         await tester.pumpAndSettle();
-        expect(
-          requestedIds[destination.$2]!.toSet(),
-          {'student-2'},
-          reason: '${destination.$1} must use the shared student id',
-        );
+        expect(requestedIds[destination.$2]!.toSet(), {
+          'student-2',
+        }, reason: '${destination.$1} must use the shared student id');
       }
     },
   );

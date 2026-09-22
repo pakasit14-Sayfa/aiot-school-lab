@@ -220,7 +220,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('โหลดข้อมูล ESG ไม่สำเร็จ คะแนนและตัวเลขที่แสดงอาจไม่เป็นปัจจุบัน'),
+      find.text(
+        'โหลดข้อมูล ESG ไม่สำเร็จ คะแนนและตัวเลขที่แสดงอาจไม่เป็นปัจจุบัน',
+      ),
       findsOneWidget,
     );
     expect(find.text('ระดับ: โหลดไม่สำเร็จ'), findsOneWidget);
@@ -261,7 +263,11 @@ void main() {
     await _pump(
       tester,
       schedules: () async => [
-        _schedule(id: '1', enabled: true, lastTriggeredAt: DateTime(2026, 9, 5)),
+        _schedule(
+          id: '1',
+          enabled: true,
+          lastTriggeredAt: DateTime(2026, 9, 5),
+        ),
         _schedule(id: '2', enabled: true),
         _schedule(id: '3', enabled: false),
       ],
@@ -299,10 +305,7 @@ void main() {
     }
 
     // The methodology card is the honest part of this page and stays.
-    expect(
-      find.textContaining('ขอบเขตและที่มาของข้อมูล'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('ขอบเขตและที่มาของข้อมูล'), findsOneWidget);
   });
 
   testWidgets('export downloads a real CSV built from the loaded figures', (
@@ -353,91 +356,93 @@ void main() {
     expect(find.text('ส่งออกรายงาน ESG แล้ว (CSV)'), findsOneWidget);
   });
 
-  testWidgets('export downloads a real Excel file built from the loaded figures', (
-    tester,
-  ) async {
-    String? downloadedFilename;
-    List<int>? downloadedBytes;
+  testWidgets(
+    'export downloads a real Excel file built from the loaded figures',
+    (tester) async {
+      String? downloadedFilename;
+      List<int>? downloadedBytes;
 
-    tester.view.physicalSize = const Size(1400, 2600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(() {
-      tester.view.resetPhysicalSize();
-      tester.view.resetDevicePixelRatio();
-    });
-    await tester.pumpWidget(
-      MaterialApp(
-        home: SchoolAdminEsgPage(
-          loadEnergyScore: () async => _energyScore,
-          loadWaterScore: () async => _waterScore,
-          loadEnergySummary: () async => _energy,
-          loadWaterSummary: () async => _water,
-          loadSchedules: () async => const <DeviceSchedule>[],
-          downloadBytesOverride:
-              ({
-                required String filename,
-                required List<int> bytes,
-                required String mimeType,
-              }) {
-                downloadedFilename = filename;
-                downloadedBytes = bytes;
-              },
+      tester.view.physicalSize = const Size(1400, 2600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SchoolAdminEsgPage(
+            loadEnergyScore: () async => _energyScore,
+            loadWaterScore: () async => _waterScore,
+            loadEnergySummary: () async => _energy,
+            loadWaterSummary: () async => _water,
+            loadSchedules: () async => const <DeviceSchedule>[],
+            downloadBytesOverride:
+                ({
+                  required String filename,
+                  required List<int> bytes,
+                  required String mimeType,
+                }) {
+                  downloadedFilename = filename;
+                  downloadedBytes = bytes;
+                },
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('ส่งออกรายงาน ESG'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('ส่งออกเป็น Excel'));
-    await tester.pump();
+      await tester.tap(find.text('ส่งออกรายงาน ESG'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ส่งออกเป็น Excel'));
+      await tester.pump();
 
-    expect(downloadedFilename, endsWith('.xlsx'));
-    expect(downloadedBytes, isNotNull);
-    // .xlsx is a zip archive — 'PK' magic bytes confirm a real file was
-    // encoded, not an empty/placeholder byte list.
-    expect(downloadedBytes![0], 0x50);
-    expect(downloadedBytes![1], 0x4B);
-    expect(find.text('ส่งออกรายงาน ESG แล้ว (Excel)'), findsOneWidget);
-  });
+      expect(downloadedFilename, endsWith('.xlsx'));
+      expect(downloadedBytes, isNotNull);
+      // .xlsx is a zip archive — 'PK' magic bytes confirm a real file was
+      // encoded, not an empty/placeholder byte list.
+      expect(downloadedBytes![0], 0x50);
+      expect(downloadedBytes![1], 0x4B);
+      expect(find.text('ส่งออกรายงาน ESG แล้ว (Excel)'), findsOneWidget);
+    },
+  );
 
-  testWidgets('export with no measured data refuses instead of downloading an empty file', (
-    tester,
-  ) async {
-    var downloadCalled = false;
-    await _pump(tester);
-    await tester.pumpAndSettle();
+  testWidgets(
+    'export with no measured data refuses instead of downloading an empty file',
+    (tester) async {
+      var downloadCalled = false;
+      await _pump(tester);
+      await tester.pumpAndSettle();
 
-    // No override supplied above via _pump, so rebuild directly with one
-    // that would flag if called.
-    tester.view.physicalSize = const Size(1400, 2600);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: SchoolAdminEsgPage(
-          loadEnergyScore: () async => null,
-          loadWaterScore: () async => null,
-          loadEnergySummary: () async => null,
-          loadWaterSummary: () async => null,
-          loadSchedules: () async => const <DeviceSchedule>[],
-          downloadBytesOverride:
-              ({
-                required String filename,
-                required List<int> bytes,
-                required String mimeType,
-              }) {
-                downloadCalled = true;
-              },
+      // No override supplied above via _pump, so rebuild directly with one
+      // that would flag if called.
+      tester.view.physicalSize = const Size(1400, 2600);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SchoolAdminEsgPage(
+            loadEnergyScore: () async => null,
+            loadWaterScore: () async => null,
+            loadEnergySummary: () async => null,
+            loadWaterSummary: () async => null,
+            loadSchedules: () async => const <DeviceSchedule>[],
+            downloadBytesOverride:
+                ({
+                  required String filename,
+                  required List<int> bytes,
+                  required String mimeType,
+                }) {
+                  downloadCalled = true;
+                },
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('ส่งออกรายงาน ESG'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('ส่งออกเป็น CSV'));
-    await tester.pump();
+      await tester.tap(find.text('ส่งออกรายงาน ESG'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ส่งออกเป็น CSV'));
+      await tester.pump();
 
-    expect(downloadCalled, isFalse);
-    expect(find.text('ยังไม่มีข้อมูลพลังงาน/น้ำให้ส่งออก'), findsOneWidget);
-  });
+      expect(downloadCalled, isFalse);
+      expect(find.text('ยังไม่มีข้อมูลพลังงาน/น้ำให้ส่งออก'), findsOneWidget);
+    },
+  );
 }

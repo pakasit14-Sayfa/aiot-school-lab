@@ -35,8 +35,7 @@ final _rubricDetail = RubricModel(
 
 Future<void> _pump(
   WidgetTester tester, {
-  Future<List<SubmissionRoster>> Function(String assignmentId)?
-  listSubmissions,
+  Future<List<SubmissionRoster>> Function(String assignmentId)? listSubmissions,
   Future<List<RubricModel>> Function()? listMyRubrics,
   Future<RubricModel> Function(String rubricId)? getRubric,
   Future<String> Function({
@@ -144,15 +143,16 @@ void main() {
     expect(find.text('ยังไม่มีนักเรียนส่งงานนี้'), findsOneWidget);
   });
 
-  testWidgets('a real load failure shows an honest error, no leaked exception text', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      listSubmissions: (_) async =>
-          throw StateError('backend detail that must stay internal'),
-    );
-    expect(find.text('โหลดรายชื่อนักเรียนไม่สำเร็จ'), findsOneWidget);
-    expect(find.textContaining('backend detail'), findsNothing);
-  });
+  testWidgets(
+    'a real load failure shows an honest error, no leaked exception text',
+    (tester) async {
+      await _pump(
+        tester,
+        listSubmissions: (_) async =>
+            throw StateError('backend detail that must stay internal'),
+      );
+      expect(find.text('โหลดรายชื่อนักเรียนไม่สำเร็จ'), findsOneWidget);
+      expect(find.textContaining('backend detail'), findsNothing);
+    },
+  );
 }

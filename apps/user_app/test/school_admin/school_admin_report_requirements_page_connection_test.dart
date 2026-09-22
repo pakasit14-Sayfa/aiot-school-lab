@@ -59,8 +59,10 @@ Future<void> _pump(
     MaterialApp(
       home: SchoolAdminReportRequirementsPage(
         loadRequirements:
-            loadRequirements ?? ({onlyOpen = false}) async => <ReportRequirement>[],
-        loadDepartments: loadDepartments ?? () async => <SchoolDepartment>[_department()],
+            loadRequirements ??
+            ({onlyOpen = false}) async => <ReportRequirement>[],
+        loadDepartments:
+            loadDepartments ?? () async => <SchoolDepartment>[_department()],
         createRequirement: createRequirement,
         closeRequirement: closeRequirement,
       ),
@@ -115,71 +117,69 @@ void main() {
     expect(find.text('เกินกำหนด'), findsOneWidget);
   });
 
-  testWidgets(
-    'creating is blocked with a message when no departments exist',
-    (tester) async {
-      var calls = 0;
-      await _pump(
-        tester,
-        loadDepartments: () async => <SchoolDepartment>[],
-        createRequirement:
-            ({
-              required title,
-              required reportType,
-              required departmentIds,
-              dueDate,
-              description,
-            }) async {
-              calls++;
-              return 'unused';
-            },
-      );
-      await tester.pumpAndSettle();
+  testWidgets('creating is blocked with a message when no departments exist', (
+    tester,
+  ) async {
+    var calls = 0;
+    await _pump(
+      tester,
+      loadDepartments: () async => <SchoolDepartment>[],
+      createRequirement:
+          ({
+            required title,
+            required reportType,
+            required departmentIds,
+            dueDate,
+            description,
+          }) async {
+            calls++;
+            return 'unused';
+          },
+    );
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.text('สร้างรายการ'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('สร้างรายการ'));
+    await tester.pumpAndSettle();
 
-      expect(find.text('ยังไม่มีฝ่ายในระบบให้กำหนดผู้รับผิดชอบ'), findsOneWidget);
-      expect(calls, 0);
-      // The create dialog must never even open for this case.
-      expect(find.text('สร้างรายการรายงานที่ต้องส่ง'), findsNothing);
-    },
-  );
+    expect(find.text('ยังไม่มีฝ่ายในระบบให้กำหนดผู้รับผิดชอบ'), findsOneWidget);
+    expect(calls, 0);
+    // The create dialog must never even open for this case.
+    expect(find.text('สร้างรายการรายงานที่ต้องส่ง'), findsNothing);
+  });
 
-  testWidgets(
-    'creating requires at least one department to be selected',
-    (tester) async {
-      var calls = 0;
-      await _pump(
-        tester,
-        createRequirement:
-            ({
-              required title,
-              required reportType,
-              required departmentIds,
-              dueDate,
-              description,
-            }) async {
-              calls++;
-              return 'unused';
-            },
-      );
-      await tester.pumpAndSettle();
+  testWidgets('creating requires at least one department to be selected', (
+    tester,
+  ) async {
+    var calls = 0;
+    await _pump(
+      tester,
+      createRequirement:
+          ({
+            required title,
+            required reportType,
+            required departmentIds,
+            dueDate,
+            description,
+          }) async {
+            calls++;
+            return 'unused';
+          },
+    );
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.text('สร้างรายการ'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('สร้างรายการ'));
+    await tester.pumpAndSettle();
 
-      await tester.enterText(
-        find.widgetWithText(TextField, 'ชื่อรายงานที่ต้องส่ง'),
-        'รายงานทดสอบ',
-      );
-      await tester.tap(find.text('สร้าง'));
-      await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextField, 'ชื่อรายงานที่ต้องส่ง'),
+      'รายงานทดสอบ',
+    );
+    await tester.tap(find.text('สร้าง'));
+    await tester.pumpAndSettle();
 
-      expect(find.text('กรุณาเลือกอย่างน้อย 1 ฝ่าย'), findsOneWidget);
-      expect(calls, 0);
-    },
-  );
+    expect(find.text('กรุณาเลือกอย่างน้อย 1 ฝ่าย'), findsOneWidget);
+    expect(calls, 0);
+  });
 
   testWidgets(
     'creating a real requirement calls the seam and reloads the list',

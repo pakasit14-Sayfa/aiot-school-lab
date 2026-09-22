@@ -8,24 +8,26 @@ import 'package:shared_core/shared_core.dart';
 /// mutations must not report success if the RPC never actually applied,
 /// since school staff act on this page believing an alert is being handled.
 
-SchoolPlatformRecord _school({String id = 's-1', String name = 'โรงเรียนทดสอบ'}) =>
-    SchoolPlatformRecord(
-      id: id,
-      schoolCode: 'TEST-1',
-      name: name,
-      province: 'กรุงเทพมหานคร',
-      adminEmail: 'admin@school.test',
-      packageName: 'Pro',
-      status: 'active',
-      maxUsers: 100,
-      maxDevices: 50,
-      usersCount: 10,
-      devicesTotal: 5,
-      devicesOnline: 5,
-      buildingsCount: 1,
-      roomsCount: 3,
-      alertsCount: 0,
-    );
+SchoolPlatformRecord _school({
+  String id = 's-1',
+  String name = 'โรงเรียนทดสอบ',
+}) => SchoolPlatformRecord(
+  id: id,
+  schoolCode: 'TEST-1',
+  name: name,
+  province: 'กรุงเทพมหานคร',
+  adminEmail: 'admin@school.test',
+  packageName: 'Pro',
+  status: 'active',
+  maxUsers: 100,
+  maxDevices: 50,
+  usersCount: 10,
+  devicesTotal: 5,
+  devicesOnline: 5,
+  buildingsCount: 1,
+  roomsCount: 3,
+  alertsCount: 0,
+);
 
 SchoolSensorAlertRecord _alert({
   String id = 'alert-1',
@@ -132,7 +134,10 @@ void main() {
       await tester.tap(find.text('รับทราบเหตุ').first);
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('ไม่สามารถรับทราบเหตุการณ์ได้'), findsOneWidget);
+      expect(
+        find.textContaining('ไม่สามารถรับทราบเหตุการณ์ได้'),
+        findsOneWidget,
+      );
       expect(find.textContaining('รับทราบเหตุการณ์'), findsWidgets);
     },
   );
@@ -157,24 +162,23 @@ void main() {
     expect(find.textContaining('แล้ว'), findsWidgets);
   });
 
-  testWidgets(
-    'resolving only reports success once the RPC actually resolves',
-    (tester) async {
-      await _pump(
-        tester,
-        loadAlerts: () async => [_alert(status: 'acknowledged')],
-        resolveAlert: (id, {note}) async {
-          throw StateError('rpc rejected');
-        },
-      );
-      await tester.pumpAndSettle();
+  testWidgets('resolving only reports success once the RPC actually resolves', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      loadAlerts: () async => [_alert(status: 'acknowledged')],
+      resolveAlert: (id, {note}) async {
+        throw StateError('rpc rejected');
+      },
+    );
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.text('ปิดงาน').first);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('ยืนยันปิดงาน'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('ปิดงาน').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ยืนยันปิดงาน'));
+    await tester.pumpAndSettle();
 
-      expect(find.textContaining('ไม่สามารถปิดงานได้'), findsOneWidget);
-    },
-  );
+    expect(find.textContaining('ไม่สามารถปิดงานได้'), findsOneWidget);
+  });
 }

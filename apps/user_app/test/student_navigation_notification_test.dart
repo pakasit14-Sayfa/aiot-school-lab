@@ -30,7 +30,10 @@ Finder _unreadBadgeDot() => find.byWidgetPredicate(
       (widget.decoration as BoxDecoration).color == const Color(0xFFE11D48),
 );
 
-Widget _harness(Future<List<AppNotification>> Function()? load, {bool decorated = false}) {
+Widget _harness(
+  Future<List<AppNotification>> Function()? load, {
+  bool decorated = false,
+}) {
   return MaterialApp(
     home: Scaffold(
       body: Align(
@@ -93,16 +96,17 @@ void main() {
     },
   );
 
-  testWidgets('decorated (desktop) variant positions the badge on its own chrome', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _harness(() async => [_note('unread-1')], decorated: true),
-    );
-    await tester.pumpAndSettle();
-    expect(_unreadBadgeDot(), findsOneWidget);
-    expect(find.byType(Material), findsWidgets);
-  });
+  testWidgets(
+    'decorated (desktop) variant positions the badge on its own chrome',
+    (tester) async {
+      await tester.pumpWidget(
+        _harness(() async => [_note('unread-1')], decorated: true),
+      );
+      await tester.pumpAndSettle();
+      expect(_unreadBadgeDot(), findsOneWidget);
+      expect(find.byType(Material), findsWidgets);
+    },
+  );
 
   testWidgets(
     'a load failure leaves the badge safely absent instead of crashing',
@@ -116,14 +120,15 @@ void main() {
     },
   );
 
-  testWidgets('the preview modal shows the empty state honestly, not fabricated rows', (
-    tester,
-  ) async {
-    await tester.pumpWidget(_harness(() async => []));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.notifications_none_rounded));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
-    expect(find.text('ยังไม่มีการแจ้งเตือน'), findsOneWidget);
-  });
+  testWidgets(
+    'the preview modal shows the empty state honestly, not fabricated rows',
+    (tester) async {
+      await tester.pumpWidget(_harness(() async => []));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.notifications_none_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.text('ยังไม่มีการแจ้งเตือน'), findsOneWidget);
+    },
+  );
 }

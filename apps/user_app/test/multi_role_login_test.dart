@@ -29,21 +29,22 @@ void main() {
       MaterialApp(
         home: RoleSelectionPage(
           challenge: challenge,
-          selectRole: ({
-            required String roleSelectionToken,
-            required UserRole role,
-            String? schoolId,
-          }) async {
-            return AuthSignInResult.authenticated(
-              UserModel(
-                uid: 'teacher-1',
-                name: 'ครูผู้สอน',
-                email: 'teacher@aiot-school-lab.local',
-                role: role,
-                schoolId: schoolId ?? 'school-1',
-              ),
-            );
-          },
+          selectRole:
+              ({
+                required String roleSelectionToken,
+                required UserRole role,
+                String? schoolId,
+              }) async {
+                return AuthSignInResult.authenticated(
+                  UserModel(
+                    uid: 'teacher-1',
+                    name: 'ครูผู้สอน',
+                    email: 'teacher@aiot-school-lab.local',
+                    role: role,
+                    schoolId: schoolId ?? 'school-1',
+                  ),
+                );
+              },
           onSelected: (user) {
             chosenUser = user;
           },

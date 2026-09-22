@@ -23,14 +23,15 @@ void main() {
           body: LeaveRequestFormDialog(
             studentId: 'student-1',
             onSubmitted: () {},
-            submitter: ({
-              required studentId,
-              required leaveType,
-              required startDate,
-              required endDate,
-              required reason,
-              attachmentFile,
-            }) async => throw error,
+            submitter:
+                ({
+                  required studentId,
+                  required leaveType,
+                  required startDate,
+                  required endDate,
+                  required reason,
+                  attachmentFile,
+                }) async => throw error,
           ),
         ),
       ),
@@ -45,31 +46,41 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('invalid_date_range from the RPC becomes a sentence the parent can act on', (
-    tester,
-  ) async {
-    await pumpAndSubmit(
-      tester,
-      error: Exception('PostgrestException(message: invalid_date_range, code: P0001)'),
-    );
-    expect(find.text('วันสิ้นสุดต้องไม่ก่อนวันเริ่มลา'), findsOneWidget);
-    expect(find.textContaining('PostgrestException'), findsNothing);
-    expect(find.textContaining('เกิดข้อผิดพลาด:'), findsNothing);
-  });
+  testWidgets(
+    'invalid_date_range from the RPC becomes a sentence the parent can act on',
+    (tester) async {
+      await pumpAndSubmit(
+        tester,
+        error: Exception(
+          'PostgrestException(message: invalid_date_range, code: P0001)',
+        ),
+      );
+      expect(find.text('วันสิ้นสุดต้องไม่ก่อนวันเริ่มลา'), findsOneWidget);
+      expect(find.textContaining('PostgrestException'), findsNothing);
+      expect(find.textContaining('เกิดข้อผิดพลาด:'), findsNothing);
+    },
+  );
 
   testWidgets('forbidden becomes a permission sentence, not the raw code', (
     tester,
   ) async {
     await pumpAndSubmit(tester, error: Exception('forbidden'));
-    expect(find.text('บัญชีนี้ไม่มีสิทธิ์ขอลาให้นักเรียนคนนี้'), findsOneWidget);
+    expect(
+      find.text('บัญชีนี้ไม่มีสิทธิ์ขอลาให้นักเรียนคนนี้'),
+      findsOneWidget,
+    );
     expect(find.textContaining('Exception'), findsNothing);
   });
 
-  testWidgets('an unknown failure shows a neutral sentence with no leaked exception text', (
-    tester,
-  ) async {
-    await pumpAndSubmit(tester, error: StateError('socket_closed_secret'));
-    expect(find.text('ส่งคำขอลาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), findsOneWidget);
-    expect(find.textContaining('socket_closed_secret'), findsNothing);
-  });
+  testWidgets(
+    'an unknown failure shows a neutral sentence with no leaked exception text',
+    (tester) async {
+      await pumpAndSubmit(tester, error: StateError('socket_closed_secret'));
+      expect(
+        find.text('ส่งคำขอลาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('socket_closed_secret'), findsNothing);
+    },
+  );
 }

@@ -48,10 +48,16 @@ Future<void> _pump(
   Future<void> Function(String uid)? suspendUser,
   Future<void> Function(String uid)? reactivateUser,
   Future<void> Function(String uid, String name)? updateName,
-  Future<StaffInvitationTicket> Function({required String email, required UserRole role})?
+  Future<StaffInvitationTicket> Function({
+    required String email,
+    required UserRole role,
+  })?
   createInvitation,
   Future<List<SchoolBuildingRecord>> Function()? loadBuildings,
-  Future<void> Function({required String buildingId, required String? managerName})?
+  Future<void> Function({
+    required String buildingId,
+    required String? managerName,
+  })?
   setBuildingManager,
 }) async {
   tester.view.physicalSize = const Size(1500, 3200);
@@ -71,23 +77,34 @@ Future<void> _pump(
         reactivateUser: reactivateUser,
         updateName: updateName,
         createInvitation: createInvitation,
-        loadBuildings: loadBuildings ?? () async => const <SchoolBuildingRecord>[],
+        loadBuildings:
+            loadBuildings ?? () async => const <SchoolBuildingRecord>[],
         setBuildingManager: setBuildingManager,
       ),
     ),
   );
 }
 
-SchoolBuildingRecord _building({String id = 'bld-1', String name = 'อาคาร 1', String manager = ''}) =>
-    SchoolBuildingRecord(
-      id: id, schoolId: 'school-1', name: name, code: 'B1', floors: 2, roomsCount: 4,
-      managerName: manager, devicesCount: 0, trainingKitsCount: 0, status: 'active', note: '',
-    );
+SchoolBuildingRecord _building({
+  String id = 'bld-1',
+  String name = 'อาคาร 1',
+  String manager = '',
+}) => SchoolBuildingRecord(
+  id: id,
+  schoolId: 'school-1',
+  name: name,
+  code: 'B1',
+  floors: 2,
+  roomsCount: 4,
+  managerName: manager,
+  devicesCount: 0,
+  trainingKitsCount: 0,
+  status: 'active',
+  note: '',
+);
 
 void main() {
-  testWidgets('a multi-role teacher is still listed as staff', (
-    tester,
-  ) async {
+  testWidgets('a multi-role teacher is still listed as staff', (tester) async {
     // active_role collapsed to student, but all_roles still includes
     // teacher — `role == teacher` would have dropped this person entirely.
     await _pump(
@@ -130,7 +147,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('ยังไม่มีข้อมูล'), findsWidgets);
-    expect(find.text('ยังไม่มีบัญชีที่มีบทบาทครูในโรงเรียนนี้'), findsOneWidget);
+    expect(
+      find.text('ยังไม่มีบัญชีที่มีบทบาทครูในโรงเรียนนี้'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('a failed load is distinct from empty, with retry', (
@@ -186,7 +206,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('ยืนยันกับระบบเรียบร้อย'), findsNothing);
-    expect(find.textContaining('ระบบยังไม่ยืนยันการเปลี่ยนแปลง'), findsOneWidget);
+    expect(
+      find.textContaining('ระบบยังไม่ยืนยันการเปลี่ยนแปลง'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('suspend reports success once the read-back actually confirms', (
@@ -195,8 +218,9 @@ void main() {
     var suspended = false;
     await _pump(
       tester,
-      loadUsers: () async =>
-          [_teacher(status: suspended ? 'suspended' : 'active')],
+      loadUsers: () async => [
+        _teacher(status: suspended ? 'suspended' : 'active'),
+      ],
       suspendUser: (uid) async => suspended = true,
     );
     await tester.pumpAndSettle();
@@ -207,99 +231,114 @@ void main() {
     expect(find.textContaining('ยืนยันกับระบบเรียบร้อย'), findsOneWidget);
   });
 
-  testWidgets('"เพิ่มบุคลากรรายคน" issues a real invitation through create_staff_invitation', (
-    tester,
-  ) async {
-    String? sentEmail;
-    await _pump(
-      tester,
-      createInvitation: ({required email, required role}) async {
-        sentEmail = email;
-        return const StaffInvitationTicket(token: 'inv_teacher_1', expiresAt: null);
-      },
-    );
-    await tester.pumpAndSettle();
+  testWidgets(
+    '"เพิ่มบุคลากรรายคน" issues a real invitation through create_staff_invitation',
+    (tester) async {
+      String? sentEmail;
+      await _pump(
+        tester,
+        createInvitation: ({required email, required role}) async {
+          sentEmail = email;
+          return const StaffInvitationTicket(
+            token: 'inv_teacher_1',
+            expiresAt: null,
+          );
+        },
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('เพิ่มบุคลากรรายคน'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, 'อีเมลผู้ถูกเชิญ'), 'kru@school.test');
-    await tester.tap(find.text('สร้างคำเชิญ'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('เพิ่มบุคลากรรายคน'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'อีเมลผู้ถูกเชิญ'),
+        'kru@school.test',
+      );
+      await tester.tap(find.text('สร้างคำเชิญ'));
+      await tester.pumpAndSettle();
 
-    expect(sentEmail, 'kru@school.test');
-    expect(find.text('inv_teacher_1'), findsOneWidget);
-  });
+      expect(sentEmail, 'kru@school.test');
+      expect(find.text('inv_teacher_1'), findsOneWidget);
+    },
+  );
 
-  testWidgets('"กำหนดครูประจำอาคาร" writes the chosen teacher through set_school_building_manager', (
-    tester,
-  ) async {
-    String? sentBuilding, sentManager;
-    await _pump(
-      tester,
-      loadUsers: () async => [_teacher(uid: 't-1', name: 'ครูสมชาย ใจดี')],
-      loadBuildings: () async => [_building()],
-      setBuildingManager: ({required buildingId, required managerName}) async {
-        sentBuilding = buildingId;
-        sentManager = managerName;
-      },
-    );
-    await tester.pumpAndSettle();
+  testWidgets(
+    '"กำหนดครูประจำอาคาร" writes the chosen teacher through set_school_building_manager',
+    (tester) async {
+      String? sentBuilding, sentManager;
+      await _pump(
+        tester,
+        loadUsers: () async => [_teacher(uid: 't-1', name: 'ครูสมชาย ใจดี')],
+        loadBuildings: () async => [_building()],
+        setBuildingManager:
+            ({required buildingId, required managerName}) async {
+              sentBuilding = buildingId;
+              sentManager = managerName;
+            },
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('กำหนดครูประจำอาคาร'));
-    await tester.pumpAndSettle();
-    final managerDropdown = find.byWidgetPredicate((w) => w is DropdownButtonFormField<String?>);
-    await tester.tap(managerDropdown.last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('ครูสมชาย ใจดี').last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('บันทึก'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('กำหนดครูประจำอาคาร'));
+      await tester.pumpAndSettle();
+      final managerDropdown = find.byWidgetPredicate(
+        (w) => w is DropdownButtonFormField<String?>,
+      );
+      await tester.tap(managerDropdown.last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ครูสมชาย ใจดี').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('บันทึก'));
+      await tester.pumpAndSettle();
 
-    expect(sentBuilding, 'bld-1');
-    expect(sentManager, 'ครูสมชาย ใจดี');
-  });
+      expect(sentBuilding, 'bld-1');
+      expect(sentManager, 'ครูสมชาย ใจดี');
+    },
+  );
 
-  testWidgets('assigning a homeroom does not throw while the dialog closes (prod crash 2026-09-17)', (
-    tester,
-  ) async {
-    // On production the save hit Flutter's `_dependents.isEmpty` assertion:
-    // the dialog's TextEditingControllers were disposed right after
-    // showDialog returned, while the fields were still animating out.
-    String? sent;
-    await _pump(
-      tester,
-      loadUsers: () async => [_teacher()],
-      setHomeroomTeacher: (grade, room, teacherId) async {
-        sent = '$grade/$room';
-        return 'hr-1';
-      },
-      loadHomerooms: () async => sent == null
-          ? const []
-          : [
-              HomeroomAssignment(
-                assignmentId: 'hr-1',
-                gradeLevel: 'ม.1',
-                room: '1',
-                teacherId: _teacher().uid,
-                teacherName: _teacher().name,
-                studentCount: 3,
-              ),
-            ],
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('มอบหมายครูประจำชั้น').first);
-    await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, 'ระดับชั้น'), 'ม.1');
-    await tester.enterText(find.widgetWithText(TextField, 'ห้อง'), '1');
-    await tester.tap(find.widgetWithText(FilledButton, 'บันทึก'));
-    // Pump frame by frame through the close animation — this is where the
-    // assertion used to fire.
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 50));
+  testWidgets(
+    'assigning a homeroom does not throw while the dialog closes (prod crash 2026-09-17)',
+    (tester) async {
+      // On production the save hit Flutter's `_dependents.isEmpty` assertion:
+      // the dialog's TextEditingControllers were disposed right after
+      // showDialog returned, while the fields were still animating out.
+      String? sent;
+      await _pump(
+        tester,
+        loadUsers: () async => [_teacher()],
+        setHomeroomTeacher: (grade, room, teacherId) async {
+          sent = '$grade/$room';
+          return 'hr-1';
+        },
+        loadHomerooms: () async => sent == null
+            ? const []
+            : [
+                HomeroomAssignment(
+                  assignmentId: 'hr-1',
+                  gradeLevel: 'ม.1',
+                  room: '1',
+                  teacherId: _teacher().uid,
+                  teacherName: _teacher().name,
+                  studentCount: 3,
+                ),
+              ],
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('มอบหมายครูประจำชั้น').first);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'ระดับชั้น'),
+        'ม.1',
+      );
+      await tester.enterText(find.widgetWithText(TextField, 'ห้อง'), '1');
+      await tester.tap(find.widgetWithText(FilledButton, 'บันทึก'));
+      // Pump frame by frame through the close animation — this is where the
+      // assertion used to fire.
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(tester.takeException(), isNull);
+      }
+      await tester.pumpAndSettle();
+      expect(sent, 'ม.1/1');
       expect(tester.takeException(), isNull);
-    }
-    await tester.pumpAndSettle();
-    expect(sent, 'ม.1/1');
-    expect(tester.takeException(), isNull);
-  });
+    },
+  );
 }

@@ -63,12 +63,28 @@ Future<void> _pump(
   Future<List<SchoolAdminAuditLog>> Function()? loadLogs,
   Future<List<AcademicYearOption>> Function()? loadAcademicYears,
   Future<List<TermOption>> Function()? loadTerms,
-  Future<String> Function({required String name, DateTime? startDate, DateTime? endDate})?
+  Future<String> Function({
+    required String name,
+    DateTime? startDate,
+    DateTime? endDate,
+  })?
   createAcademicYear,
-  Future<String> Function({required String academicYearId, required String name, DateTime? startDate, DateTime? endDate})?
+  Future<String> Function({
+    required String academicYearId,
+    required String name,
+    DateTime? startDate,
+    DateTime? endDate,
+  })?
   createTerm,
   Future<List<CalendarEventItem>> Function()? loadSchoolEvents,
-  Future<String> Function({required String title, required DateTime startDate, DateTime? endDate, String? location, String? description, String eventType})?
+  Future<String> Function({
+    required String title,
+    required DateTime startDate,
+    DateTime? endDate,
+    String? location,
+    String? description,
+    String eventType,
+  })?
   createSchoolEvent,
   Future<void> Function(String eventId)? deleteSchoolEvent,
 }) async {
@@ -85,11 +101,13 @@ Future<void> _pump(
         loadRates: loadRates ?? () async => _rates(),
         saveRates: saveRates,
         loadLogs: loadLogs ?? () async => <SchoolAdminAuditLog>[],
-        loadAcademicYears: loadAcademicYears ?? () async => const <AcademicYearOption>[],
+        loadAcademicYears:
+            loadAcademicYears ?? () async => const <AcademicYearOption>[],
         loadTerms: loadTerms ?? () async => const <TermOption>[],
         createAcademicYear: createAcademicYear,
         createTerm: createTerm,
-        loadSchoolEvents: loadSchoolEvents ?? () async => const <CalendarEventItem>[],
+        loadSchoolEvents:
+            loadSchoolEvents ?? () async => const <CalendarEventItem>[],
         createSchoolEvent: createSchoolEvent,
         deleteSchoolEvent: deleteSchoolEvent,
       ),
@@ -126,11 +144,15 @@ void main() {
   ) async {
     await _pump(
       tester,
-      loadRates: () async => _rates(electricityDefault: true, waterDefault: true),
+      loadRates: () async =>
+          _rates(electricityDefault: true, waterDefault: true),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('โรงเรียนนี้ยังไม่ได้ตั้งอัตราเอง ระบบใช้ค่ากลางอยู่'), findsOneWidget);
+    expect(
+      find.text('โรงเรียนนี้ยังไม่ได้ตั้งอัตราเอง ระบบใช้ค่ากลางอยู่'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('a failed summary load is distinct from a failed rates load', (
@@ -169,11 +191,16 @@ void main() {
 
     expect(writeCalls, 1);
     expect(
-      find.text('บันทึกอัตราค่าไฟฟ้าและค่าน้ำไม่สำเร็จ ระบบยังไม่ได้บันทึกการเปลี่ยนแปลง'),
+      find.text(
+        'บันทึกอัตราค่าไฟฟ้าและค่าน้ำไม่สำเร็จ ระบบยังไม่ได้บันทึกการเปลี่ยนแปลง',
+      ),
       findsOneWidget,
     );
     // Must never claim success when the read-back does not match.
-    expect(find.text('บันทึกอัตราค่าไฟฟ้าและค่าน้ำเรียบร้อยแล้ว'), findsNothing);
+    expect(
+      find.text('บันทึกอัตราค่าไฟฟ้าและค่าน้ำเรียบร้อยแล้ว'),
+      findsNothing,
+    );
   });
 
   testWidgets('saving succeeds only after the read-back confirms the value', (
@@ -238,58 +265,101 @@ void main() {
 
   /// เดิมมีการ์ด "การตั้งค่าที่ยังไม่เปิดใช้งาน" 4 แถว — ถอดออก 2026-09-14
   /// ส่วนที่มีที่เก็บจริง (ปี/ภาคเรียน) กลายเป็นส่วนจัดการจริง
-  testWidgets('no "unavailable settings" card; academic years and terms come from the backend', (
+  testWidgets(
+    'no "unavailable settings" card; academic years and terms come from the backend',
+    (tester) async {
+      await _pump(
+        tester,
+        loadAcademicYears: () async => const [
+          AcademicYearOption(
+            id: 'ay-1',
+            name: '2569',
+            startDate: null,
+            endDate: null,
+            termsCount: 1,
+          ),
+        ],
+        loadTerms: () async => const [
+          TermOption(
+            id: 't-1',
+            name: 'ภาคเรียนที่ 1/2569',
+            academicYearName: '2569',
+          ),
+        ],
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('การตั้งค่าที่ยังไม่เปิดใช้งาน'), findsNothing);
+      expect(find.text('ปีการศึกษา 2569'), findsOneWidget);
+      expect(find.text('· ภาคเรียนที่ 1/2569'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'creating a term sends the chosen year and name to create_term, then reads back',
+    (tester) async {
+      Map<String, Object?>? sent;
+      var loads = 0;
+      await _pump(
+        tester,
+        loadAcademicYears: () async {
+          loads++;
+          return const [
+            AcademicYearOption(
+              id: 'ay-1',
+              name: '2569',
+              startDate: null,
+              endDate: null,
+              termsCount: 0,
+            ),
+          ];
+        },
+        createTerm:
+            ({
+              required academicYearId,
+              required name,
+              startDate,
+              endDate,
+            }) async {
+              sent = {
+                'year': academicYearId,
+                'name': name,
+                'start': startDate?.toIso8601String(),
+              };
+              return 't-new';
+            },
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('สร้างภาคเรียน'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(
+          TextField,
+          'ชื่อภาคเรียน (เช่น ภาคเรียนที่ 1/2569)',
+        ),
+        'ภาคเรียนที่ 2/2569',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'วันเริ่ม (ปี-เดือน-วัน, ถ้ามี)'),
+        '2026-11-01',
+      );
+      await tester.tap(find.text('บันทึก'));
+      await tester.pumpAndSettle();
+
+      expect(sent, {
+        'year': 'ay-1',
+        'name': 'ภาคเรียนที่ 2/2569',
+        'start': '2026-11-01T00:00:00.000',
+      });
+      expect(loads, 2, reason: 'reads back after the write');
+      expect(find.text('สร้างภาคเรียนที่ 2/2569แล้ว'), findsOneWidget);
+    },
+  );
+
+  testWidgets('a bad date is rejected in the form before any RPC call', (
     tester,
   ) async {
-    await _pump(
-      tester,
-      loadAcademicYears: () async => const [
-        AcademicYearOption(id: 'ay-1', name: '2569', startDate: null, endDate: null, termsCount: 1),
-      ],
-      loadTerms: () async => const [
-        TermOption(id: 't-1', name: 'ภาคเรียนที่ 1/2569', academicYearName: '2569'),
-      ],
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('การตั้งค่าที่ยังไม่เปิดใช้งาน'), findsNothing);
-    expect(find.text('ปีการศึกษา 2569'), findsOneWidget);
-    expect(find.text('· ภาคเรียนที่ 1/2569'), findsOneWidget);
-  });
-
-  testWidgets('creating a term sends the chosen year and name to create_term, then reads back', (
-    tester,
-  ) async {
-    Map<String, Object?>? sent;
-    var loads = 0;
-    await _pump(
-      tester,
-      loadAcademicYears: () async {
-        loads++;
-        return const [
-          AcademicYearOption(id: 'ay-1', name: '2569', startDate: null, endDate: null, termsCount: 0),
-        ];
-      },
-      createTerm: ({required academicYearId, required name, startDate, endDate}) async {
-        sent = {'year': academicYearId, 'name': name, 'start': startDate?.toIso8601String()};
-        return 't-new';
-      },
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('สร้างภาคเรียน'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, 'ชื่อภาคเรียน (เช่น ภาคเรียนที่ 1/2569)'), 'ภาคเรียนที่ 2/2569');
-    await tester.enterText(find.widgetWithText(TextField, 'วันเริ่ม (ปี-เดือน-วัน, ถ้ามี)'), '2026-11-01');
-    await tester.tap(find.text('บันทึก'));
-    await tester.pumpAndSettle();
-
-    expect(sent, {'year': 'ay-1', 'name': 'ภาคเรียนที่ 2/2569', 'start': '2026-11-01T00:00:00.000'});
-    expect(loads, 2, reason: 'reads back after the write');
-    expect(find.text('สร้างภาคเรียนที่ 2/2569แล้ว'), findsOneWidget);
-  });
-
-  testWidgets('a bad date is rejected in the form before any RPC call', (tester) async {
     var calls = 0;
     await _pump(
       tester,
@@ -302,8 +372,14 @@ void main() {
 
     await tester.tap(find.text('สร้างปีการศึกษา'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, 'ชื่อปีการศึกษา (เช่น 2569)'), '2570');
-    await tester.enterText(find.widgetWithText(TextField, 'วันเริ่ม (ปี-เดือน-วัน, ถ้ามี)'), '16/05/2570');
+    await tester.enterText(
+      find.widgetWithText(TextField, 'ชื่อปีการศึกษา (เช่น 2569)'),
+      '2570',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'วันเริ่ม (ปี-เดือน-วัน, ถ้ามี)'),
+      '16/05/2570',
+    );
     await tester.tap(find.text('บันทึก'));
     await tester.pumpAndSettle();
 
@@ -322,62 +398,84 @@ void main() {
     eventType: 'activity',
   );
 
-  testWidgets('school events list from list_calendar_events with an honest empty state', (
-    tester,
-  ) async {
-    await _pump(tester);
-    await tester.pumpAndSettle();
-    expect(find.text('กิจกรรมและวันสำคัญ'), findsOneWidget);
-    expect(find.text('ยังไม่มีกิจกรรมในปฏิทินโรงเรียน'), findsOneWidget);
-  });
+  testWidgets(
+    'school events list from list_calendar_events with an honest empty state',
+    (tester) async {
+      await _pump(tester);
+      await tester.pumpAndSettle();
+      expect(find.text('กิจกรรมและวันสำคัญ'), findsOneWidget);
+      expect(find.text('ยังไม่มีกิจกรรมในปฏิทินโรงเรียน'), findsOneWidget);
+    },
+  );
 
-  testWidgets('adding an event calls create_school_event and shows it only after read-back', (
-    tester,
-  ) async {
-    final events = <CalendarEventItem>[];
-    String? sentTitle;
-    await _pump(
-      tester,
-      loadSchoolEvents: () async => List.of(events),
-      createSchoolEvent: ({required title, required startDate, endDate, location, description, eventType = 'activity'}) async {
-        sentTitle = title;
-        expect(startDate, DateTime(2026, 9, 20));
-        events.add(ev('ev-1', title));
-        return 'ev-1';
-      },
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('เพิ่มกิจกรรม / วันสำคัญ'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, 'ชื่อกิจกรรม'), 'กีฬาสี');
-    await tester.enterText(
-      find.widgetWithText(TextField, 'วันเริ่ม (ปี-เดือน-วัน เช่น 2026-09-20)'),
-      '2026-09-20',
-    );
-    await tester.tap(find.widgetWithText(FilledButton, 'บันทึก'));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'adding an event calls create_school_event and shows it only after read-back',
+    (tester) async {
+      final events = <CalendarEventItem>[];
+      String? sentTitle;
+      await _pump(
+        tester,
+        loadSchoolEvents: () async => List.of(events),
+        createSchoolEvent:
+            ({
+              required title,
+              required startDate,
+              endDate,
+              location,
+              description,
+              eventType = 'activity',
+            }) async {
+              sentTitle = title;
+              expect(startDate, DateTime(2026, 9, 20));
+              events.add(ev('ev-1', title));
+              return 'ev-1';
+            },
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('เพิ่มกิจกรรม / วันสำคัญ'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'ชื่อกิจกรรม'),
+        'กีฬาสี',
+      );
+      await tester.enterText(
+        find.widgetWithText(
+          TextField,
+          'วันเริ่ม (ปี-เดือน-วัน เช่น 2026-09-20)',
+        ),
+        '2026-09-20',
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'บันทึก'));
+      await tester.pumpAndSettle();
 
-    expect(sentTitle, 'กีฬาสี');
-    expect(find.textContaining('กีฬาสี'), findsWidgets);
-    expect(find.textContaining('เพิ่ม "กีฬาสี" ในปฏิทินโรงเรียนแล้ว'), findsOneWidget);
-  });
+      expect(sentTitle, 'กีฬาสี');
+      expect(find.textContaining('กีฬาสี'), findsWidgets);
+      expect(
+        find.textContaining('เพิ่ม "กีฬาสี" ในปฏิทินโรงเรียนแล้ว'),
+        findsOneWidget,
+      );
+    },
+  );
 
-  testWidgets('deleting an event is confirmed by read-back; a lingering row is reported as failure', (
-    tester,
-  ) async {
-    var deleted = false;
-    await _pump(
-      tester,
-      loadSchoolEvents: () async => [ev('ev-1', 'กีฬาสี')], // never disappears
-      deleteSchoolEvent: (id) async => deleted = true,
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.delete_outline_rounded));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'ลบ'));
-    await tester.pumpAndSettle();
-    expect(deleted, isTrue);
-    expect(find.text('ลบไม่สำเร็จ กิจกรรมยังอยู่ในปฏิทิน'), findsOneWidget);
-    expect(find.textContaining('กีฬาสี'), findsWidgets);
-  });
+  testWidgets(
+    'deleting an event is confirmed by read-back; a lingering row is reported as failure',
+    (tester) async {
+      var deleted = false;
+      await _pump(
+        tester,
+        loadSchoolEvents: () async => [
+          ev('ev-1', 'กีฬาสี'),
+        ], // never disappears
+        deleteSchoolEvent: (id) async => deleted = true,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.delete_outline_rounded));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'ลบ'));
+      await tester.pumpAndSettle();
+      expect(deleted, isTrue);
+      expect(find.text('ลบไม่สำเร็จ กิจกรรมยังอยู่ในปฏิทิน'), findsOneWidget);
+      expect(find.textContaining('กีฬาสี'), findsWidgets);
+    },
+  );
 }

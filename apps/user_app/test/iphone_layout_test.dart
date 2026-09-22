@@ -213,36 +213,36 @@ void main() {
             rooms: ['ม.1/1', 'ม.1/2'],
           ),
         ],
-        setSlot: ({
-          required termId,
-          required gradeLevel,
-          required room,
-          required subjectName,
-          required teacherId,
-          required periodNo,
-          required dayOfWeek,
-        }) async {},
-        clearSlot: ({
-          required termId,
-          required gradeLevel,
-          required room,
-          required periodNo,
-          required dayOfWeek,
-        }) async {},
+        setSlot:
+            ({
+              required termId,
+              required gradeLevel,
+              required room,
+              required subjectName,
+              required teacherId,
+              required periodNo,
+              required dayOfWeek,
+            }) async {},
+        clearSlot:
+            ({
+              required termId,
+              required gradeLevel,
+              required room,
+              required periodNo,
+              required dayOfWeek,
+            }) async {},
         savePeriods: (_) async {},
-        copyRoom: ({
-          required fromTermId,
-          required fromGradeLevel,
-          required fromRoom,
-          required toTermId,
-          required toGradeLevel,
-          required toRoom,
-        }) async => 0,
-        clearRoom: ({
-          required termId,
-          required gradeLevel,
-          required room,
-        }) async => 0,
+        copyRoom:
+            ({
+              required fromTermId,
+              required fromGradeLevel,
+              required fromRoom,
+              required toTermId,
+              required toGradeLevel,
+              required toRoom,
+            }) async => 0,
+        clearRoom:
+            ({required termId, required gradeLevel, required room}) async => 0,
       );
       await _phone(tester, SchoolTimetablePage(controller: controller));
       // overview rendered; open the room and render the day view too

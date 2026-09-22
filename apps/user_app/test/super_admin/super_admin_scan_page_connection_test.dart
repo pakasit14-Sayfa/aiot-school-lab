@@ -53,9 +53,7 @@ Future<void> _pump(
   });
   await tester.pumpWidget(
     MaterialApp(
-      home: SuperAdminScanPage(
-        loadDevices: loadDevices ?? () async => _data(),
-      ),
+      home: SuperAdminScanPage(loadDevices: loadDevices ?? () async => _data()),
     ),
   );
 }
@@ -111,18 +109,19 @@ void main() {
 
   /// เดิม `catch (_)` แค่ปิดสถานะโหลด — รายการอุปกรณ์ที่โหลดพังทำให้สแกน QR
   /// แล้วขึ้น "ไม่พบอุปกรณ์" ทั้งที่อุปกรณ์มีอยู่จริง แค่ระบบอ่านรายการไม่ได้
-  testWidgets('โหลดรายการอุปกรณ์ไม่สำเร็จต้องเตือน ไม่ใช่เงียบแล้วปล่อยให้สแกนไม่เจอ', (
-    tester,
-  ) async {
-    await _pump(tester, loadDevices: () async => throw Exception('devices_unreachable'));
-    await tester.pump(_step);
-    await tester.pump(_step);
+  testWidgets(
+    'โหลดรายการอุปกรณ์ไม่สำเร็จต้องเตือน ไม่ใช่เงียบแล้วปล่อยให้สแกนไม่เจอ',
+    (tester) async {
+      await _pump(
+        tester,
+        loadDevices: () async => throw Exception('devices_unreachable'),
+      );
+      await tester.pump(_step);
+      await tester.pump(_step);
 
-    expect(
-      find.textContaining('โหลดรายการอุปกรณ์ไม่สำเร็จ'),
-      findsOneWidget,
-    );
-    expect(find.text('ลองใหม่'), findsOneWidget);
-    expect(find.textContaining('devices_unreachable'), findsNothing);
-  });
+      expect(find.textContaining('โหลดรายการอุปกรณ์ไม่สำเร็จ'), findsOneWidget);
+      expect(find.text('ลองใหม่'), findsOneWidget);
+      expect(find.textContaining('devices_unreachable'), findsNothing);
+    },
+  );
 }

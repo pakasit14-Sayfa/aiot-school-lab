@@ -53,7 +53,8 @@ Future<void> _pump(
     MaterialApp(
       home: StudentPretestPosttestPage(
         loadCourses: loadCourses ?? () async => const [_course],
-        loadQuizzesForCourse: loadQuizzesForCourse ?? (_) async => const [_quiz],
+        loadQuizzesForCourse:
+            loadQuizzesForCourse ?? (_) async => const [_quiz],
         loadLatestAttempt: loadLatestAttempt ?? (_) async => null,
         getQuizForStudent: getQuizForStudent,
         startQuizAttempt: startQuizAttempt,
@@ -66,36 +67,42 @@ Future<void> _pump(
 }
 
 void main() {
-  testWidgets('a published quiz with no attempt yet shows "เริ่มทำ", not a score', (
-    tester,
-  ) async {
-    await _pump(tester);
-    expect(find.text('เริ่มทำ'), findsOneWidget);
-    expect(find.textContaining('คะแนน'), findsNothing);
-  });
+  testWidgets(
+    'a published quiz with no attempt yet shows "เริ่มทำ", not a score',
+    (tester) async {
+      await _pump(tester);
+      expect(find.text('เริ่มทำ'), findsOneWidget);
+      expect(find.textContaining('คะแนน'), findsNothing);
+    },
+  );
 
-  testWidgets('an already-submitted quiz shows the real score, not a start button', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      loadLatestAttempt: (_) async => QuizAttemptResult(
-        attemptId: 'attempt-1',
-        startedAt: DateTime(2026, 9, 1, 9),
-        submittedAt: DateTime(2026, 9, 1, 9, 15),
-        autoScore: 8,
-      ),
-    );
-    expect(find.textContaining('8 คะแนน'), findsOneWidget);
-    expect(find.text('เริ่มทำ'), findsNothing);
-  });
+  testWidgets(
+    'an already-submitted quiz shows the real score, not a start button',
+    (tester) async {
+      await _pump(
+        tester,
+        loadLatestAttempt: (_) async => QuizAttemptResult(
+          attemptId: 'attempt-1',
+          startedAt: DateTime(2026, 9, 1, 9),
+          submittedAt: DateTime(2026, 9, 1, 9, 15),
+          autoScore: 8,
+        ),
+      );
+      expect(find.textContaining('8 คะแนน'), findsOneWidget);
+      expect(find.text('เริ่มทำ'), findsNothing);
+    },
+  );
 
-  testWidgets('an empty course list shows an honest empty state, no fake quiz', (
-    tester,
-  ) async {
-    await _pump(tester, loadCourses: () async => const []);
-    expect(find.text('ยังไม่มีแบบทดสอบก่อน-หลังเรียนที่เปิดให้ทำ'), findsOneWidget);
-  });
+  testWidgets(
+    'an empty course list shows an honest empty state, no fake quiz',
+    (tester) async {
+      await _pump(tester, loadCourses: () async => const []);
+      expect(
+        find.text('ยังไม่มีแบบทดสอบก่อน-หลังเรียนที่เปิดให้ทำ'),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets(
     'taking the quiz calls start → save each answer → submit in order, with real answer content',
@@ -133,14 +140,11 @@ void main() {
           expect(quizId, 'quiz-1');
           return (attemptId: 'attempt-99', startedAt: DateTime(2026, 9, 8));
         },
-        saveQuizAnswer: ({
-          required attemptId,
-          required questionId,
-          required answer,
-        }) async {
-          expect(attemptId, 'attempt-99');
-          savedAnswers.add({'questionId': questionId, ...answer});
-        },
+        saveQuizAnswer:
+            ({required attemptId, required questionId, required answer}) async {
+              expect(attemptId, 'attempt-99');
+              savedAnswers.add({'questionId': questionId, ...answer});
+            },
         submitQuizAttempt: (attemptId) async {
           submitCalls++;
           expect(attemptId, 'attempt-99');
@@ -151,7 +155,11 @@ void main() {
       await tester.tap(find.text('เริ่มทำ'));
       await tester.pumpAndSettle();
 
-      expect(startCalls, 1, reason: 'opening the quiz must start a real attempt');
+      expect(
+        startCalls,
+        1,
+        reason: 'opening the quiz must start a real attempt',
+      );
       expect(find.textContaining('น้ำเดือดที่กี่องศา?'), findsOneWidget);
 
       await tester.tap(find.text('100'));
@@ -160,7 +168,11 @@ void main() {
       await tester.tap(find.text('ส่งคำตอบ'));
       await tester.pumpAndSettle();
 
-      expect(savedAnswers.length, 1, reason: 'the selected choice must be saved');
+      expect(
+        savedAnswers.length,
+        1,
+        reason: 'the selected choice must be saved',
+      );
       expect(savedAnswers.first['questionId'], 'q1');
       expect(savedAnswers.first['choice_id'], 'c1');
       expect(submitCalls, 1, reason: 'submit must be called exactly once');
@@ -190,11 +202,8 @@ void main() {
       ),
       startQuizAttempt: (_) async =>
           (attemptId: 'attempt-99', startedAt: DateTime(2026, 9, 8)),
-      saveQuizAnswer: ({
-        required attemptId,
-        required questionId,
-        required answer,
-      }) async {},
+      saveQuizAnswer:
+          ({required attemptId, required questionId, required answer}) async {},
       submitQuizAttempt: (_) async =>
           throw StateError('backend detail that must stay internal'),
     );

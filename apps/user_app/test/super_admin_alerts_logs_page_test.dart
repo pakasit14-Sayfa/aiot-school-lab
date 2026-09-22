@@ -8,20 +8,24 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('SuperAdminAlertsLogsPage renders gracefully in unmocked environment', (tester) async {
-    tester.view.physicalSize = const Size(1200, 1200);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(() => tester.view.resetPhysicalSize());
+  testWidgets(
+    'SuperAdminAlertsLogsPage renders gracefully in unmocked environment',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
 
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: SuperAdminAlertsLogsPage(),
-      ),
-    );
+      await tester.pumpWidget(
+        const MaterialApp(home: SuperAdminAlertsLogsPage()),
+      );
 
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.text('การแจ้งเตือนและประวัติระบบ (Alerts & Logs)'), findsOneWidget);
-  });
+      expect(
+        find.text('การแจ้งเตือนและประวัติระบบ (Alerts & Logs)'),
+        findsOneWidget,
+      );
+    },
+  );
 }

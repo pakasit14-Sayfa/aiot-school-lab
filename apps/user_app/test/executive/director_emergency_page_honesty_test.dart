@@ -204,7 +204,10 @@ void main() {
     expect(find.text('ได้รับแจ้งแล้ว'), findsNothing);
     expect(find.text('Standby พร้อม'), findsNothing);
     expect(find.textContaining('ส่งผ่านแอปและระบบข้อความด่วน'), findsNothing);
-    expect(find.textContaining('กำลังเข้าพื้นที่พร้อมชุดปฐมพยาบาล'), findsNothing);
+    expect(
+      find.textContaining('กำลังเข้าพื้นที่พร้อมชุดปฐมพยาบาล'),
+      findsNothing,
+    );
     expect(find.text('โทรด่วนหาครูประจำห้อง'), findsNothing);
     expect(
       find.textContaining('ยังไม่มีตารางเวรและการยืนยันรับแจ้ง'),

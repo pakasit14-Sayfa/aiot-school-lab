@@ -53,9 +53,16 @@ Future<void> _pump(
   Future<List<UserModel>> Function()? loadUsers,
   Future<List<SchoolAdminAuditLog>> Function()? loadLogs,
   Future<List<RolePermissionEntry>> Function()? loadPermissionMatrix,
-  Future<StaffInvitationTicket> Function({required String email, required UserRole role})?
+  Future<StaffInvitationTicket> Function({
+    required String email,
+    required UserRole role,
+  })?
   createInvitation,
-  void Function({required String filename, required List<int> bytes, required String mimeType})?
+  void Function({
+    required String filename,
+    required List<int> bytes,
+    required String mimeType,
+  })?
   downloadBytesOverride,
 }) async {
   tester.view.physicalSize = const Size(1500, 3200);
@@ -72,7 +79,8 @@ Future<void> _pump(
         loadPermissionMatrix:
             loadPermissionMatrix ?? () async => <RolePermissionEntry>[],
         createInvitation: createInvitation,
-        downloadBytesOverride: downloadBytesOverride ??
+        downloadBytesOverride:
+            downloadBytesOverride ??
             ({required filename, required bytes, required mimeType}) {},
       ),
     ),
@@ -80,9 +88,7 @@ Future<void> _pump(
 }
 
 void main() {
-  testWidgets('a multi-role account shows every role it holds', (
-    tester,
-  ) async {
+  testWidgets('a multi-role account shows every role it holds', (tester) async {
     await _pump(
       tester,
       loadUsers: () async => [
@@ -95,14 +101,15 @@ void main() {
     expect(find.textContaining(UserRole.executive.label), findsWidgets);
   });
 
-  testWidgets('no users says so, distinct from a failed load', (
-    tester,
-  ) async {
+  testWidgets('no users says so, distinct from a failed load', (tester) async {
     await _pump(tester);
     await tester.pumpAndSettle();
 
     expect(find.text('ไม่พบผู้ใช้งาน'), findsOneWidget);
-    expect(find.text('โหลดรายชื่อผู้ใช้ไม่สำเร็จ รายการด้านล่างจึงยังไม่ครบ'), findsNothing);
+    expect(
+      find.text('โหลดรายชื่อผู้ใช้ไม่สำเร็จ รายการด้านล่างจึงยังไม่ครบ'),
+      findsNothing,
+    );
   });
 
   testWidgets('a failed load is distinct from empty, with retry', (
@@ -161,20 +168,30 @@ void main() {
         createInvitation: ({required email, required role}) async {
           sentEmail = email;
           sentRole = role;
-          return StaffInvitationTicket(token: 'inv_xyz789', expiresAt: DateTime(2026, 9, 21, 12));
+          return StaffInvitationTicket(
+            token: 'inv_xyz789',
+            expiresAt: DateTime(2026, 9, 21, 12),
+          );
         },
       );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('เชิญผู้ใช้งาน'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.widgetWithText(TextField, 'อีเมลผู้ถูกเชิญ'), 'New.Teacher@school.test');
+      await tester.enterText(
+        find.widgetWithText(TextField, 'อีเมลผู้ถูกเชิญ'),
+        'New.Teacher@school.test',
+      );
       await tester.tap(find.text('สร้างคำเชิญ'));
       await tester.pumpAndSettle();
 
       expect(sentEmail, 'new.teacher@school.test');
       expect(sentRole, UserRole.teacher);
-      expect(find.text('inv_xyz789'), findsOneWidget, reason: 'token shown once to relay by hand');
+      expect(
+        find.text('inv_xyz789'),
+        findsOneWidget,
+        reason: 'token shown once to relay by hand',
+      );
       expect(find.text('เพิ่มสิทธิ์ผู้ใช้งานเรียบร้อยแล้ว'), findsNothing);
     },
   );
@@ -186,11 +203,14 @@ void main() {
       List<int>? savedBytes;
       await _pump(
         tester,
-        loadUsers: () async => [_user(name: 'ครูส่งออก ทดสอบ', email: 'export@school.test')],
-        downloadBytesOverride: ({required filename, required bytes, required mimeType}) {
-          savedName = filename;
-          savedBytes = bytes;
-        },
+        loadUsers: () async => [
+          _user(name: 'ครูส่งออก ทดสอบ', email: 'export@school.test'),
+        ],
+        downloadBytesOverride:
+            ({required filename, required bytes, required mimeType}) {
+              savedName = filename;
+              savedBytes = bytes;
+            },
       );
       await tester.pumpAndSettle();
 
@@ -274,30 +294,29 @@ void main() {
     },
   );
 
-  testWidgets(
-    'selecting a real role filters the user list correctly',
-    (tester) async {
-      await _pump(
-        tester,
-        loadUsers: () async => [
-          _user(uid: 'u-teacher', name: 'ครูเอ', role: UserRole.teacher),
-          _user(uid: 'u-exec', name: 'ผู้บริหารบี', role: UserRole.executive),
-        ],
-      );
-      await tester.pumpAndSettle();
+  testWidgets('selecting a real role filters the user list correctly', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      loadUsers: () async => [
+        _user(uid: 'u-teacher', name: 'ครูเอ', role: UserRole.teacher),
+        _user(uid: 'u-exec', name: 'ผู้บริหารบี', role: UserRole.executive),
+      ],
+    );
+    await tester.pumpAndSettle();
 
-      expect(find.text('ครูเอ'), findsOneWidget);
-      expect(find.text('ผู้บริหารบี'), findsOneWidget);
+    expect(find.text('ครูเอ'), findsOneWidget);
+    expect(find.text('ผู้บริหารบี'), findsOneWidget);
 
-      await tester.tap(find.text('ทุกบทบาท'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(UserRole.executive.label).last);
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('ทุกบทบาท'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(UserRole.executive.label).last);
+    await tester.pumpAndSettle();
 
-      expect(find.text('ผู้บริหารบี'), findsOneWidget);
-      expect(find.text('ครูเอ'), findsNothing);
-    },
-  );
+    expect(find.text('ผู้บริหารบี'), findsOneWidget);
+    expect(find.text('ครูเอ'), findsNothing);
+  });
 
   testWidgets(
     'the user detail sheet shows real permissions from the matrix, never the old fabricated bullets',
@@ -331,35 +350,34 @@ void main() {
     },
   );
 
-  testWidgets(
-    'searching the matrix filters to matching function names',
-    (tester) async {
-      await _pump(
-        tester,
-        loadPermissionMatrix: () async => const [
-          RolePermissionEntry(
-            functionName: 'create_course',
-            allowedRoles: ['teacher'],
-          ),
-          RolePermissionEntry(
-            functionName: 'list_school_alerts',
-            allowedRoles: ['school_admin'],
-          ),
-        ],
-      );
-      await tester.pumpAndSettle();
+  testWidgets('searching the matrix filters to matching function names', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      loadPermissionMatrix: () async => const [
+        RolePermissionEntry(
+          functionName: 'create_course',
+          allowedRoles: ['teacher'],
+        ),
+        RolePermissionEntry(
+          functionName: 'list_school_alerts',
+          allowedRoles: ['school_admin'],
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.text('ตารางสิทธิ์ตามบทบาท'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('ตารางสิทธิ์ตามบทบาท'));
+    await tester.pumpAndSettle();
 
-      expect(find.text('create_course'), findsOneWidget);
-      expect(find.text('list_school_alerts'), findsOneWidget);
+    expect(find.text('create_course'), findsOneWidget);
+    expect(find.text('list_school_alerts'), findsOneWidget);
 
-      await tester.enterText(find.byType(TextField).last, 'alerts');
-      await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'alerts');
+    await tester.pumpAndSettle();
 
-      expect(find.text('create_course'), findsNothing);
-      expect(find.text('list_school_alerts'), findsOneWidget);
-    },
-  );
+    expect(find.text('create_course'), findsNothing);
+    expect(find.text('list_school_alerts'), findsOneWidget);
+  });
 }

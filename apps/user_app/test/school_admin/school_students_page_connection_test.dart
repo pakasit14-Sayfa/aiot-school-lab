@@ -55,16 +55,24 @@ Future<void> _pump(
   WidgetTester tester, {
   Future<List<UserModel>> Function()? loadUsers,
   Future<List<SchoolStudentOption>> Function()? loadSchoolStudents,
-  Future<void> Function(String uid, String gradeLevel, String room)? setStudentProfile,
+  Future<void> Function(String uid, String gradeLevel, String room)?
+  setStudentProfile,
   Future<List<HomeroomAssignment>> Function()? loadHomerooms,
   Future<List<HomeroomRosterItem>> Function(String gradeLevel, String room)?
   loadRoster,
   Future<void> Function(String uid)? suspendUser,
   Future<void> Function(String uid)? reactivateUser,
   Future<void> Function(String uid, String name)? updateName,
-  Future<BulkImportResult> Function({required UserRole role, required List<Map<String, dynamic>> users})?
+  Future<BulkImportResult> Function({
+    required UserRole role,
+    required List<Map<String, dynamic>> users,
+  })?
   importUsers,
-  void Function({required String filename, required List<int> bytes, required String mimeType})?
+  void Function({
+    required String filename,
+    required List<int> bytes,
+    required String mimeType,
+  })?
   downloadBytesOverride,
 }) async {
   tester.view.physicalSize = const Size(1500, 3200);
@@ -77,7 +85,8 @@ Future<void> _pump(
     MaterialApp(
       home: SchoolStudentsPage(
         loadUsers: loadUsers ?? () async => <UserModel>[],
-        loadSchoolStudents: loadSchoolStudents ?? () async => <SchoolStudentOption>[],
+        loadSchoolStudents:
+            loadSchoolStudents ?? () async => <SchoolStudentOption>[],
         setStudentProfile: setStudentProfile,
         loadHomerooms: loadHomerooms ?? () async => <HomeroomAssignment>[],
         loadRoster: loadRoster ?? (_, _) async => <HomeroomRosterItem>[],
@@ -85,7 +94,8 @@ Future<void> _pump(
         reactivateUser: reactivateUser,
         updateName: updateName,
         importUsers: importUsers,
-        downloadBytesOverride: downloadBytesOverride ??
+        downloadBytesOverride:
+            downloadBytesOverride ??
             ({required filename, required bytes, required mimeType}) {},
       ),
     ),
@@ -199,7 +209,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('ยืนยันกับระบบเรียบร้อย'), findsNothing);
-    expect(find.textContaining('ระบบยังไม่ยืนยันการเปลี่ยนแปลง'), findsOneWidget);
+    expect(
+      find.textContaining('ระบบยังไม่ยืนยันการเปลี่ยนแปลง'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('suspend reports success once the read-back actually confirms', (
@@ -208,8 +221,9 @@ void main() {
     var suspended = false;
     await _pump(
       tester,
-      loadUsers: () async =>
-          [_student(status: suspended ? 'suspended' : 'active')],
+      loadUsers: () async => [
+        _student(status: suspended ? 'suspended' : 'active'),
+      ],
       suspendUser: (uid) async => suspended = true,
     );
     await tester.pumpAndSettle();
@@ -222,82 +236,113 @@ void main() {
     expect(find.textContaining('ยืนยันกับระบบเรียบร้อย'), findsOneWidget);
   });
 
-  testWidgets('"เพิ่มนักเรียนรายคน" creates the account through the import RPC and shows the temp password once', (
+  testWidgets(
+    '"เพิ่มนักเรียนรายคน" creates the account through the import RPC and shows the temp password once',
+    (tester) async {
+      List<Map<String, dynamic>>? sent;
+      UserRole? sentRole;
+      await _pump(
+        tester,
+        importUsers: ({required role, required users}) async {
+          sentRole = role;
+          sent = users;
+          return const BulkImportResult(
+            success: true,
+            insertedCount: 1,
+            skipped: [],
+            credentials: [
+              ImportedCredential(
+                row: 1,
+                email: 'new@school.test',
+                tempPassword: 'Qw7Rt4Yu9p',
+              ),
+            ],
+          );
+        },
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('เพิ่มนักเรียนรายคน'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'อีเมล'),
+        'New@School.test',
+      );
+      await tester.enterText(find.widgetWithText(TextField, 'ชื่อ'), 'ใหม่');
+      await tester.enterText(
+        find.widgetWithText(TextField, 'นามสกุล'),
+        'เรียนดี',
+      );
+      await tester.tap(find.text('สร้างบัญชี'));
+      await tester.pumpAndSettle();
+
+      expect(sentRole, UserRole.student);
+      expect(sent, [
+        {
+          'email': 'new@school.test',
+          'first_name': 'ใหม่',
+          'last_name': 'เรียนดี',
+          'student_code': '',
+          // 2026-09-17: class fields travel with the row (empty = not set).
+          'grade_level': '',
+          'room': '',
+        },
+      ]);
+      expect(find.text('Qw7Rt4Yu9p'), findsOneWidget);
+      expect(
+        find.text('ยังไม่มีระบบหลังบ้านรองรับ ใช้ "นำเข้ารายชื่อ" แทน'),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets('a duplicate email is reported in the form, not as success', (
     tester,
   ) async {
-    List<Map<String, dynamic>>? sent;
-    UserRole? sentRole;
     await _pump(
       tester,
-      importUsers: ({required role, required users}) async {
-        sentRole = role;
-        sent = users;
-        return const BulkImportResult(
-          success: true,
-          insertedCount: 1,
-          skipped: [],
-          credentials: [ImportedCredential(row: 1, email: 'new@school.test', tempPassword: 'Qw7Rt4Yu9p')],
-        );
-      },
+      importUsers: ({required role, required users}) async =>
+          const BulkImportResult(
+            success: true,
+            insertedCount: 0,
+            skipped: [SkippedRow(row: 1, reason: 'duplicate_email')],
+          ),
     );
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('เพิ่มนักเรียนรายคน'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, 'อีเมล'), 'New@School.test');
-    await tester.enterText(find.widgetWithText(TextField, 'ชื่อ'), 'ใหม่');
-    await tester.enterText(find.widgetWithText(TextField, 'นามสกุล'), 'เรียนดี');
-    await tester.tap(find.text('สร้างบัญชี'));
-    await tester.pumpAndSettle();
-
-    expect(sentRole, UserRole.student);
-    expect(sent, [
-      {
-        'email': 'new@school.test',
-        'first_name': 'ใหม่',
-        'last_name': 'เรียนดี',
-        'student_code': '',
-        // 2026-09-17: class fields travel with the row (empty = not set).
-        'grade_level': '',
-        'room': '',
-      },
-    ]);
-    expect(find.text('Qw7Rt4Yu9p'), findsOneWidget);
-    expect(find.text('ยังไม่มีระบบหลังบ้านรองรับ ใช้ "นำเข้ารายชื่อ" แทน'), findsNothing);
-  });
-
-  testWidgets('a duplicate email is reported in the form, not as success', (tester) async {
-    await _pump(
-      tester,
-      importUsers: ({required role, required users}) async => const BulkImportResult(
-        success: true,
-        insertedCount: 0,
-        skipped: [SkippedRow(row: 1, reason: 'duplicate_email')],
-      ),
+    await tester.enterText(
+      find.widgetWithText(TextField, 'อีเมล'),
+      'dup@school.test',
     );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('เพิ่มนักเรียนรายคน'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, 'อีเมล'), 'dup@school.test');
     await tester.enterText(find.widgetWithText(TextField, 'ชื่อ'), 'ซ้ำ');
     await tester.tap(find.text('สร้างบัญชี'));
     await tester.pumpAndSettle();
 
     expect(find.text('อีเมลนี้มีบัญชีอยู่แล้ว'), findsOneWidget);
-    expect(find.textContaining('แสดงครั้งเดียว'), findsNothing, reason: 'no credentials dialog');
+    expect(
+      find.textContaining('แสดงครั้งเดียว'),
+      findsNothing,
+      reason: 'no credentials dialog',
+    );
   });
 
-  testWidgets('"ส่งออกรายชื่อ" downloads the filtered students as a real CSV', (tester) async {
+  testWidgets('"ส่งออกรายชื่อ" downloads the filtered students as a real CSV', (
+    tester,
+  ) async {
     String? savedName;
     List<int>? savedBytes;
     await _pump(
       tester,
-      loadUsers: () async => [_student(name: 'ส่งออก ทดสอบ', email: 'export@school.test')],
-      downloadBytesOverride: ({required filename, required bytes, required mimeType}) {
-        savedName = filename;
-        savedBytes = bytes;
-      },
+      loadUsers: () async => [
+        _student(name: 'ส่งออก ทดสอบ', email: 'export@school.test'),
+      ],
+      downloadBytesOverride:
+          ({required filename, required bytes, required mimeType}) {
+            savedName = filename;
+            savedBytes = bytes;
+          },
     );
     await tester.pumpAndSettle();
 
@@ -314,86 +359,96 @@ void main() {
   // nothing in the app wrote student_profiles at all.
   // -------------------------------------------------------------------------
 
-  testWidgets('grade/room show from student_profiles even with no homeroom teacher yet', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      loadUsers: () async => [_student()],
-      loadSchoolStudents: () async => [
-        SchoolStudentOption(
-          studentId: _student().uid,
-          studentName: _student().name,
-          gradeLevel: 'ม.2',
-          room: '4',
-        ),
-      ],
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('ม.2/4'), findsOneWidget);
-    // Only the summary tile's title says "ยังไม่ได้จัดห้องเรียน"; no row does.
-    expect(find.text('ยังไม่ได้จัดห้องเรียน'), findsOneWidget);
-  });
+  testWidgets(
+    'grade/room show from student_profiles even with no homeroom teacher yet',
+    (tester) async {
+      await _pump(
+        tester,
+        loadUsers: () async => [_student()],
+        loadSchoolStudents: () async => [
+          SchoolStudentOption(
+            studentId: _student().uid,
+            studentName: _student().name,
+            gradeLevel: 'ม.2',
+            room: '4',
+          ),
+        ],
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('ม.2/4'), findsOneWidget);
+      // Only the summary tile's title says "ยังไม่ได้จัดห้องเรียน"; no row does.
+      expect(find.text('ยังไม่ได้จัดห้องเรียน'), findsOneWidget);
+    },
+  );
 
-  testWidgets('"กำหนดระดับชั้น / ห้อง" calls set_student_profile and confirms by read-back', (
-    tester,
-  ) async {
-    String? sentGrade, sentRoom;
-    var saved = false;
-    await _pump(
-      tester,
-      loadUsers: () async => [_student()],
-      loadSchoolStudents: () async => [
-        SchoolStudentOption(
-          studentId: _student().uid,
-          studentName: _student().name,
-          gradeLevel: saved ? 'ม.3' : null,
-          room: saved ? '2' : null,
-        ),
-      ],
-      setStudentProfile: (uid, grade, room) async {
-        expect(uid, _student().uid);
-        sentGrade = grade;
-        sentRoom = room;
-        saved = true;
-      },
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('ยังไม่ได้จัดห้องเรียน'), findsWidgets);
+  testWidgets(
+    '"กำหนดระดับชั้น / ห้อง" calls set_student_profile and confirms by read-back',
+    (tester) async {
+      String? sentGrade, sentRoom;
+      var saved = false;
+      await _pump(
+        tester,
+        loadUsers: () async => [_student()],
+        loadSchoolStudents: () async => [
+          SchoolStudentOption(
+            studentId: _student().uid,
+            studentName: _student().name,
+            gradeLevel: saved ? 'ม.3' : null,
+            room: saved ? '2' : null,
+          ),
+        ],
+        setStudentProfile: (uid, grade, room) async {
+          expect(uid, _student().uid);
+          sentGrade = grade;
+          sentRoom = room;
+          saved = true;
+        },
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('ยังไม่ได้จัดห้องเรียน'), findsWidgets);
 
-    await tester.tap(find.text(_student().name).first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('กำหนดระดับชั้น / ห้อง'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, 'ระดับชั้น'), 'ม.3');
-    await tester.enterText(find.widgetWithText(TextField, 'ห้อง'), '2');
-    await tester.tap(find.widgetWithText(FilledButton, 'บันทึก'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text(_student().name).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('กำหนดระดับชั้น / ห้อง'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'ระดับชั้น'),
+        'ม.3',
+      );
+      await tester.enterText(find.widgetWithText(TextField, 'ห้อง'), '2');
+      await tester.tap(find.widgetWithText(FilledButton, 'บันทึก'));
+      await tester.pumpAndSettle();
 
-    expect(sentGrade, 'ม.3');
-    expect(sentRoom, '2');
-    expect(find.text('ม.3/2'), findsOneWidget);
-    expect(find.textContaining('บันทึกชั้น/ห้องแล้ว'), findsOneWidget);
-  });
+      expect(sentGrade, 'ม.3');
+      expect(sentRoom, '2');
+      expect(find.text('ม.3/2'), findsOneWidget);
+      expect(find.textContaining('บันทึกชั้น/ห้องแล้ว'), findsOneWidget);
+    },
+  );
 
-  testWidgets('a class save the backend does not reflect is reported as a failure', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      loadUsers: () async => [_student()],
-      setStudentProfile: (_, _, _) async {}, // "succeeds" but read-back still empty
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(_student().name).first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('กำหนดระดับชั้น / ห้อง'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, 'ระดับชั้น'), 'ม.3');
-    await tester.enterText(find.widgetWithText(TextField, 'ห้อง'), '2');
-    await tester.tap(find.widgetWithText(FilledButton, 'บันทึก'));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('บันทึกชั้น/ห้องไม่สำเร็จ'), findsOneWidget);
-    expect(find.text('ม.3/2'), findsNothing);
-  });
+  testWidgets(
+    'a class save the backend does not reflect is reported as a failure',
+    (tester) async {
+      await _pump(
+        tester,
+        loadUsers: () async => [_student()],
+        setStudentProfile:
+            (_, _, _) async {}, // "succeeds" but read-back still empty
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(_student().name).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('กำหนดระดับชั้น / ห้อง'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'ระดับชั้น'),
+        'ม.3',
+      );
+      await tester.enterText(find.widgetWithText(TextField, 'ห้อง'), '2');
+      await tester.tap(find.widgetWithText(FilledButton, 'บันทึก'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('บันทึกชั้น/ห้องไม่สำเร็จ'), findsOneWidget);
+      expect(find.text('ม.3/2'), findsNothing);
+    },
+  );
 }

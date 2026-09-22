@@ -27,46 +27,87 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('SuperAdminHubPage renders all 10 quick action cards and drawer', (tester) async {
+  testWidgets(
+    'SuperAdminHubPage renders all 10 quick action cards and drawer',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: const SuperAdminHubPage(),
+          routes: {
+            '/users': (ctx) =>
+                const Scaffold(body: Text('User Management Route Screen')),
+          },
+        ),
+      );
+
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.text('ศูนย์ควบคุมภาพรวม (Platform Hub)'), findsOneWidget);
+      expect(
+        find.text('จัดการโรงเรียน (Schools)', skipOffstage: false),
+        findsWidgets,
+      );
+      expect(
+        find.text(
+          'ควบคุมและอนุมัติอุปกรณ์ (Device Control)',
+          skipOffstage: false,
+        ),
+        findsWidgets,
+      );
+      expect(
+        find.text('ทะเบียนและ QR Code (Devices & QR)', skipOffstage: false),
+        findsWidgets,
+      );
+      expect(
+        find.text('ทดสอบอุปกรณ์ (Device Diagnostics)', skipOffstage: false),
+        findsWidgets,
+      );
+      expect(
+        find.text('กำหนดสิทธิ์และบทบาท (Permissions)', skipOffstage: false),
+        findsWidgets,
+      );
+      expect(
+        find.text(
+          'การแจ้งเตือนและประวัติ (Alerts & Logs)',
+          skipOffstage: false,
+        ),
+        findsWidgets,
+      );
+      expect(
+        find.text('ตั้งค่าระบบส่วนกลาง (Settings)', skipOffstage: false),
+        findsWidgets,
+      );
+      expect(
+        find.text('จัดการผู้ใช้ (User Management)', skipOffstage: false),
+        findsWidgets,
+      );
+      expect(
+        find.text('สแกนอุปกรณ์ (Device Scan)', skipOffstage: false),
+        findsWidgets,
+      );
+      expect(
+        find.text(
+          'แพลตฟอร์มการเรียนรู้ (Learning Overview)',
+          skipOffstage: false,
+        ),
+        findsWidgets,
+      );
+    },
+  );
+
+  testWidgets('SuperAdminHubPage navigates to Schools page from quick action', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1200, 1400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() => tester.view.resetPhysicalSize());
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: const SuperAdminHubPage(),
-        routes: {
-          '/users': (ctx) => const Scaffold(body: Text('User Management Route Screen')),
-        },
-      ),
-    );
-
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-
-    expect(find.text('ศูนย์ควบคุมภาพรวม (Platform Hub)'), findsOneWidget);
-    expect(find.text('จัดการโรงเรียน (Schools)', skipOffstage: false), findsWidgets);
-    expect(find.text('ควบคุมและอนุมัติอุปกรณ์ (Device Control)', skipOffstage: false), findsWidgets);
-    expect(find.text('ทะเบียนและ QR Code (Devices & QR)', skipOffstage: false), findsWidgets);
-    expect(find.text('ทดสอบอุปกรณ์ (Device Diagnostics)', skipOffstage: false), findsWidgets);
-    expect(find.text('กำหนดสิทธิ์และบทบาท (Permissions)', skipOffstage: false), findsWidgets);
-    expect(find.text('การแจ้งเตือนและประวัติ (Alerts & Logs)', skipOffstage: false), findsWidgets);
-    expect(find.text('ตั้งค่าระบบส่วนกลาง (Settings)', skipOffstage: false), findsWidgets);
-    expect(find.text('จัดการผู้ใช้ (User Management)', skipOffstage: false), findsWidgets);
-    expect(find.text('สแกนอุปกรณ์ (Device Scan)', skipOffstage: false), findsWidgets);
-    expect(find.text('แพลตฟอร์มการเรียนรู้ (Learning Overview)', skipOffstage: false), findsWidgets);
-  });
-
-  testWidgets('SuperAdminHubPage navigates to Schools page from quick action', (tester) async {
-    tester.view.physicalSize = const Size(1200, 1400);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(() => tester.view.resetPhysicalSize());
-
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: SuperAdminHubPage(),
-      ),
-    );
+    await tester.pumpWidget(const MaterialApp(home: SuperAdminHubPage()));
 
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
@@ -78,37 +119,36 @@ void main() {
     expect(find.byType(SuperAdminSchoolsPage), findsOneWidget);
   });
 
-  testWidgets('SuperAdminHubPage navigates to Device Control page from quick action', (tester) async {
+  testWidgets(
+    'SuperAdminHubPage navigates to Device Control page from quick action',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(const MaterialApp(home: SuperAdminHubPage()));
+
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      await tester.tap(
+        find.text('ควบคุมและอนุมัติอุปกรณ์ (Device Control)').first,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.byType(SuperAdminDeviceControlPage), findsOneWidget);
+    },
+  );
+
+  testWidgets('SuperAdminHubPage navigates to Devices page from quick action', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1200, 1400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() => tester.view.resetPhysicalSize());
 
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: SuperAdminHubPage(),
-      ),
-    );
-
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-
-    await tester.tap(find.text('ควบคุมและอนุมัติอุปกรณ์ (Device Control)').first);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-
-    expect(find.byType(SuperAdminDeviceControlPage), findsOneWidget);
-  });
-
-  testWidgets('SuperAdminHubPage navigates to Devices page from quick action', (tester) async {
-    tester.view.physicalSize = const Size(1200, 1400);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(() => tester.view.resetPhysicalSize());
-
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: SuperAdminHubPage(),
-      ),
-    );
+    await tester.pumpWidget(const MaterialApp(home: SuperAdminHubPage()));
 
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
@@ -120,79 +160,76 @@ void main() {
     expect(find.byType(SuperAdminDevicesPage), findsOneWidget);
   });
 
-  testWidgets('SuperAdminHubPage navigates to Device Diagnostics from quick action', (tester) async {
+  testWidgets(
+    'SuperAdminHubPage navigates to Device Diagnostics from quick action',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(const MaterialApp(home: SuperAdminHubPage()));
+
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      await tester.tap(find.text('ทดสอบอุปกรณ์ (Device Diagnostics)').first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.byType(SuperAdminDeviceTestPage), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'SuperAdminHubPage navigates to Permissions page from quick action',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(const MaterialApp(home: SuperAdminHubPage()));
+
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      await tester.tap(find.text('กำหนดสิทธิ์และบทบาท (Permissions)').first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.byType(SuperAdminPermissionsPage), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'SuperAdminHubPage navigates to Alerts & Logs page from quick action',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(const MaterialApp(home: SuperAdminHubPage()));
+
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      await tester.tap(
+        find.text('การแจ้งเตือนและประวัติ (Alerts & Logs)').first,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.byType(SuperAdminAlertsLogsPage), findsOneWidget);
+    },
+  );
+
+  testWidgets('SuperAdminHubPage navigates to Settings from quick action', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1200, 1400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() => tester.view.resetPhysicalSize());
 
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: SuperAdminHubPage(),
-      ),
-    );
-
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-
-    await tester.tap(find.text('ทดสอบอุปกรณ์ (Device Diagnostics)').first);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-
-    expect(find.byType(SuperAdminDeviceTestPage), findsOneWidget);
-  });
-
-  testWidgets('SuperAdminHubPage navigates to Permissions page from quick action', (tester) async {
-    tester.view.physicalSize = const Size(1200, 1400);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(() => tester.view.resetPhysicalSize());
-
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: SuperAdminHubPage(),
-      ),
-    );
-
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-
-    await tester.tap(find.text('กำหนดสิทธิ์และบทบาท (Permissions)').first);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-
-    expect(find.byType(SuperAdminPermissionsPage), findsOneWidget);
-  });
-
-  testWidgets('SuperAdminHubPage navigates to Alerts & Logs page from quick action', (tester) async {
-    tester.view.physicalSize = const Size(1200, 1400);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(() => tester.view.resetPhysicalSize());
-
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: SuperAdminHubPage(),
-      ),
-    );
-
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-
-    await tester.tap(find.text('การแจ้งเตือนและประวัติ (Alerts & Logs)').first);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-
-    expect(find.byType(SuperAdminAlertsLogsPage), findsOneWidget);
-  });
-
-  testWidgets('SuperAdminHubPage navigates to Settings from quick action', (tester) async {
-    tester.view.physicalSize = const Size(1200, 1400);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(() => tester.view.resetPhysicalSize());
-
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: SuperAdminHubPage(),
-      ),
-    );
+    await tester.pumpWidget(const MaterialApp(home: SuperAdminHubPage()));
 
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
@@ -204,7 +241,9 @@ void main() {
     expect(find.byType(SuperAdminSettingsPage), findsOneWidget);
   });
 
-  testWidgets('SuperAdminHubPage navigates to Users route from quick action', (tester) async {
+  testWidgets('SuperAdminHubPage navigates to Users route from quick action', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1200, 1400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() => tester.view.resetPhysicalSize());
@@ -213,7 +252,8 @@ void main() {
       MaterialApp(
         home: const SuperAdminHubPage(),
         routes: {
-          '/users': (ctx) => const Scaffold(body: Text('User Management Screen')),
+          '/users': (ctx) =>
+              const Scaffold(body: Text('User Management Screen')),
         },
       ),
     );
@@ -228,21 +268,21 @@ void main() {
     expect(find.text('User Management Screen'), findsOneWidget);
   });
 
-  testWidgets('SuperAdminHubPage drawer opens and navigates to Devices page', (tester) async {
+  testWidgets('SuperAdminHubPage drawer opens and navigates to Devices page', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1200, 1400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() => tester.view.resetPhysicalSize());
 
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: SuperAdminHubPage(),
-      ),
-    );
+    await tester.pumpWidget(const MaterialApp(home: SuperAdminHubPage()));
 
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    final ScaffoldState scaffoldState = tester.firstState(find.byType(Scaffold));
+    final ScaffoldState scaffoldState = tester.firstState(
+      find.byType(Scaffold),
+    );
     scaffoldState.openDrawer();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));

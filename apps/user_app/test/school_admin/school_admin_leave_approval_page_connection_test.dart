@@ -50,7 +50,8 @@ Future<void> _pump(
     MaterialApp(
       home: SchoolAdminLeaveApprovalPage(
         loadRequests: loadRequests ?? ({status}) async => <StaffLeaveRequest>[],
-        loadAttachments: loadAttachments ?? (id) async => <StaffLeaveAttachment>[],
+        loadAttachments:
+            loadAttachments ?? (id) async => <StaffLeaveAttachment>[],
         reviewRequest: reviewRequest,
       ),
     ),
@@ -130,9 +131,7 @@ void main() {
     expect(find.text('ใบรับรองแพทย์.pdf'), findsOneWidget);
   });
 
-  testWidgets('an empty attachment list says so, not an error', (
-    tester,
-  ) async {
+  testWidgets('an empty attachment list says so, not an error', (tester) async {
     await _pump(tester, loadRequests: ({status}) async => [_request()]);
     await tester.pumpAndSettle();
 
@@ -173,8 +172,9 @@ void main() {
     var approved = false;
     await _pump(
       tester,
-      loadRequests: ({status}) async =>
-          [_request(status: approved ? 'approved' : 'pending')],
+      loadRequests: ({status}) async => [
+        _request(status: approved ? 'approved' : 'pending'),
+      ],
       reviewRequest: ({required requestId, required approve, note}) async {
         approved = true;
       },
@@ -216,7 +216,11 @@ void main() {
     await _pump(
       tester,
       loadRequests: ({status}) async => [
-        _request(status: 'approved', reviewerName: 'ผู้ดูแลระบบ', reviewNote: 'อนุมัติ'),
+        _request(
+          status: 'approved',
+          reviewerName: 'ผู้ดูแลระบบ',
+          reviewNote: 'อนุมัติ',
+        ),
       ],
     );
     await tester.pumpAndSettle();
@@ -245,10 +249,7 @@ void main() {
     await tester.tap(find.text('ครู สมศรี'));
     await tester.pumpAndSettle();
 
-    expect(
-      find.textContaining('โหลดไฟล์แนบไม่สำเร็จ'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('โหลดไฟล์แนบไม่สำเร็จ'), findsOneWidget);
     expect(find.text('ไม่มีไฟล์แนบ'), findsNothing);
     expect(find.textContaining('attachments_unreachable'), findsNothing);
   });

@@ -38,8 +38,7 @@ const _zeroEnergy = EnergyUsageSummary(
 
 Future<void> _pump(
   WidgetTester tester, {
-  Future<EnergyUsageSummary?> Function({String period})?
-  getEnergyUsageSummary,
+  Future<EnergyUsageSummary?> Function({String period})? getEnergyUsageSummary,
   Future<WaterUsageSummary?> Function({String period})? getWaterUsageSummary,
 }) async {
   tester.view.physicalSize = const Size(900, 500);
@@ -53,8 +52,10 @@ Future<void> _pump(
       home: Scaffold(
         body: SchoolUtilityTrendCard(
           height: 300,
-          getEnergyUsageSummary: getEnergyUsageSummary ?? ({period = 'week'}) async => null,
-          getWaterUsageSummary: getWaterUsageSummary ?? ({period = 'week'}) async => null,
+          getEnergyUsageSummary:
+              getEnergyUsageSummary ?? ({period = 'week'}) async => null,
+          getWaterUsageSummary:
+              getWaterUsageSummary ?? ({period = 'week'}) async => null,
           getEnergyUsageTrend: ({days = 7}) async => const [],
           getWaterUsageTrend: ({days = 7}) async => const [],
           getEnergyEfficiencyScore: () async => null,
@@ -67,29 +68,31 @@ Future<void> _pump(
 }
 
 void main() {
-  testWidgets('real meters with real usage show the real numbers, no demo badge', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      getEnergyUsageSummary: ({period = 'week'}) async => _realEnergy,
-      getWaterUsageSummary: ({period = 'week'}) async => _realWater,
-    );
-    expect(find.textContaining('150'), findsOneWidget);
-    expect(find.textContaining('8.0'), findsOneWidget);
-    expect(find.text('ข้อมูลจำลอง'), findsNothing);
-  });
+  testWidgets(
+    'real meters with real usage show the real numbers, no demo badge',
+    (tester) async {
+      await _pump(
+        tester,
+        getEnergyUsageSummary: ({period = 'week'}) async => _realEnergy,
+        getWaterUsageSummary: ({period = 'week'}) async => _realWater,
+      );
+      expect(find.textContaining('150'), findsOneWidget);
+      expect(find.textContaining('8.0'), findsOneWidget);
+      expect(find.text('ข้อมูลจำลอง'), findsNothing);
+    },
+  );
 
-  testWidgets('zero meters on both utilities is an honest empty state — no demo numbers, no badge', (
-    tester,
-  ) async {
-    await _pump(tester);
-    expect(find.text('ข้อมูลจำลอง'), findsNothing);
-    // The old fixed demo totals (285 kWh / 12.5 m³) must never render.
-    expect(find.textContaining('285'), findsNothing);
-    expect(find.textContaining('12.5'), findsNothing);
-    expect(find.textContaining('ยังไม่มีมิเตอร์ไฟฟ้า/น้ำ'), findsOneWidget);
-  });
+  testWidgets(
+    'zero meters on both utilities is an honest empty state — no demo numbers, no badge',
+    (tester) async {
+      await _pump(tester);
+      expect(find.text('ข้อมูลจำลอง'), findsNothing);
+      // The old fixed demo totals (285 kWh / 12.5 m³) must never render.
+      expect(find.textContaining('285'), findsNothing);
+      expect(find.textContaining('12.5'), findsNothing);
+      expect(find.textContaining('ยังไม่มีมิเตอร์ไฟฟ้า/น้ำ'), findsOneWidget);
+    },
+  );
 
   testWidgets('a failed load is an error with retry, never the demo numbers', (
     tester,
@@ -113,20 +116,21 @@ void main() {
     expect(find.textContaining('150'), findsOneWidget);
   });
 
-  testWidgets('a real zero-device energy summary is not silently swapped for the demo numbers when water is real', (
-    tester,
-  ) async {
-    // Only water has a real meter — energy genuinely has zero devices.
-    // This must show the real "no energy data" state, not the demo 285
-    // kWh, and must not show the demo badge (this isn't the all-missing
-    // demo case).
-    await _pump(
-      tester,
-      getEnergyUsageSummary: ({period = 'week'}) async => _zeroEnergy,
-      getWaterUsageSummary: ({period = 'week'}) async => _realWater,
-    );
-    expect(find.text('ข้อมูลจำลอง'), findsNothing);
-    expect(find.textContaining('285'), findsNothing);
-    expect(find.textContaining('8.0'), findsOneWidget);
-  });
+  testWidgets(
+    'a real zero-device energy summary is not silently swapped for the demo numbers when water is real',
+    (tester) async {
+      // Only water has a real meter — energy genuinely has zero devices.
+      // This must show the real "no energy data" state, not the demo 285
+      // kWh, and must not show the demo badge (this isn't the all-missing
+      // demo case).
+      await _pump(
+        tester,
+        getEnergyUsageSummary: ({period = 'week'}) async => _zeroEnergy,
+        getWaterUsageSummary: ({period = 'week'}) async => _realWater,
+      );
+      expect(find.text('ข้อมูลจำลอง'), findsNothing);
+      expect(find.textContaining('285'), findsNothing);
+      expect(find.textContaining('8.0'), findsOneWidget);
+    },
+  );
 }

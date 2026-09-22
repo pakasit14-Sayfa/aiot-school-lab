@@ -89,12 +89,13 @@ void main() {
     expect(find.text('เซนเซอร์ PM2.5'), findsNothing);
   });
 
-  testWidgets('zero real cameras shows an honest empty state, not fabricated tiles', (
-    tester,
-  ) async {
-    await _pump(tester, listSchoolDevices: () async => const []);
-    expect(find.text('พบ 0 กล้อง'), findsOneWidget);
-  });
+  testWidgets(
+    'zero real cameras shows an honest empty state, not fabricated tiles',
+    (tester) async {
+      await _pump(tester, listSchoolDevices: () async => const []);
+      expect(find.text('พบ 0 กล้อง'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'no AI / recording / storage claims are made — there is no backend for any of them',
@@ -142,7 +143,10 @@ void main() {
     (tester) async {
       await _pump(
         tester,
-        listSchoolDevices: () async => const [_realLocationCamera, _onlineCamera],
+        listSchoolDevices: () async => const [
+          _realLocationCamera,
+          _onlineCamera,
+        ],
       );
       expect(find.text('กล้อง CCTV ทางเข้าหลัก'), findsOneWidget);
 
@@ -187,49 +191,51 @@ void main() {
     expect(find.text('โหลดรายชื่อกล้องไม่สำเร็จ'), findsNothing);
   });
 
-  testWidgets('the camera detail has no inert record/playback/fullscreen buttons', (
-    tester,
-  ) async {
-    await _pump(tester, listSchoolDevices: () async => const [_onlineCamera]);
-    await tester.tap(find.text('ทางเข้าอาคาร 1'));
-    await tester.pumpAndSettle();
-    expect(find.text('บันทึกภาพ'), findsNothing);
-    expect(find.text('Playback'), findsNothing);
-    expect(find.text('เต็มจอ'), findsNothing);
-  });
+  testWidgets(
+    'the camera detail has no inert record/playback/fullscreen buttons',
+    (tester) async {
+      await _pump(tester, listSchoolDevices: () async => const [_onlineCamera]);
+      await tester.tap(find.text('ทางเข้าอาคาร 1'));
+      await tester.pumpAndSettle();
+      expect(find.text('บันทึกภาพ'), findsNothing);
+      expect(find.text('Playback'), findsNothing);
+      expect(find.text('เต็มจอ'), findsNothing);
+    },
+  );
 
-  testWidgets('the camera detail shows the real heartbeat, and "never reported" when null', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      listSchoolDevices: () async => const [_onlineCamera],
-      loadDeviceDetail: (id) async => SchoolDeviceDetail(
-        id: id,
-        name: 'ทางเข้าอาคาร 1',
-        type: 'camera',
-        status: 'online',
-        effectiveStatus: 'online',
-        serialNo: null,
-        deviceCode: null,
-        kitCode: null,
-        categoryCode: null,
-        location: 'อาคาร 1',
-        building: null,
-        room: null,
-        ipAddress: null,
-        firmwareVersion: 'cam-fw 2.1.0',
-        lastSeenAt: DateTime(2026, 9, 16, 8, 5),
-        registeredAt: null,
-        updatedAt: null,
-      ),
-    );
-    await tester.tap(find.text('ทางเข้าอาคาร 1'));
-    await tester.pumpAndSettle();
-    expect(find.text('การรายงานตัวของอุปกรณ์'), findsOneWidget);
-    expect(find.text('16/09/2569 08:05'), findsOneWidget);
-    expect(find.text('cam-fw 2.1.0'), findsOneWidget);
-    expect(find.text('ยังไม่เคยรายงาน'), findsOneWidget);
-    expect(find.text('AI Detection'), findsNothing);
-  });
+  testWidgets(
+    'the camera detail shows the real heartbeat, and "never reported" when null',
+    (tester) async {
+      await _pump(
+        tester,
+        listSchoolDevices: () async => const [_onlineCamera],
+        loadDeviceDetail: (id) async => SchoolDeviceDetail(
+          id: id,
+          name: 'ทางเข้าอาคาร 1',
+          type: 'camera',
+          status: 'online',
+          effectiveStatus: 'online',
+          serialNo: null,
+          deviceCode: null,
+          kitCode: null,
+          categoryCode: null,
+          location: 'อาคาร 1',
+          building: null,
+          room: null,
+          ipAddress: null,
+          firmwareVersion: 'cam-fw 2.1.0',
+          lastSeenAt: DateTime(2026, 9, 16, 8, 5),
+          registeredAt: null,
+          updatedAt: null,
+        ),
+      );
+      await tester.tap(find.text('ทางเข้าอาคาร 1'));
+      await tester.pumpAndSettle();
+      expect(find.text('การรายงานตัวของอุปกรณ์'), findsOneWidget);
+      expect(find.text('16/09/2569 08:05'), findsOneWidget);
+      expect(find.text('cam-fw 2.1.0'), findsOneWidget);
+      expect(find.text('ยังไม่เคยรายงาน'), findsOneWidget);
+      expect(find.text('AI Detection'), findsNothing);
+    },
+  );
 }

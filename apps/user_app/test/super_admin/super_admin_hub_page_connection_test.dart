@@ -75,7 +75,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('ยังไม่มีข้อมูลโรงเรียน'), findsOneWidget);
-    expect(find.textContaining('ไม่สามารถเชื่อมต่อฐานข้อมูลภาพรวมได้'), findsNothing);
+    expect(
+      find.textContaining('ไม่สามารถเชื่อมต่อฐานข้อมูลภาพรวมได้'),
+      findsNothing,
+    );
   });
 
   testWidgets('a failed schools load is distinct from empty, with retry', (
@@ -91,7 +94,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('ไม่สามารถเชื่อมต่อฐานข้อมูลภาพรวมได้'), findsOneWidget);
+    expect(
+      find.textContaining('ไม่สามารถเชื่อมต่อฐานข้อมูลภาพรวมได้'),
+      findsOneWidget,
+    );
     expect(calls, 1);
   });
 
@@ -148,30 +154,35 @@ void main() {
       expect(find.textContaining('alerts_unreachable'), findsNothing);
     });
 
-    testWidgets('ประวัติกิจกรรมโหลดพัง — ต้องบอกว่าโหลดไม่สำเร็จ ไม่ใช่ "ยังไม่มีประวัติ"', (
-      tester,
-    ) async {
-      await _pump(
-        tester,
-        loadSchools: () async => <SchoolPlatformRecord>[_school()],
-        loadAuditLogs: () async => throw Exception('logs_unreachable'),
-      );
-      await tester.pumpAndSettle();
+    testWidgets(
+      'ประวัติกิจกรรมโหลดพัง — ต้องบอกว่าโหลดไม่สำเร็จ ไม่ใช่ "ยังไม่มีประวัติ"',
+      (tester) async {
+        await _pump(
+          tester,
+          loadSchools: () async => <SchoolPlatformRecord>[_school()],
+          loadAuditLogs: () async => throw Exception('logs_unreachable'),
+        );
+        await tester.pumpAndSettle();
 
-      expect(find.text('โหลดประวัติกิจกรรมไม่สำเร็จ'), findsOneWidget);
-      expect(find.text('ยังไม่มีประวัติกิจกรรม'), findsNothing);
-      expect(find.textContaining('logs_unreachable'), findsNothing);
-    });
+        expect(find.text('โหลดประวัติกิจกรรมไม่สำเร็จ'), findsOneWidget);
+        expect(find.text('ยังไม่มีประวัติกิจกรรม'), findsNothing);
+        expect(find.textContaining('logs_unreachable'), findsNothing);
+      },
+    );
 
-    testWidgets('ทุกอย่างโหลดสำเร็จแต่ว่างจริง ต้องยังขึ้น "ยังไม่มีประวัติกิจกรรม"', (
-      tester,
-    ) async {
-      await _pump(tester, loadSchools: () async => <SchoolPlatformRecord>[_school()]);
-      await tester.pumpAndSettle();
+    testWidgets(
+      'ทุกอย่างโหลดสำเร็จแต่ว่างจริง ต้องยังขึ้น "ยังไม่มีประวัติกิจกรรม"',
+      (tester) async {
+        await _pump(
+          tester,
+          loadSchools: () async => <SchoolPlatformRecord>[_school()],
+        );
+        await tester.pumpAndSettle();
 
-      expect(find.text('ยังไม่มีประวัติกิจกรรม'), findsOneWidget);
-      expect(find.text('โหลดประวัติกิจกรรมไม่สำเร็จ'), findsNothing);
-      expect(find.text('โหลดไม่สำเร็จ'), findsNothing);
-    });
+        expect(find.text('ยังไม่มีประวัติกิจกรรม'), findsOneWidget);
+        expect(find.text('โหลดประวัติกิจกรรมไม่สำเร็จ'), findsNothing);
+        expect(find.text('โหลดไม่สำเร็จ'), findsNothing);
+      },
+    );
   });
 }

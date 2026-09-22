@@ -131,29 +131,26 @@ void main() {
     expect(find.textContaining('kWh'), findsNothing);
   });
 
-  testWidgets(
-    'PM2.5 is hidden unless that metric really has readings, because '
-    'SensorModel reports an absent metric as 0',
-    (tester) async {
-      // A sensor object exists, but pm25 is not among the metrics that have
-      // data. Trusting sensor.pm25 here would print a confident "PM2.5 0".
-      await _pump(
-        tester,
-        loadSensor: () async => SensorModel(
-          pm25: 0,
-          temperature: 27,
-          humidity: 55,
-          updatedAt: DateTime(2026, 9, 7),
-          metricUpdatedAt: {'temperature': DateTime(2026, 9, 7)},
-        ),
-        loadMetricsWithData: () async => <String>{'temperature'},
-      );
-      await tester.pumpAndSettle();
+  testWidgets('PM2.5 is hidden unless that metric really has readings, because '
+      'SensorModel reports an absent metric as 0', (tester) async {
+    // A sensor object exists, but pm25 is not among the metrics that have
+    // data. Trusting sensor.pm25 here would print a confident "PM2.5 0".
+    await _pump(
+      tester,
+      loadSensor: () async => SensorModel(
+        pm25: 0,
+        temperature: 27,
+        humidity: 55,
+        updatedAt: DateTime(2026, 9, 7),
+        metricUpdatedAt: {'temperature': DateTime(2026, 9, 7)},
+      ),
+      loadMetricsWithData: () async => <String>{'temperature'},
+    );
+    await tester.pumpAndSettle();
 
-      expect(find.textContaining('PM2.5 0'), findsNothing);
-      expect(find.text('ยังไม่มีเซนเซอร์ที่ส่งค่า PM2.5'), findsOneWidget);
-    },
-  );
+    expect(find.textContaining('PM2.5 0'), findsNothing);
+    expect(find.text('ยังไม่มีเซนเซอร์ที่ส่งค่า PM2.5'), findsOneWidget);
+  });
 
   testWidgets('a failed load shows a retry that actually re-issues the call', (
     tester,

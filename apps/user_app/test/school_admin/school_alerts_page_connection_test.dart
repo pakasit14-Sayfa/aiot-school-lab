@@ -122,107 +122,113 @@ void main() {
     expect(find.text('ทุกอาคาร'), findsNothing);
   });
 
-  testWidgets('"รับทราบทั้งหมด" writes through the bulk RPC and only reports success after read-back', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(1600, 2200);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
+  testWidgets(
+    '"รับทราบทั้งหมด" writes through the bulk RPC and only reports success after read-back',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 2200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
 
-    var acknowledgedAll = false;
-    final controller = SchoolAdminAlertsController(
-      loadAlerts: () async => [
-        _alert(id: '1', status: acknowledgedAll ? 'acknowledged' : 'new'),
-        _alert(id: '2', status: acknowledgedAll ? 'acknowledged' : 'new'),
-      ],
-      acknowledgeAlert: (alertId) async {},
-      resolveAlert: (alertId, {note}) async {},
-      acknowledgeAllAlerts: () async {
-        acknowledgedAll = true;
-        return 2;
-      },
-    );
-    addTearDown(controller.dispose);
+      var acknowledgedAll = false;
+      final controller = SchoolAdminAlertsController(
+        loadAlerts: () async => [
+          _alert(id: '1', status: acknowledgedAll ? 'acknowledged' : 'new'),
+          _alert(id: '2', status: acknowledgedAll ? 'acknowledged' : 'new'),
+        ],
+        acknowledgeAlert: (alertId) async {},
+        resolveAlert: (alertId, {note}) async {},
+        acknowledgeAllAlerts: () async {
+          acknowledgedAll = true;
+          return 2;
+        },
+      );
+      addTearDown(controller.dispose);
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: SchoolAlertsPage(
-          controller: controller,
-          loadAuditLogs: () async => const <SchoolAdminAuditLog>[],
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SchoolAlertsPage(
+            controller: controller,
+            loadAuditLogs: () async => const <SchoolAdminAuditLog>[],
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    // FilledButton.icon เป็น subclass ส่วนตัว — หาปุ่มผ่าน ButtonStyleButton
-    Finder ackAll() => find.ancestor(
-      of: find.text('รับทราบทั้งหมด'),
-      matching: find.byWidgetPredicate((w) => w is ButtonStyleButton),
-    );
-    final button = ackAll();
-    expect(button, findsOneWidget);
-    expect(tester.widget<ButtonStyleButton>(button).onPressed, isNotNull);
-    expect(find.text('รับทราบทั้งหมด (ยังไม่เปิดใช้งาน)'), findsNothing);
+      // FilledButton.icon เป็น subclass ส่วนตัว — หาปุ่มผ่าน ButtonStyleButton
+      Finder ackAll() => find.ancestor(
+        of: find.text('รับทราบทั้งหมด'),
+        matching: find.byWidgetPredicate((w) => w is ButtonStyleButton),
+      );
+      final button = ackAll();
+      expect(button, findsOneWidget);
+      expect(tester.widget<ButtonStyleButton>(button).onPressed, isNotNull);
+      expect(find.text('รับทราบทั้งหมด (ยังไม่เปิดใช้งาน)'), findsNothing);
 
-    await tester.tap(button);
-    await tester.pumpAndSettle();
+      await tester.tap(button);
+      await tester.pumpAndSettle();
 
-    expect(acknowledgedAll, isTrue);
-    expect(find.text('รับทราบแล้ว 2 รายการ'), findsOneWidget);
-    // ไม่เหลือ new → ปุ่มปิดตัวเอง
-    expect(tester.widget<ButtonStyleButton>(ackAll()).onPressed, isNull);
-  });
+      expect(acknowledgedAll, isTrue);
+      expect(find.text('รับทราบแล้ว 2 รายการ'), findsOneWidget);
+      // ไม่เหลือ new → ปุ่มปิดตัวเอง
+      expect(tester.widget<ButtonStyleButton>(ackAll()).onPressed, isNull);
+    },
+  );
 
-  testWidgets('"รับทราบทั้งหมด" that does not clear every new alert on read-back is reported as a failure', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(1600, 2200);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
+  testWidgets(
+    '"รับทราบทั้งหมด" that does not clear every new alert on read-back is reported as a failure',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 2200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
 
-    final controller = SchoolAdminAlertsController(
-      loadAlerts: () async => [_alert(id: '1', status: 'new')],
-      acknowledgeAlert: (alertId) async {},
-      resolveAlert: (alertId, {note}) async {},
-      acknowledgeAllAlerts: () async => 1, // claims success, backend still says new
-    );
-    addTearDown(controller.dispose);
+      final controller = SchoolAdminAlertsController(
+        loadAlerts: () async => [_alert(id: '1', status: 'new')],
+        acknowledgeAlert: (alertId) async {},
+        resolveAlert: (alertId, {note}) async {},
+        acknowledgeAllAlerts: () async =>
+            1, // claims success, backend still says new
+      );
+      addTearDown(controller.dispose);
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: SchoolAlertsPage(
-          controller: controller,
-          loadAuditLogs: () async => const <SchoolAdminAuditLog>[],
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SchoolAlertsPage(
+            controller: controller,
+            loadAuditLogs: () async => const <SchoolAdminAuditLog>[],
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.ancestor(
-      of: find.text('รับทราบทั้งหมด'),
-      matching: find.byWidgetPredicate((w) => w is ButtonStyleButton),
-    ));
-    await tester.pumpAndSettle();
+      await tester.tap(
+        find.ancestor(
+          of: find.text('รับทราบทั้งหมด'),
+          matching: find.byWidgetPredicate((w) => w is ButtonStyleButton),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('รับทราบแล้ว 1 รายการ'), findsNothing);
-    expect(find.textContaining('รับทราบทั้งหมดไม่สำเร็จ'), findsWidgets);
-  });
+      expect(find.text('รับทราบแล้ว 1 รายการ'), findsNothing);
+      expect(find.textContaining('รับทราบทั้งหมดไม่สำเร็จ'), findsWidgets);
+    },
+  );
 
-  testWidgets('no "ตรวจสอบ" control exists — alert_status has no investigating state', (
-    tester,
-  ) async {
-    await _pumpWith(tester, [_alert(id: '1', status: 'new')]);
+  testWidgets(
+    'no "ตรวจสอบ" control exists — alert_status has no investigating state',
+    (tester) async {
+      await _pumpWith(tester, [_alert(id: '1', status: 'new')]);
 
-    expect(find.text('ตรวจสอบ'), findsNothing);
-    expect(find.text('กำลังตรวจสอบ'), findsNothing);
-    for (final snack in <String>[
-      'ฟังก์ชันส่งออกรายงานยังไม่เชื่อมต่อระบบหลังบ้าน',
-      'การรับทราบทั้งหมดพร้อมกันยังไม่เชื่อมต่อระบบหลังบ้าน',
-      'สถานะกำลังตรวจสอบยังไม่เชื่อมต่อระบบหลังบ้าน',
-    ]) {
-      expect(find.text(snack), findsNothing, reason: snack);
-    }
-  });
+      expect(find.text('ตรวจสอบ'), findsNothing);
+      expect(find.text('กำลังตรวจสอบ'), findsNothing);
+      for (final snack in <String>[
+        'ฟังก์ชันส่งออกรายงานยังไม่เชื่อมต่อระบบหลังบ้าน',
+        'การรับทราบทั้งหมดพร้อมกันยังไม่เชื่อมต่อระบบหลังบ้าน',
+        'สถานะกำลังตรวจสอบยังไม่เชื่อมต่อระบบหลังบ้าน',
+      ]) {
+        expect(find.text(snack), findsNothing, reason: snack);
+      }
+    },
+  );
 
   testWidgets('export downloads a real CSV of the filtered alerts', (
     tester,

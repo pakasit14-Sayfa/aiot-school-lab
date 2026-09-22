@@ -55,8 +55,7 @@ Future<void> _pump(
     MaterialApp(
       home: TeacherPblActivityEditorPage(
         courseId: 'course-1',
-        listTeachingKitDevices:
-            listTeachingKitDevices ?? () async => [_device],
+        listTeachingKitDevices: listTeachingKitDevices ?? () async => [_device],
         listMyRubrics: listMyRubrics ?? () async => [_rubricSummary],
         getRubric: getRubric ?? (_) async => _rubricDetail,
         createAssignment: createAssignment,

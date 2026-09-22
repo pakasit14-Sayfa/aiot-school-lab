@@ -12,15 +12,16 @@ import 'package:shared_core/shared_core.dart';
 /// audit_logs has no outcome column, and the save button claimed
 /// "บันทึกข้อมูลโปรไฟล์แล้ว" without writing anything.
 
-SchoolAdminAuditLog _log({String action = 'เข้าสู่ระบบ'}) => SchoolAdminAuditLog(
-  id: 1,
-  action: action,
-  target: '',
-  detail: 'เข้าสู่ระบบสำเร็จ',
-  actorName: 'ผู้ดูแล ทดสอบ',
-  actorRole: 'school_admin',
-  createdAt: DateTime(2026, 9, 1),
-);
+SchoolAdminAuditLog _log({String action = 'เข้าสู่ระบบ'}) =>
+    SchoolAdminAuditLog(
+      id: 1,
+      action: action,
+      target: '',
+      detail: 'เข้าสู่ระบบสำเร็จ',
+      actorName: 'ผู้ดูแล ทดสอบ',
+      actorRole: 'school_admin',
+      createdAt: DateTime(2026, 9, 1),
+    );
 
 SchoolAdminDashboardSummary _summary({String schoolName = 'โรงเรียนทดสอบ'}) =>
     SchoolAdminDashboardSummary(
@@ -44,9 +45,16 @@ Future<void> _pump(
   updateProfile,
   Future<void> Function()? signOutAllDevices,
   Future<List<StaffDirectoryEntry>> Function()? loadDirectory,
-  Future<void> Function({required String userId, String? positionTitle, String? phone})?
+  Future<void> Function({
+    required String userId,
+    String? positionTitle,
+    String? phone,
+  })?
   saveStaffProfile,
-  Future<void> Function({required String currentPassword, required String newPassword})?
+  Future<void> Function({
+    required String currentPassword,
+    required String newPassword,
+  })?
   changePassword,
   Future<List<MySessionRecord>> Function()? loadSessions,
   Future<void> Function(String sessionId)? revokeSession,
@@ -73,8 +81,10 @@ Future<void> _pump(
         loadSummary: loadSummary ?? () async => _summary(),
         updateProfile: updateProfile,
         signOutAllDevices: signOutAllDevices,
-        loadDirectory: loadDirectory ?? () async => const <StaffDirectoryEntry>[],
-        saveStaffProfile: saveStaffProfile ??
+        loadDirectory:
+            loadDirectory ?? () async => const <StaffDirectoryEntry>[],
+        saveStaffProfile:
+            saveStaffProfile ??
             ({required userId, positionTitle, phone}) async {},
         changePassword: changePassword,
         loadSessions: loadSessions,
@@ -145,15 +155,16 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
-  testWidgets('a real log entry is rendered without an invented success color', (
-    tester,
-  ) async {
-    await _pump(tester, loadLogs: () async => [_log()]);
-    await tester.pumpAndSettle();
+  testWidgets(
+    'a real log entry is rendered without an invented success color',
+    (tester) async {
+      await _pump(tester, loadLogs: () async => [_log()]);
+      await tester.pumpAndSettle();
 
-    expect(find.text('เข้าสู่ระบบ'), findsOneWidget);
-    expect(find.text('เข้าสู่ระบบสำเร็จ'), findsOneWidget);
-  });
+      expect(find.text('เข้าสู่ระบบ'), findsOneWidget);
+      expect(find.text('เข้าสู่ระบบสำเร็จ'), findsOneWidget);
+    },
+  );
 
   testWidgets('saving only claims success once the write actually completes', (
     tester,
@@ -192,8 +203,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.widgetWithText(TextField, 'เบอร์โทรศัพท์'), '0812345678');
-    await tester.enterText(find.widgetWithText(TextField, 'ตำแหน่ง'), 'รองผู้อำนวยการ');
+    await tester.enterText(
+      find.widgetWithText(TextField, 'เบอร์โทรศัพท์'),
+      '0812345678',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'ตำแหน่ง'),
+      'รองผู้อำนวยการ',
+    );
     await tester.tap(find.text('บันทึก'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('ยืนยัน'));
@@ -231,7 +248,10 @@ void main() {
 
       expect(find.text('ยังไม่รองรับการบันทึก'), findsNothing);
       expect(find.widgetWithText(TextField, '0899999999'), findsOneWidget);
-      expect(find.widgetWithText(TextField, 'หัวหน้างานทะเบียน'), findsOneWidget);
+      expect(
+        find.widgetWithText(TextField, 'หัวหน้างานทะเบียน'),
+        findsOneWidget,
+      );
       expect(find.text('ฝ่ายบริหารทั่วไป'), findsOneWidget);
       // ไม่มีคอลัมน์ไหนเก็บรหัสบุคลากร — ช่องนั้นต้องไม่อยู่บนจอ
       expect(find.text('รหัสผู้ใช้งาน / รหัสบุคลากร'), findsNothing);
@@ -276,29 +296,46 @@ void main() {
       final calls = <String>[];
       await _pump(
         tester,
-        changePassword: ({required currentPassword, required newPassword}) async {
-          calls.add('$currentPassword→$newPassword');
-          if (currentPassword == 'wrong') {
-            throw Exception('PostgrestException: wrong_current_password');
-          }
-        },
+        changePassword:
+            ({required currentPassword, required newPassword}) async {
+              calls.add('$currentPassword→$newPassword');
+              if (currentPassword == 'wrong') {
+                throw Exception('PostgrestException: wrong_current_password');
+              }
+            },
       );
       await tester.pumpAndSettle();
 
       await tester.tap(find.widgetWithText(OutlinedButton, 'เปลี่ยนรหัสผ่าน'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.widgetWithText(TextField, 'รหัสผ่านปัจจุบัน'), 'wrong');
-      await tester.enterText(find.widgetWithText(TextField, 'รหัสผ่านใหม่ (อย่างน้อย 8 ตัว)'), 'NewPass12345');
-      await tester.enterText(find.widgetWithText(TextField, 'ยืนยันรหัสผ่านใหม่'), 'NewPass12345');
+      await tester.enterText(
+        find.widgetWithText(TextField, 'รหัสผ่านปัจจุบัน'),
+        'wrong',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'รหัสผ่านใหม่ (อย่างน้อย 8 ตัว)'),
+        'NewPass12345',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'ยืนยันรหัสผ่านใหม่'),
+        'NewPass12345',
+      );
       await tester.tap(find.widgetWithText(FilledButton, 'เปลี่ยนรหัสผ่าน'));
       await tester.pumpAndSettle();
 
       expect(calls, ['wrong→NewPass12345']);
       expect(find.text('รหัสผ่านปัจจุบันไม่ถูกต้อง'), findsOneWidget);
       expect(find.textContaining('wrong_current_password'), findsNothing);
-      expect(find.byType(AlertDialog), findsOneWidget, reason: 'stays open to retry');
+      expect(
+        find.byType(AlertDialog),
+        findsOneWidget,
+        reason: 'stays open to retry',
+      );
 
-      await tester.enterText(find.widgetWithText(TextField, 'รหัสผ่านปัจจุบัน'), 'OldPass123');
+      await tester.enterText(
+        find.widgetWithText(TextField, 'รหัสผ่านปัจจุบัน'),
+        'OldPass123',
+      );
       await tester.tap(find.widgetWithText(FilledButton, 'เปลี่ยนรหัสผ่าน'));
       await tester.pumpAndSettle();
 
@@ -319,13 +356,21 @@ void main() {
           loads++;
           return [
             MySessionRecord(
-              id: 's-here', deviceInfo: 'MacBook', ipAddress: '10.0.0.2',
-              createdAt: DateTime(2026, 9, 14, 8), expiresAt: DateTime(2026, 9, 21, 8), isCurrent: true,
+              id: 's-here',
+              deviceInfo: 'MacBook',
+              ipAddress: '10.0.0.2',
+              createdAt: DateTime(2026, 9, 14, 8),
+              expiresAt: DateTime(2026, 9, 21, 8),
+              isCurrent: true,
             ),
             if (!revoked.contains('s-phone'))
               MySessionRecord(
-                id: 's-phone', deviceInfo: 'iPhone', ipAddress: null,
-                createdAt: DateTime(2026, 9, 13, 20), expiresAt: DateTime(2026, 9, 20, 20), isCurrent: false,
+                id: 's-phone',
+                deviceInfo: 'iPhone',
+                ipAddress: null,
+                createdAt: DateTime(2026, 9, 13, 20),
+                expiresAt: DateTime(2026, 9, 20, 20),
+                isCurrent: false,
               ),
           ];
         },
@@ -398,7 +443,9 @@ void main() {
     },
   );
 
-  testWidgets('no "เปลี่ยนรูป" — there is no avatar storage to change', (tester) async {
+  testWidgets('no "เปลี่ยนรูป" — there is no avatar storage to change', (
+    tester,
+  ) async {
     await _pump(tester);
     // Used to open a URL dialog, keep the URL in page state and announce
     // "เปลี่ยนรูปโปรไฟล์แล้ว" without writing anywhere (found 2026-09-17).

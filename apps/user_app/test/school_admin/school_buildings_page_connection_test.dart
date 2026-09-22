@@ -73,12 +73,28 @@ Future<void> _pump(
   Future<List<SchoolAdminAuditLog>> Function()? loadLogs,
   Future<BulkImportResult> Function(Map<String, dynamic>)? createBuilding,
   Future<BulkImportResult> Function(Map<String, dynamic>)? createRoom,
-  Future<void> Function({required String buildingId, required String name, required String code, int? floors, String? note})?
+  Future<void> Function({
+    required String buildingId,
+    required String name,
+    required String code,
+    int? floors,
+    String? note,
+  })?
   updateBuilding,
   Future<void> Function(String)? deleteBuilding,
-  Future<void> Function({required String buildingId, required String? managerName})?
+  Future<void> Function({
+    required String buildingId,
+    required String? managerName,
+  })?
   setBuildingManager,
-  Future<void> Function({required String roomId, required String name, required String code, String? floor, String? roomType, int? capacity})?
+  Future<void> Function({
+    required String roomId,
+    required String name,
+    required String code,
+    String? floor,
+    String? roomType,
+    int? capacity,
+  })?
   updateRoom,
   Future<void> Function(String)? deleteRoom,
   Future<List<SchoolSensorAlertRecord>> Function()? loadAlerts,
@@ -106,13 +122,18 @@ Future<void> _pump(
         deleteRoom: deleteRoom,
         loadAlerts: loadAlerts ?? () async => const <SchoolSensorAlertRecord>[],
         loadDevices: loadDevices ?? () async => const <DeviceOption>[],
-        loadStaffDirectory: loadStaffDirectory ?? () async => const <StaffDirectoryEntry>[],
+        loadStaffDirectory:
+            loadStaffDirectory ?? () async => const <StaffDirectoryEntry>[],
       ),
     ),
   );
 }
 
-const _inserted = BulkImportResult(success: true, insertedCount: 1, skipped: []);
+const _inserted = BulkImportResult(
+  success: true,
+  insertedCount: 1,
+  skipped: [],
+);
 const _duplicate = BulkImportResult(
   success: true,
   insertedCount: 0,
@@ -218,8 +239,14 @@ void main() {
 
       await tester.tap(find.text('สร้างอาคาร'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.widgetWithText(TextField, 'ชื่ออาคาร'), 'อาคารวิทยาศาสตร์');
-      await tester.enterText(find.widgetWithText(TextField, 'รหัสอาคาร (ไม่ซ้ำ)'), 'SCI');
+      await tester.enterText(
+        find.widgetWithText(TextField, 'ชื่ออาคาร'),
+        'อาคารวิทยาศาสตร์',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'รหัสอาคาร (ไม่ซ้ำ)'),
+        'SCI',
+      );
       await tester.enterText(find.widgetWithText(TextField, 'จำนวนชั้น'), '4');
       await tester.tap(find.text('บันทึก'));
       await tester.pumpAndSettle();
@@ -246,12 +273,21 @@ void main() {
 
       await tester.tap(find.text('สร้างอาคาร'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.widgetWithText(TextField, 'ชื่ออาคาร'), 'อาคาร 1');
-      await tester.enterText(find.widgetWithText(TextField, 'รหัสอาคาร (ไม่ซ้ำ)'), 'BLD-1');
+      await tester.enterText(
+        find.widgetWithText(TextField, 'ชื่ออาคาร'),
+        'อาคาร 1',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'รหัสอาคาร (ไม่ซ้ำ)'),
+        'BLD-1',
+      );
       await tester.tap(find.text('บันทึก'));
       await tester.pumpAndSettle();
 
-      expect(find.text('รหัสอาคารนี้มีอยู่แล้ว กรุณาใช้รหัสอื่น'), findsOneWidget);
+      expect(
+        find.text('รหัสอาคารนี้มีอยู่แล้ว กรุณาใช้รหัสอื่น'),
+        findsOneWidget,
+      );
       expect(find.textContaining('แล้ว"'), findsNothing);
       expect(loads, 1, reason: 'nothing was written, so nothing reloads');
     },
@@ -263,7 +299,10 @@ void main() {
       Map<String, dynamic>? sent;
       await _pump(
         tester,
-        loadBuildings: () async => [_building(), _building(id: 'bld-2', name: 'อาคาร 2', code: 'BLD-2')],
+        loadBuildings: () async => [
+          _building(),
+          _building(id: 'bld-2', name: 'อาคาร 2', code: 'BLD-2'),
+        ],
         createRoom: (r) async {
           sent = r;
           return _inserted;
@@ -273,9 +312,18 @@ void main() {
 
       await tester.tap(find.text('สร้างห้อง'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.widgetWithText(TextField, 'ชื่อห้อง'), 'ห้องแล็บ AIoT');
-      await tester.enterText(find.widgetWithText(TextField, 'รหัสห้อง (ไม่ซ้ำ)'), 'LAB-1');
-      await tester.enterText(find.widgetWithText(TextField, 'ชั้น (ถ้ามี)'), '2');
+      await tester.enterText(
+        find.widgetWithText(TextField, 'ชื่อห้อง'),
+        'ห้องแล็บ AIoT',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'รหัสห้อง (ไม่ซ้ำ)'),
+        'LAB-1',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'ชั้น (ถ้ามี)'),
+        '2',
+      );
       await tester.tap(find.text('บันทึก'));
       await tester.pumpAndSettle();
 
@@ -294,18 +342,28 @@ void main() {
     (tester) async {
       await _pump(
         tester,
-        createBuilding: (_) async => throw Exception('PostgrestException: boom_secret'),
+        createBuilding: (_) async =>
+            throw Exception('PostgrestException: boom_secret'),
       );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('สร้างอาคาร'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.widgetWithText(TextField, 'ชื่ออาคาร'), 'อาคาร X');
-      await tester.enterText(find.widgetWithText(TextField, 'รหัสอาคาร (ไม่ซ้ำ)'), 'X');
+      await tester.enterText(
+        find.widgetWithText(TextField, 'ชื่ออาคาร'),
+        'อาคาร X',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'รหัสอาคาร (ไม่ซ้ำ)'),
+        'X',
+      );
       await tester.tap(find.text('บันทึก'));
       await tester.pumpAndSettle();
 
-      expect(find.text('สร้างอาคารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), findsOneWidget);
+      expect(
+        find.text('สร้างอาคารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'),
+        findsOneWidget,
+      );
       expect(find.textContaining('boom_secret'), findsNothing);
     },
   );
@@ -317,13 +375,29 @@ void main() {
         tester,
         loadAlerts: () async => [
           SchoolSensorAlertRecord(
-            id: 'al-1', deviceId: 'dev-1', deviceName: 'PM2.5 ห้อง 101', deviceCode: 'PM-101',
-            schoolId: 'school-1', metric: 'pm25', value: 92, triggeredAt: DateTime(2026, 9, 14, 9),
-            status: 'new', thresholdId: null, acknowledgedBy: null, acknowledgedByName: null, acknowledgedAt: null,
+            id: 'al-1',
+            deviceId: 'dev-1',
+            deviceName: 'PM2.5 ห้อง 101',
+            deviceCode: 'PM-101',
+            schoolId: 'school-1',
+            metric: 'pm25',
+            value: 92,
+            triggeredAt: DateTime(2026, 9, 14, 9),
+            status: 'new',
+            thresholdId: null,
+            acknowledgedBy: null,
+            acknowledgedByName: null,
+            acknowledgedAt: null,
           ),
         ],
         loadDevices: () async => const [
-          DeviceOption(id: 'dev-1', name: 'PM2.5 ห้อง 101', type: 'pm25_sensor', location: 'อาคาร 1 ชั้น 1', status: 'online'),
+          DeviceOption(
+            id: 'dev-1',
+            name: 'PM2.5 ห้อง 101',
+            type: 'pm25_sensor',
+            location: 'อาคาร 1 ชั้น 1',
+            status: 'online',
+          ),
         ],
       );
       await tester.pumpAndSettle();
@@ -342,7 +416,9 @@ void main() {
     expect(find.text('ไม่มีแจ้งเตือนที่ยังไม่ได้รับทราบ'), findsOneWidget);
   });
 
-  testWidgets('a failed alert load says so with retry, not an empty list', (tester) async {
+  testWidgets('a failed alert load says so with retry, not an empty list', (
+    tester,
+  ) async {
     await _pump(tester, loadAlerts: () async => throw Exception('boom'));
     await tester.pumpAndSettle();
     expect(find.text('โหลดรายการแจ้งเตือนไม่สำเร็จ'), findsOneWidget);
@@ -362,14 +438,21 @@ void main() {
         },
         loadStaffDirectory: () async => const [
           StaffDirectoryEntry(
-            userId: 'u-1', fullName: 'ครูสมศักดิ์ ใจดี', email: 's@x.test', status: 'active',
-            roles: ['teacher'], administrativeDepartments: [], subjectGroups: [], headsDepartments: [],
+            userId: 'u-1',
+            fullName: 'ครูสมศักดิ์ ใจดี',
+            email: 's@x.test',
+            status: 'active',
+            roles: ['teacher'],
+            administrativeDepartments: [],
+            subjectGroups: [],
+            headsDepartments: [],
           ),
         ],
-        setBuildingManager: ({required buildingId, required managerName}) async {
-          sentBuilding = buildingId;
-          sentName = managerName;
-        },
+        setBuildingManager:
+            ({required buildingId, required managerName}) async {
+              sentBuilding = buildingId;
+              sentName = managerName;
+            },
       );
       await tester.pumpAndSettle();
 
@@ -402,20 +485,45 @@ void main() {
       await _pump(
         tester,
         loadBuildings: () async => [_building()],
-        updateBuilding: ({required buildingId, required name, required code, floors, note}) async {
-          sent = {'id': buildingId, 'name': name, 'code': code, 'floors': floors, 'note': note};
-        },
+        updateBuilding:
+            ({
+              required buildingId,
+              required name,
+              required code,
+              floors,
+              note,
+            }) async {
+              sent = {
+                'id': buildingId,
+                'name': name,
+                'code': code,
+                'floors': floors,
+                'note': note,
+              };
+            },
       );
       await tester.pumpAndSettle();
 
       await tester.tap(find.byTooltip('แก้ไขอาคาร').first);
       await tester.pumpAndSettle();
-      await tester.enterText(find.widgetWithText(TextField, 'ชื่ออาคาร'), 'อาคาร 1 (ปรับปรุง)');
+      await tester.enterText(
+        find.widgetWithText(TextField, 'ชื่ออาคาร'),
+        'อาคาร 1 (ปรับปรุง)',
+      );
       await tester.tap(find.text('บันทึก'));
       await tester.pumpAndSettle();
 
-      expect(sent, {'id': 'bld-1', 'name': 'อาคาร 1 (ปรับปรุง)', 'code': 'BLD-1', 'floors': 3, 'note': ''});
-      expect(find.text('บันทึกอาคาร "อาคาร 1 (ปรับปรุง)" แล้ว'), findsOneWidget);
+      expect(sent, {
+        'id': 'bld-1',
+        'name': 'อาคาร 1 (ปรับปรุง)',
+        'code': 'BLD-1',
+        'floors': 3,
+        'note': '',
+      });
+      expect(
+        find.text('บันทึกอาคาร "อาคาร 1 (ปรับปรุง)" แล้ว'),
+        findsOneWidget,
+      );
     },
   );
 
@@ -425,7 +533,8 @@ void main() {
       await _pump(
         tester,
         loadBuildings: () async => [_building()],
-        deleteBuilding: (_) async => throw Exception('PostgrestException: building_has_rooms'),
+        deleteBuilding: (_) async =>
+            throw Exception('PostgrestException: building_has_rooms'),
       );
       await tester.pumpAndSettle();
 
@@ -464,10 +573,7 @@ void main() {
   testWidgets(
     'audit log rows infer type from the action instead of hardcoding success',
     (tester) async {
-      await _pump(
-        tester,
-        loadLogs: () async => [_log(action: 'ลบห้อง')],
-      );
+      await _pump(tester, loadLogs: () async => [_log(action: 'ลบห้อง')]);
       await tester.pumpAndSettle();
 
       // A delete action must not render with the same green "success" color

@@ -105,10 +105,7 @@ void main() {
 
     final sw = tester.widget<Switch>(find.byType(Switch));
     expect(sw.value, isTrue);
-    expect(
-      find.textContaining('อุปกรณ์ยืนยันว่าเปิดอยู่'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('อุปกรณ์ยืนยันว่าเปิดอยู่'), findsOneWidget);
     expect(find.textContaining('6/9/2026 14:30 น.'), findsWidgets);
   });
 
@@ -127,10 +124,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(
-      find.textContaining('เข้าคิวแล้ว รออุปกรณ์ยืนยัน'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('เข้าคิวแล้ว รออุปกรณ์ยืนยัน'), findsOneWidget);
     // The exact claim this page used to make off the back of the queue call.
     expect(find.textContaining('สำเร็จ'), findsNothing);
     expect(find.text('ส่งคำสั่งแล้ว รออุปกรณ์ยืนยัน'), findsOneWidget);
@@ -182,10 +176,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('อุปกรณ์ยังไม่ยืนยัน — ตรวจสอบหน้างาน'),
-      findsOneWidget,
-    );
+    expect(find.text('อุปกรณ์ยังไม่ยืนยัน — ตรวจสอบหน้างาน'), findsOneWidget);
     expect(find.textContaining('อุปกรณ์ยืนยันว่า'), findsNothing);
   });
 

@@ -69,32 +69,38 @@ Future<void> _pump(
 void main() {
   _retryTests();
   _roomStatedOnceTests();
-  testWidgets('a student row shows the course room and real email, never a fake room or uuid-prefix code', (
-    tester,
-  ) async {
-    await _pump(tester, course: _course(), loadStudents: (_) async => [_student()]);
+  testWidgets(
+    'a student row shows the course room and real email, never a fake room or uuid-prefix code',
+    (tester) async {
+      await _pump(
+        tester,
+        course: _course(),
+        loadStudents: (_) async => [_student()],
+      );
 
-    expect(find.textContaining('สมชาย'), findsWidgets);
-    expect(find.textContaining('ห้อง ม.5/3'), findsOneWidget);
-    expect(find.text('somchai@aiot-school-lab.local'), findsOneWidget);
-    expect(find.textContaining('ม.4/1'), findsNothing);
-    expect(find.textContaining('a1b2c3d4'), findsNothing);
-    expect(find.textContaining('รหัส '), findsNothing);
-  });
+      expect(find.textContaining('สมชาย'), findsWidgets);
+      expect(find.textContaining('ห้อง ม.5/3'), findsOneWidget);
+      expect(find.text('somchai@aiot-school-lab.local'), findsOneWidget);
+      expect(find.textContaining('ม.4/1'), findsNothing);
+      expect(find.textContaining('a1b2c3d4'), findsNothing);
+      expect(find.textContaining('รหัส '), findsNothing);
+    },
+  );
 
-  testWidgets('a course without a room shows only the email, not an invented room', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      course: _course(rooms: const []),
-      loadStudents: (_) async => [_student()],
-    );
+  testWidgets(
+    'a course without a room shows only the email, not an invented room',
+    (tester) async {
+      await _pump(
+        tester,
+        course: _course(rooms: const []),
+        loadStudents: (_) async => [_student()],
+      );
 
-    expect(find.text('somchai@aiot-school-lab.local'), findsOneWidget);
-    expect(find.textContaining('ห้อง '), findsNothing);
-    expect(find.textContaining('ม.4/1'), findsNothing);
-  });
+      expect(find.text('somchai@aiot-school-lab.local'), findsOneWidget);
+      expect(find.textContaining('ห้อง '), findsNothing);
+      expect(find.textContaining('ม.4/1'), findsNothing);
+    },
+  );
 
   testWidgets('a failed roster load is distinct from an empty roster', (
     tester,
@@ -102,7 +108,8 @@ void main() {
     await _pump(
       tester,
       course: _course(),
-      loadStudents: (_) async => throw Exception('PostgrestException: roster_boom'),
+      loadStudents: (_) async =>
+          throw Exception('PostgrestException: roster_boom'),
     );
 
     expect(find.text('โหลดรายชื่อนักเรียนไม่สำเร็จ'), findsOneWidget);
@@ -114,28 +121,29 @@ void main() {
 /// โหลดล้มแล้วกด "ลองใหม่" สำเร็จ — การ์ดล้มเหลวต้องหาย (เคยค้างเพราะ
 /// `_loadFailed` ไม่ถูกรีเซ็ตในทางสำเร็จ)
 void _retryTests() {
-  testWidgets('a successful retry clears the failed state and shows the roster', (
-    tester,
-  ) async {
-    var calls = 0;
-    await _pump(
-      tester,
-      course: _course(),
-      loadStudents: (_) async {
-        calls++;
-        if (calls == 1) throw Exception('first load fails');
-        return [_student()];
-      },
-    );
-    expect(find.text('โหลดรายชื่อนักเรียนไม่สำเร็จ'), findsOneWidget);
+  testWidgets(
+    'a successful retry clears the failed state and shows the roster',
+    (tester) async {
+      var calls = 0;
+      await _pump(
+        tester,
+        course: _course(),
+        loadStudents: (_) async {
+          calls++;
+          if (calls == 1) throw Exception('first load fails');
+          return [_student()];
+        },
+      );
+      expect(find.text('โหลดรายชื่อนักเรียนไม่สำเร็จ'), findsOneWidget);
 
-    await tester.tap(find.text('ลองใหม่'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+      await tester.tap(find.text('ลองใหม่'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('โหลดรายชื่อนักเรียนไม่สำเร็จ'), findsNothing);
-    expect(find.textContaining('สมชาย'), findsWidgets);
-  });
+      expect(find.text('โหลดรายชื่อนักเรียนไม่สำเร็จ'), findsNothing);
+      expect(find.textContaining('สมชาย'), findsWidgets);
+    },
+  );
 }
 
 /// 2026-09-21: ห้องของรายวิชาเหมือนกันทุกแถวอยู่แล้ว (นักเรียนเข้าวิชาผ่าน
@@ -143,18 +151,19 @@ void _retryTests() {
 /// เพิ่มข้อมูล — แบบเดียวกับป้าย "เรียนปกติ (Active)" ที่ถอดไปก่อนหน้านี้
 /// ตอนนี้บอกห้องครั้งเดียวที่หัวแท็บ
 void _roomStatedOnceTests() {
-  testWidgets('the course room is stated once in the header, not on every row', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      course: _course(),
-      loadStudents: (_) async => [_student(), _student2()],
-    );
+  testWidgets(
+    'the course room is stated once in the header, not on every row',
+    (tester) async {
+      await _pump(
+        tester,
+        course: _course(),
+        loadStudents: (_) async => [_student(), _student2()],
+      );
 
-    expect(find.textContaining('สมชาย'), findsOneWidget);
-    expect(find.textContaining('สมหญิง'), findsOneWidget);
-    expect(find.textContaining('ห้อง ม.5/3'), findsOneWidget);
-    expect(find.text('นักเรียน 2 คน'), findsOneWidget);
-  });
+      expect(find.textContaining('สมชาย'), findsOneWidget);
+      expect(find.textContaining('สมหญิง'), findsOneWidget);
+      expect(find.textContaining('ห้อง ม.5/3'), findsOneWidget);
+      expect(find.text('นักเรียน 2 คน'), findsOneWidget);
+    },
+  );
 }

@@ -120,7 +120,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('บันทึกการแก้ไขสิทธิ์เรียบร้อยแล้ว'), findsNothing);
-    expect(find.text('เปลี่ยนสถานะบัญชีไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'),
-        findsOneWidget);
+    expect(
+      find.text('เปลี่ยนสถานะบัญชีไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'),
+      findsOneWidget,
+    );
   });
 }
