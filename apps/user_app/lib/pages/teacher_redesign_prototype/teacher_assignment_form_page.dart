@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
+import '../assignments/assignment_save_controller.dart';
+
 import '../school_admin/school_timetable_page.dart' show SubjectColor;
 import 'teacher_airy_kit.dart';
 import 'teacher_date_time_sheet.dart' show showTeacherDateTimeSheet;
@@ -29,6 +31,7 @@ class TeacherAssignmentFormPage extends StatefulWidget {
     this.publishAssignment,
     this.unpublishAssignment,
     this.loadAssignmentDetail,
+    this.loadAssignmentsForCourse,
     this.listDevices,
     this.linkSensorDataset,
     this.unlinkSensorDataset,
@@ -41,6 +44,10 @@ class TeacherAssignmentFormPage extends StatefulWidget {
   final AssignmentSummary? existing;
 
   final Future<List<RubricModel>> Function()? listMyRubrics;
+
+  /// อ่านใบงานของวิชากลับมายืนยันว่าเขียนลงจริง — ไม่ส่งมาก็ใช้ของจริง
+  final Future<List<AssignmentSummary>> Function(String courseId)?
+  loadAssignmentsForCourse;
   final Future<String> Function({
     required String courseId,
     required String type,
@@ -320,39 +327,22 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
       return;
     }
     setState(() => _saving = true);
+    final controller = _controller();
+    final wasPublished = widget.existing?.isPublished ?? false;
     try {
-      String id;
-      if (_isEdit) {
-        id = widget.existing!.id;
-        await (widget.updateAssignment ?? AssignmentService.updateAssignment)(
-          assignmentId: id,
-          title: title,
-          instructions: _instructions.text.trim(),
-          dueAt: _dueAt,
-          rubricId: _rubricId,
-          isGroup: _isGroup,
-        );
-      } else {
-        id =
-            await (widget.createAssignment ??
-                AssignmentService.createAssignment)(
-              courseId: widget.courseId,
-              type: 'worksheet',
-              title: title,
-              instructions: _instructions.text.trim(),
-              dueAt: _dueAt,
-              rubricId: _rubricId,
-              isGroup: _isGroup,
-            );
-      }
-      final wasPublished = widget.existing?.isPublished ?? false;
-      if (_published && !wasPublished) {
-        await (widget.publishAssignment ?? AssignmentService.publishAssignment)(
-          id,
-        );
-      } else if (!_published && wasPublished) {
+      await controller.save(
+        courseId: widget.courseId,
+        type: widget.existing?.type ?? 'worksheet',
+        title: title,
+        instructions: _instructions.text.trim(),
+        dueAt: _dueAt,
+        rubricId: _rubricId,
+        isGroup: _isGroup,
+        publishNow: _published && !wasPublished,
+      );
+      if (!_published && wasPublished) {
         await (widget.unpublishAssignment ??
-            AssignmentService.unpublishAssignment)(id);
+            AssignmentService.unpublishAssignment)(widget.existing!.id);
       }
       if (!mounted) return;
       Navigator.pop(context, true);
@@ -360,7 +350,14 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
       debugPrint('TeacherAssignmentFormPage: บันทึกไม่สำเร็จ — $e');
       if (!mounted) return;
       setState(() => _saving = false);
-      _snack('บันทึกใบงานไม่สำเร็จ กรุณาลองใหม่', error: true);
+      // แยกสองกรณี: ยังไม่ได้เขียนอะไรเลย กับ เขียนไปแล้วแต่ยืนยันไม่ได้ —
+      // กรณีหลังครูต้องรู้ว่าอย่าเพิ่งสร้างใหม่
+      _snack(
+        controller.hasWritten
+            ? 'บันทึกคำขอแล้ว แต่ยังยืนยันข้อมูลล่าสุดไม่ได้ กรุณาลองอีกครั้ง'
+            : 'บันทึกใบงานไม่สำเร็จ กรุณาลองใหม่',
+        error: true,
+      );
     }
   }
 
@@ -461,6 +458,23 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
   /// โหมด Classroom: ปุ่มหลักมุมขวาบนคือการกระทำ ไม่ใช่สวิตช์ในฟอร์ม
   /// ร่าง → "มอบหมาย" (บันทึก+เผยแพร่) · เผยแพร่แล้ว → "บันทึก"
   /// ส่วนอีกทางอยู่ในเมนู ⋮ (บันทึกร่าง / ยกเลิกการเผยแพร่)
+  /// ตัวควบคุมการบันทึกตัวเดียวกับที่ชีตแก้ไขใบงานเคยใช้ — สร้างครั้งเดียว
+  /// ต่อการเปิดหน้า เพื่อให้จำ id ที่สร้างไว้ได้ถ้าการยืนยันล้มกลางทาง
+  /// แล้วครูกดบันทึกซ้ำ จะได้แก้ใบเดิมไม่ใช่สร้างใบใหม่
+  ///
+  /// ก่อน 2026-09-22 หน้านี้เรียก RPC แล้วถือว่าสำเร็จทันทีถ้าไม่ error
+  /// ครูจึงเห็น 'บันทึกแล้ว' ได้ทั้งที่ข้อมูลไม่ได้ลงฐานข้อมูล
+  AssignmentSaveController? _saveController;
+
+  AssignmentSaveController
+  _controller() => _saveController ??= AssignmentSaveController(
+    create: widget.createAssignment ?? AssignmentService.createAssignment,
+    update: widget.updateAssignment ?? AssignmentService.updateAssignment,
+    publish: widget.publishAssignment ?? AssignmentService.publishAssignment,
+    read: widget.loadAssignmentsForCourse ?? AssignmentService.listAssignments,
+    assignmentId: widget.existing?.id,
+  );
+
   Future<void> _assignNow() async {
     setState(() => _published = true);
     await _save();

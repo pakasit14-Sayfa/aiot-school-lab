@@ -52,17 +52,22 @@ Future<void> _pump(
     tester.view.resetPhysicalSize();
     tester.view.resetDevicePixelRatio();
   });
+  // หน้านี้ยืนยันการบันทึกด้วยการอ่านกลับตั้งแต่ 2026-09-22 (ยกตัวควบคุม
+  // มาจากชีตที่ถูกยุบ) เทสต์จึงต้องมี seam อ่านกลับที่สะท้อนสิ่งที่เพิ่งเขียน
+  // ไม่งั้น save จะล้มที่ขั้นยืนยันก่อนถึงสิ่งที่แต่ละเทสต์ตรวจ
+  final sent = _SentArgs();
+
   await tester.pumpWidget(
     MaterialApp(
       home: TeacherAssignmentFormPage(
         courseId: 'course-7',
         courseName: 'คณิตศาสตร์',
         existing: existing,
+        loadAssignmentsForCourse: (_) async => [sent.asRow(existing)],
         listMyRubrics: () async =>
             rubrics ??
             [RubricModel(id: 'r1', title: 'เกณฑ์ทดลอง', criteriaCount: 3)],
         createAssignment:
-            create ??
             ({
               required courseId,
               required type,
@@ -71,9 +76,25 @@ Future<void> _pump(
               dueAt,
               rubricId,
               isGroup = false,
-            }) async => 'new-1',
+            }) async {
+              sent.record(
+                title: title,
+                instructions: instructions,
+                dueAt: dueAt,
+                rubricId: rubricId,
+                isGroup: isGroup,
+              );
+              return (create ?? _defaultCreate)(
+                courseId: courseId,
+                type: type,
+                title: title,
+                instructions: instructions,
+                dueAt: dueAt,
+                rubricId: rubricId,
+                isGroup: isGroup,
+              );
+            },
         updateAssignment:
-            update ??
             ({
               required assignmentId,
               title,
@@ -81,7 +102,25 @@ Future<void> _pump(
               dueAt,
               rubricId,
               isGroup,
-            }) async {},
+            }) async {
+              sent.record(
+                title: title,
+                instructions: instructions,
+                dueAt: dueAt,
+                rubricId: rubricId,
+                isGroup: isGroup,
+              );
+              if (update != null) {
+                await update(
+                  assignmentId: assignmentId,
+                  title: title,
+                  instructions: instructions,
+                  dueAt: dueAt,
+                  rubricId: rubricId,
+                  isGroup: isGroup,
+                );
+              }
+            },
         publishAssignment: publish ?? (_) async {},
         unpublishAssignment: unpublish ?? (_) async {},
         loadAssignmentDetail: (id) async => AssignmentDetail(
@@ -109,6 +148,55 @@ Future<void> _pump(
   );
   await tester.pumpAndSettle();
 }
+
+/// จำอาร์กิวเมนต์ล่าสุดที่หน้าฟอร์มส่งไปเขียน แล้วสร้างแถวอ่านกลับที่
+/// ตรงกัน — ตัวควบคุมการบันทึกเทียบแถวนี้กับสิ่งที่เพิ่งส่งก่อนจะบอกว่าสำเร็จ
+class _SentArgs {
+  String? title;
+  String? instructions;
+  DateTime? dueAt;
+  String? rubricId;
+  bool? isGroup;
+  bool recorded = false;
+
+  void record({
+    String? title,
+    String? instructions,
+    DateTime? dueAt,
+    String? rubricId,
+    bool? isGroup,
+  }) {
+    recorded = true;
+    this.title = title;
+    this.instructions = instructions;
+    this.dueAt = dueAt;
+    this.rubricId = rubricId;
+    this.isGroup = isGroup;
+  }
+
+  AssignmentSummary asRow(AssignmentSummary? existing) => AssignmentSummary(
+    id: existing?.id ?? 'new-1',
+    type: existing?.type ?? 'worksheet',
+    title: recorded ? (title ?? '') : (existing?.title ?? ''),
+    instructions: recorded ? instructions : existing?.instructions,
+    isGroup: recorded ? (isGroup ?? false) : (existing?.isGroup ?? false),
+    dueAt: recorded ? dueAt : existing?.dueAt,
+    // ตัวควบคุมตรวจสถานะเผยแพร่เฉพาะตอน publishNow — คืน published เสมอ
+    // เพื่อไม่ให้เคสมอบหมายงานล้มที่ขั้นยืนยัน
+    status: 'published',
+    rubricId: recorded ? rubricId : existing?.rubricId,
+  );
+}
+
+Future<String> _defaultCreate({
+  required String courseId,
+  required String type,
+  required String title,
+  String? instructions,
+  DateTime? dueAt,
+  String? rubricId,
+  bool isGroup = false,
+}) async => 'new-1';
 
 void main() {
   testWidgets(

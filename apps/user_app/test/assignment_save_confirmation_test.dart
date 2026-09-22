@@ -43,11 +43,12 @@ Future<void> openEditor(
     ),
   );
   await tester.pumpAndSettle();
+  // ชีตแก้ไขใบงานถูกยุบเข้าหน้าฟอร์มเต็มจอ 2026-09-22 — กดสร้างแล้วเปิด
+  // TeacherAssignmentFormPage ซึ่งตอนนี้ใช้ AssignmentSaveController
+  // ตัวเดียวกับที่ชีตเคยใช้ การรับประกันในไฟล์นี้จึงยังต้องเป็นจริง
   await tester.tap(find.text('สร้างใบงานใหม่'));
   await tester.pumpAndSettle();
-  final fields = find.byType(TextField);
-  // The modal's title field follows the page search field.
-  await tester.enterText(fields.at(1), 'ทดสอบบันทึก');
+  await tester.enterText(find.byType(TextField).first, 'ทดสอบบันทึก');
 }
 
 void main() {
@@ -65,7 +66,7 @@ void main() {
   /// ('สร้างงาน / สื่อ' → ใบงานดิจิทัล / คลังข้อสอบ / สไลด์) เลือกไปแล้ว
   /// และค่านั้นไม่เคยเปลี่ยนพฤติกรรมอะไร — Google Classroom เลือกชนิดตอน
   /// กดสร้างแล้วไม่ถามซ้ำ ส่วน Teams ไม่มีประเภทตายตัวเลย
-  testWidgets('ชีตไม่ถามประเภทงานซ้ำ และของใหม่ถูกบันทึกเป็น worksheet', (
+  testWidgets('หน้าฟอร์มไม่ถามประเภทงาน และของใหม่ถูกบันทึกเป็น worksheet', (
     tester,
   ) async {
     String? sentType;
@@ -91,7 +92,9 @@ void main() {
     expect(find.text('ใบงานทดลอง'), findsNothing);
     expect(find.text('โครงงาน AIoT'), findsNothing);
 
-    await tester.tap(find.text('บันทึกร่าง'));
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('บันทึกร่าง').last);
     await tester.pumpAndSettle();
     expect(sentType, 'worksheet');
   });
@@ -147,11 +150,13 @@ void main() {
     );
     // เปิดชีตเลือกวัน-เวลาแล้วกดเสร็จ — ยืนยันว่าสายไฟจากชีตถึง
     // createAssignment ต่อครบ ส่วนความถูกต้องของค่าที่แปลงมีเทสต์ยูนิตข้างบน
-    await tester.tap(find.byKey(const Key('assignment-due-field')));
+    await tester.tap(find.text('ยังไม่กำหนด'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('เสร็จ'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('บันทึกร่าง'));
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('บันทึกร่าง').last);
     await tester.pumpAndSettle();
     expect(received, isNotNull);
     expect(readsAfterSave, greaterThan(0));
@@ -175,7 +180,9 @@ void main() {
           }) async => 'a1',
       read: (_) async => [],
     );
-    await tester.tap(find.text('บันทึกร่าง'));
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('บันทึกร่าง').last);
     await tester.pumpAndSettle();
     expect(find.textContaining('เรียบร้อยแล้ว'), findsNothing);
     expect(find.textContaining('ยังยืนยัน'), findsOneWidget);

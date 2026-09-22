@@ -139,18 +139,20 @@ void main() {
         loadAssignmentDetail: (_) async => detailNoDatasets,
       );
 
-      // ไม่มีชุดข้อมูลผูกอยู่ = ต้องเห็นแถวชวนผูกเป็น placeholder ไม่ใช่
-      // ว่างเปล่า (เดิมเป็นข้อความ 'ยังไม่มีชุดข้อมูลเซนเซอร์ผูกกับใบงานนี้'
-      // แยกอีกบรรทัด ซึ่งซ้ำกับ placeholder ของแถว)
-      expect(find.text('ผูกชุดข้อมูลเซนเซอร์'), findsOneWidget);
+      // ไม่มีชุดข้อมูลผูกอยู่ = ต้องบอกตรง ๆ ไม่ใช่ว่างเปล่า
+      expect(find.text('ยังไม่มีชุดข้อมูล'), findsOneWidget);
 
-      // แถวเปิดชีตเปลี่ยนชื่อเป็น 'ผูกชุดข้อมูลเซนเซอร์' ตอนออกแบบชีตใหม่
-      // 2026-09-22 — ปุ่มยืนยันในชีตยังชื่อ 'ผูกข้อมูล' เหมือนเดิม
-      await tester.tap(find.text('ผูกชุดข้อมูลเซนเซอร์'));
+      // ชีตแก้ไขใบงานถูกยุบเข้าหน้าฟอร์มเต็มจอ 2026-09-22 — แถวเปิดชีต
+      // ผูกเซนเซอร์ของหน้าฟอร์มชื่อ 'เพิ่มชุดข้อมูล'
+      await tester.tap(find.text('เพิ่มชุดข้อมูล'));
+      await tester.pumpAndSettle();
+
+      // ชีตเพิ่มชุดข้อมูลของหน้าฟอร์มเลือกอุปกรณ์ที่แถว 'อุปกรณ์'
+      await tester.tap(find.text('อุปกรณ์'));
       await tester.pumpAndSettle();
 
       // มิเตอร์น้ำ (metric ไม่อยู่ใน enum) และรีเลย์ (ไม่ใช่เซนเซอร์) ต้องไม่โผล่
-      expect(find.text('เซนเซอร์คุณภาพอากาศ · ห้อง 101'), findsOneWidget);
+      expect(find.text('เซนเซอร์คุณภาพอากาศ'), findsWidgets);
       expect(find.textContaining('มิเตอร์น้ำ'), findsNothing);
       expect(find.textContaining('รีเลย์ไฟ'), findsNothing);
 
@@ -212,66 +214,64 @@ void main() {
         },
       );
 
-      // แถวเปิดชีตเปลี่ยนชื่อเป็น 'ผูกชุดข้อมูลเซนเซอร์' ตอนออกแบบชีตใหม่
-      // 2026-09-22 — ปุ่มยืนยันในชีตยังชื่อ 'ผูกข้อมูล' เหมือนเดิม
-      await tester.tap(find.text('ผูกชุดข้อมูลเซนเซอร์'));
+      // ชีตแก้ไขใบงานถูกยุบเข้าหน้าฟอร์มเต็มจอ 2026-09-22 — แถวเปิดชีต
+      // ผูกเซนเซอร์ของหน้าฟอร์มชื่อ 'เพิ่มชุดข้อมูล'
+      await tester.tap(find.text('เพิ่มชุดข้อมูล'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('ผูกข้อมูล').last);
+      await tester.tap(find.text('เพิ่มชุดข้อมูล').last);
       await tester.pumpAndSettle();
 
       expect(calledAssignmentId, 'asg-1');
       expect(calledDeviceId, 'dev-air');
       expect(calledMetric, 'pm25');
       // อ่านกลับจากหลังบ้านจริง ไม่ใช่เติมรายการในเครื่องเอง
-      expect(find.textContaining('เซนเซอร์คุณภาพอากาศ · pm25'), findsOneWidget);
+      // แถวชุดข้อมูลของหน้าฟอร์มแสดงชื่อค่าที่วัดเป็นภาษาไทยเป็นบรรทัดหลัก
+      // และชื่ออุปกรณ์เป็นบรรทัดรอง ไม่ใช่รวมเป็นบรรทัดเดียวแบบชีตเก่า
+      expect(find.textContaining('เซนเซอร์คุณภาพอากาศ'), findsWidgets);
     },
   );
 
-  testWidgets(
-    'ช่วงเวลา: chip "7 วันล่าสุด" ส่ง timeStart/timeEnd จริงไปที่ RPC',
-    (tester) async {
-      DateTime? gotStart;
-      DateTime? gotEnd;
-      await pumpEditor(
-        tester,
-        listDevices: () async => const [airQualityDevice],
-        linkSensorDataset:
-            ({
-              required assignmentId,
-              required deviceId,
-              required metric,
-              timeStart,
-              timeEnd,
-              label,
-            }) async {
-              gotStart = timeStart;
-              gotEnd = timeEnd;
-            },
-        loadAssignmentDetail: (_) async => detailNoDatasets,
-      );
+  testWidgets('ช่วงเวลา: ไม่เลือกช่วง = ส่ง null ทั้งคู่ ไม่เดาช่วงให้เอง', (
+    tester,
+  ) async {
+    DateTime? gotStart;
+    DateTime? gotEnd;
+    await pumpEditor(
+      tester,
+      listDevices: () async => const [airQualityDevice],
+      linkSensorDataset:
+          ({
+            required assignmentId,
+            required deviceId,
+            required metric,
+            timeStart,
+            timeEnd,
+            label,
+          }) async {
+            gotStart = timeStart;
+            gotEnd = timeEnd;
+          },
+      loadAssignmentDetail: (_) async => detailNoDatasets,
+    );
 
-      // แถวเปิดชีตเปลี่ยนชื่อเป็น 'ผูกชุดข้อมูลเซนเซอร์' ตอนออกแบบชีตใหม่
-      // 2026-09-22 — ปุ่มยืนยันในชีตยังชื่อ 'ผูกข้อมูล' เหมือนเดิม
-      await tester.tap(find.text('ผูกชุดข้อมูลเซนเซอร์'));
-      await tester.pumpAndSettle();
+    // ชีตแก้ไขใบงานถูกยุบเข้าหน้าฟอร์มเต็มจอ 2026-09-22 — แถวเปิดชีต
+    // ผูกเซนเซอร์ของหน้าฟอร์มชื่อ 'เพิ่มชุดข้อมูล'
+    await tester.tap(find.text('เพิ่มชุดข้อมูล'));
+    await tester.pumpAndSettle();
 
-      // ค่าเริ่มต้นคือ "ไม่กำหนด" ทั้งสองช่อง — นักเรียนได้ 24 ชม.ล่าสุด
-      expect(find.text('ไม่กำหนด'), findsNWidgets(2));
+    // ชิป '7 วันล่าสุด' เป็นของชีตเก่าที่ถูกยุบ — หน้าฟอร์มให้เลือก
+    // วันเริ่ม/สิ้นสุดเองจากชีตปฏิทิน ค่าเริ่มต้นคือช่วงเปิดปลายทั้งสองข้าง
+    expect(find.text('ข้อมูลล่าสุด'), findsOneWidget);
+    expect(find.text('ต่อเนื่องถึงตอนนี้'), findsOneWidget);
 
-      await tester.tap(find.text('7 วันล่าสุด'));
-      await tester.pumpAndSettle();
-      expect(find.text('ไม่กำหนด'), findsNothing);
+    // ปุ่มยืนยันในชีตเป็น AiryButton ไม่ใช่ FilledButton
+    await tester.tap(find.text('เพิ่มชุดข้อมูล').last);
+    await tester.pumpAndSettle();
 
-      final before = DateTime.now();
-      await tester.tap(find.widgetWithText(FilledButton, 'ผูกข้อมูล').last);
-      await tester.pumpAndSettle();
-
-      expect(gotStart, isNotNull);
-      expect(gotEnd, isNotNull);
-      final span = gotEnd!.difference(gotStart!);
-      expect(span.inHours, 7 * 24);
-      expect(gotEnd!.difference(before).inMinutes.abs() <= 1, isTrue);
-    },
-  );
+    // ไม่ได้เลือกช่วงเวลา = ส่ง null ทั้งคู่ ไม่ใช่เดาช่วงให้เอง
+    // นักเรียนจะได้ข้อมูลล่าสุดต่อเนื่องตามที่แถวบอกไว้
+    expect(gotStart, isNull);
+    expect(gotEnd, isNull);
+  });
 }

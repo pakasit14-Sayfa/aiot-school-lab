@@ -190,9 +190,10 @@ void main() {
 
       // Pick the real rubric from the dropdown (previously discarded
       // silently — dropdown had 4 hardcoded fake choices sent nowhere).
-      // เกณฑ์เปลี่ยนจาก dropdown เป็นแถวที่เปิดชีตเลือก 2026-09-22 —
+      // ชีตแก้ไขใบงานถูกยุบเข้าหน้าฟอร์มเต็มจอ 2026-09-22 — แถวเกณฑ์ของ
+      // หน้าฟอร์มแสดงค่า 'ไม่ใช้' เมื่อยังไม่ได้ผูกเกณฑ์
       // ที่เทสต์นี้ตรึงคือเกณฑ์ที่เลือกต้องถูกส่งเป็น rubricId จริง
-      await tester.tap(find.text('ยังไม่ได้กำหนดเกณฑ์ให้คะแนน'));
+      await tester.tap(find.text('ไม่ใช้'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('เกณฑ์วิทย์').last);
       await tester.pumpAndSettle();
@@ -200,23 +201,30 @@ void main() {
       // PBL-10: flip "งานกลุ่ม" — until 2026-09-18 this toggle never
       // reached the backend.
       await tester.tap(find.byType(Switch).first);
-      // วันที่เปลี่ยนเป็นชีตเลือก 2026-09-22 — เปิดแล้วกดเสร็จ
-      // (ค่าเริ่มต้นคือกำหนดส่งเดิมของใบงาน)
-      await tester.tap(find.byKey(const Key('assignment-due-field')));
+      // วันที่เป็นแถวเปิดชีตเลือก — เปิดแล้วกดเสร็จ
+      await tester.tap(find.text('ยังไม่กำหนด'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('เสร็จ'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('เผยแพร่ให้นักเรียน'));
+      // หน้าฟอร์ม: ใบงานที่เผยแพร่แล้วปุ่มหลักคือ 'บันทึก' (ไม่ต้อง
+      // เผยแพร่ซ้ำ) ส่วนใบงานร่างคือ 'มอบหมายให้นักเรียน'
+      // ตรวจก่อนกดบันทึก — หลังบันทึกเสร็จหน้ารายการจะรีเฟรชตัวเอง
+      // ซึ่งเรียก loadCourses โดยชอบธรรม ไม่ใช่การเดาวิชาให้ตอนแก้ไข
+      final derivedCourseWhileEditing = loadCoursesCalledDuringEdit;
+
+      await tester.tap(find.text('บันทึก'));
       await tester.pumpAndSettle();
 
       expect(updatedId, 'asg-1');
       expect(updatedRubricId, 'r-1');
       expect(updatedIsGroup, isTrue);
-      expect(publishCalls, 1);
+      // ใบงานนี้เผยแพร่อยู่แล้ว การกดบันทึกจึงต้องไม่สั่งเผยแพร่ซ้ำ —
+      // เดิมชีตเรียก publish ทุกครั้งที่บันทึกใบงานที่เผยแพร่แล้ว
+      expect(publishCalls, 0);
       expect(updatedDueAt, isNotNull);
       expect(find.textContaining('เรียบร้อยแล้ว'), findsOneWidget);
       expect(
-        loadCoursesCalledDuringEdit,
+        derivedCourseWhileEditing,
         false,
         reason:
             'editing must use assignment.courseId directly, never re-derive '
