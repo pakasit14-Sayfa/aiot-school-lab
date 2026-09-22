@@ -276,4 +276,41 @@ void main() {
       ),
     );
   });
+
+  // หน้าดูตัวอย่างเคยล้นขอบขวาจริง (เห็น RIGHT OVERFLOWED บนเครื่อง
+  // 2026-09-22): แถบแจ้งเตือนจัดข้อความกึ่งกลางในแถวที่ไม่ยอมตัดบรรทัด
+  testWidgets('lesson preview has no overflow at phone widths', (tester) async {
+    await _probe(
+      tester,
+      'lesson preview',
+      TeacherLessonPreviewPage(
+        lesson: LessonModel(
+          id: '',
+          courseCode: 'MATH101',
+          courseName: 'คณิตศาสตร์',
+          title: 'รายวิชาทดสอบ',
+          status: LessonStatus.published,
+          lastEdited: 'เมื่อสักครู่',
+          materialsCount: 0,
+          sensorChartsCount: 1,
+          blocks: [
+            ContentBlockModel(
+              id: 'b1',
+              type: ContentBlockType.heading,
+              text: 'รายวิชาทดสอบ',
+            ),
+            ContentBlockModel(
+              id: 'b2',
+              type: ContentBlockType.text,
+              text: 'เรียงความ ทดสอบ',
+            ),
+            // บล็อกกราฟที่ยังไม่ผูกอุปกรณ์ — เคสที่เคยพิมพ์ '()' ออกมา
+            ContentBlockModel(id: 'b3', type: ContentBlockType.sensorChart),
+          ],
+          materials: const [],
+          sensorLinks: const [],
+        ),
+      ),
+    );
+  });
 }
