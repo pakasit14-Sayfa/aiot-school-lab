@@ -113,8 +113,10 @@ void main() {
     (tester) async {
       await _pump(tester);
       // 1 real submission out of 2 real roster students, not the old
-      // hardcoded 0/30.
-      expect(find.textContaining('ส่งแล้ว 1/2 คน'), findsOneWidget);
+      // hardcoded 0/30. ถ้อยคำเปลี่ยนเป็น 'ส่งแล้ว 1 จาก 2 คน' ตอน
+      // ออกแบบการ์ดใหม่ 2026-09-22 — สิ่งที่เทสต์นี้ตรึงคือตัวเลขมาจาก
+      // ข้อมูลจริง ไม่ใช่รูปประโยค
+      expect(find.textContaining('ส่งแล้ว 1 จาก 2 คน'), findsOneWidget);
     },
   );
 
