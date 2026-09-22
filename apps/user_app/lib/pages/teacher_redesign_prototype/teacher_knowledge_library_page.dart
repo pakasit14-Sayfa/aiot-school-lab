@@ -161,19 +161,27 @@ class _TeacherKnowledgeLibraryPageState
           Icons.biotech_rounded,
         ];
 
+        // One RPC per course, awaited in the loop — N sequential round trips
+        // before the library rendered. They are independent; batch them, and
+        // keep the per-course failure isolated exactly as the catch did.
+        final listFiles = widget.listFiles ?? CourseFileService.listFiles;
+        final filesPerCourse = await Future.wait(
+          courses.map((c) async {
+            try {
+              return (files: await listFiles(c.id), failed: false);
+            } catch (e) {
+              debugPrint(
+                'TeacherKnowledgeLibraryPage: โหลดไฟล์วิชา ${c.subjectName} ไม่สำเร็จ — $e',
+              );
+              return (files: const <CourseFile>[], failed: true);
+            }
+          }),
+        );
+
         for (var i = 0; i < courses.length; i++) {
           final c = courses[i];
-          List<CourseFile> files = [];
-          var filesLoadFailed = false;
-          try {
-            final listFiles = widget.listFiles ?? CourseFileService.listFiles;
-            files = await listFiles(c.id);
-          } catch (e) {
-            debugPrint(
-              'TeacherKnowledgeLibraryPage: โหลดไฟล์วิชา ${c.subjectName} ไม่สำเร็จ — $e',
-            );
-            filesLoadFailed = true;
-          }
+          final files = filesPerCourse[i].files;
+          final filesLoadFailed = filesPerCourse[i].failed;
 
           final mappedFiles = files.map((f) {
             final ext = f.fileName.contains('.')

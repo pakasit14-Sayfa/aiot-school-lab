@@ -72,15 +72,22 @@ class _TeacherStudentsPageState extends State<TeacherStudentsPage> {
       final loadStudents =
           widget.loadCourseStudents ?? CourseService.listCourseStudents;
       final courses = await loadCourses();
+      // One RPC per course, none of them dependent on another. Awaited in the
+      // loop this was N+1 sequential round trips before the page could paint.
+      final studentsPerCourse = await Future.wait(
+        courses.map((c) async {
+          try {
+            return await loadStudents(c.id);
+          } catch (_) {
+            return const <CourseStudent>[];
+          }
+        }),
+      );
       final roster = <_StudentRosterEntry>[];
-      for (final c in courses) {
+      for (var i = 0; i < courses.length; i++) {
+        final c = courses[i];
         final room = c.room ?? c.gradeLevel ?? c.subjectName;
-        List<CourseStudent> students;
-        try {
-          students = await loadStudents(c.id);
-        } catch (_) {
-          students = const [];
-        }
+        final students = studentsPerCourse[i];
         for (final s in students) {
           roster.add(
             _StudentRosterEntry(

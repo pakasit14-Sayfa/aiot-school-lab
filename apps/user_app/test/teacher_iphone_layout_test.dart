@@ -7,6 +7,7 @@ import 'package:my_first_app/pages/teacher_redesign_prototype/teacher_assignment
 import 'package:my_first_app/pages/teacher_redesign_prototype/teacher_assignment_form_page.dart';
 import 'package:my_first_app/pages/teacher_redesign_prototype/teacher_courses_page.dart';
 import 'package:my_first_app/pages/teacher_redesign_prototype/teacher_grading_page.dart';
+import 'package:my_first_app/pages/teacher_redesign_prototype/teacher_lesson_editor_page.dart';
 import 'package:shared_core/shared_core.dart';
 
 const _sizes = [Size(360, 640), Size(375, 667), Size(390, 844), Size(402, 874)];
@@ -228,6 +229,114 @@ void main() {
             status: 'online',
           ),
         ],
+      ),
+    );
+  });
+
+  // หน้านี้เคย overflow จริงที่แถบบน (เห็น "OVERFLOWED BY" บนเครื่อง
+  // 2026-09-21): แถบบนใส่ปุ่มย้อนกลับ ไอคอน ช่องชื่อบทเรียน ป้ายสถานะบันทึก
+  // และปุ่มอีกสองปุ่มไว้บรรทัดเดียว — กันไม่ให้กลับมาอีก
+  testWidgets('lesson editor has no overflow at phone widths', (tester) async {
+    await _probe(
+      tester,
+      'lesson editor',
+      TeacherLessonEditorPage(
+        lesson: LessonModel(
+          id: '',
+          courseCode: 'MATH101',
+          courseName: 'คณิตศาสตร์',
+          title: 'รายวิชาทดสอบ',
+          status: LessonStatus.published,
+          lastEdited: 'เมื่อสักครู่',
+          materialsCount: 0,
+          sensorChartsCount: 1,
+          blocks: [
+            ContentBlockModel(
+              id: 'b1',
+              type: ContentBlockType.heading,
+              text: 'รายวิชาทดสอบ',
+            ),
+            ContentBlockModel(
+              id: 'b2',
+              type: ContentBlockType.text,
+              text: 'เรียงความ ทดสอบ',
+            ),
+            ContentBlockModel(
+              id: 'b3',
+              type: ContentBlockType.sensorChart,
+              sensorDeviceId: 'เซนเซอร์ห้อง ม.1/1',
+              sensorMetric: 'temperature',
+              timeRange: '24 ชม.',
+            ),
+          ],
+          materials: const [],
+          sensorLinks: const [],
+        ),
+        listDevices: () async => const <DeviceOption>[],
+      ),
+    );
+  });
+
+  // หน้าดูตัวอย่างเคยล้นขอบขวาจริง (เห็น RIGHT OVERFLOWED บนเครื่อง
+  // 2026-09-22): แถบแจ้งเตือนจัดข้อความกึ่งกลางในแถวที่ไม่ยอมตัดบรรทัด
+  testWidgets('lesson preview has no overflow at phone widths', (tester) async {
+    await _probe(
+      tester,
+      'lesson preview',
+      TeacherLessonPreviewPage(
+        lesson: LessonModel(
+          id: '',
+          courseCode: 'MATH101',
+          courseName: 'คณิตศาสตร์',
+          title: 'รายวิชาทดสอบ',
+          status: LessonStatus.published,
+          lastEdited: 'เมื่อสักครู่',
+          materialsCount: 0,
+          sensorChartsCount: 1,
+          blocks: [
+            ContentBlockModel(
+              id: 'b1',
+              type: ContentBlockType.heading,
+              text: 'รายวิชาทดสอบ',
+            ),
+            ContentBlockModel(
+              id: 'b2',
+              type: ContentBlockType.text,
+              text: 'เรียงความ ทดสอบ',
+            ),
+            // บล็อกกราฟที่ยังไม่ผูกอุปกรณ์ — เคสที่เคยพิมพ์ '()' ออกมา
+            ContentBlockModel(id: 'b3', type: ContentBlockType.sensorChart),
+            ContentBlockModel(
+              id: 'b4',
+              type: ContentBlockType.fileDownload,
+              materialId: 'm1',
+              caption: 'ใบความรู้ที่ต้องอ่านก่อนเข้าคาบเรียนสัปดาห์หน้า',
+            ),
+            ContentBlockModel(
+              id: 'b5',
+              type: ContentBlockType.externalLink,
+              mediaUrl: 'https://example.invalid/aiot/temperature-lab-guide',
+              caption: 'คู่มือการทดลองฉบับเต็ม',
+            ),
+          ],
+          materials: [
+            LessonMaterialModel(
+              id: 'm1',
+              title: 'ใบความรู้เรื่องเซนเซอร์อุณหภูมิในห้องเรียน.pdf',
+              type: 'pdf',
+              url: 'https://example.invalid/a.pdf',
+            ),
+          ],
+          sensorLinks: [
+            LessonSensorLinkModel(
+              id: 's1',
+              deviceName: 'เซนเซอร์ห้องปฏิบัติการวิทยาศาสตร์ ชั้น 2',
+              metric: 'temperature',
+              timeRange: '08:00 - 16:00',
+              caption: 'อุณหภูมิระหว่างคาบเรียน',
+            ),
+          ],
+        ),
       ),
     );
   });

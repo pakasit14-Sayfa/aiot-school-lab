@@ -92,13 +92,17 @@ void main() {
   ) async {
     await _pump(tester);
     expect(find.text('ใบงานเศษส่วน'), findsOneWidget);
-    expect(find.text('ส่งแล้ว /3'), findsOneWidget); // 3 students in the room
-    expect(find.text('2'), findsOneWidget); // submitted
+    // เลขสามกล่องถูกรวมเป็นประโยคเดียว + แถบสัดส่วน (redesign 2026-09-21)
+    expect(find.text('2'), findsOneWidget); // ส่งแล้ว
+    expect(find.text('/ 3 คนส่งแล้ว'), findsOneWidget);
+    expect(find.text('มี 1 ชิ้นรอตรวจ · ยังไม่ส่งอีก 1 คน'), findsOneWidget);
     expect(find.text('ทำข้อ 1-10'), findsOneWidget);
     // roster rows
     expect(find.textContaining('หนึ่ง'), findsOneWidget);
     expect(find.textContaining('สาม'), findsOneWidget);
-    expect(find.text('ยังไม่ส่ง'), findsOneWidget); // s3
+    // 'ยังไม่ส่ง' โผล่ 3 ที่ตามดีไซน์ใหม่: หัวกลุ่ม · ป้ายในแถวของ s3 · คำอธิบาย
+    // ใต้แถบสัดส่วน — ที่ต้องยืนยันคือ s3 อยู่ในกลุ่มนั้นจริง
+    expect(find.text('ยังไม่ส่ง'), findsNWidgets(3));
     expect(find.text('ตรวจงาน'), findsOneWidget);
     expect(find.text('แก้ไข'), findsOneWidget);
   });

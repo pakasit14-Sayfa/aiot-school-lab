@@ -231,15 +231,23 @@ class _TeacherAssignmentEditorPageState
         // เหลือ 0 — โชว์ 'ยังไม่มีข้อมูล' ตรงๆ ดีกว่าเดา
       }
 
+      // One submissions RPC per assignment, awaited in the loop — N sequential
+      // round trips before the editor could render. They are independent.
+      final submittedCounts = await Future.wait(
+        list.map((a) async {
+          try {
+            final subs = await loadSubmissions(a.id);
+            return subs.where((s) => s.submittedAt != null).length;
+          } catch (_) {
+            // เหลือ 0 — ไม่ใช่ของปลอม แค่ยังไม่รู้ค่าจริง
+            return 0;
+          }
+        }),
+      );
       final mapped = <AssignmentModel>[];
-      for (final a in list) {
-        int submittedCount = 0;
-        try {
-          final subs = await loadSubmissions(a.id);
-          submittedCount = subs.where((s) => s.submittedAt != null).length;
-        } catch (_) {
-          // เหลือ 0 — ไม่ใช่ของปลอม แค่ยังไม่รู้ค่าจริง
-        }
+      for (var ai = 0; ai < list.length; ai++) {
+        final a = list[ai];
+        final submittedCount = submittedCounts[ai];
 
         mapped.add(
           AssignmentModel(

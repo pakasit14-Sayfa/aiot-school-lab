@@ -8,10 +8,13 @@
 import 'dart:convert';
 
 import 'package:excel/excel.dart' as xls;
+import 'dart:ui' show FontFeature;
+
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
 import '../../utils/web_download.dart';
+import 'teacher_airy_kit.dart';
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart';
 
@@ -92,14 +95,21 @@ class _TeacherGradesPageState extends State<TeacherGradesPage> {
       final loadGrades =
           widget.loadCourseGrades ?? GradeService.listCourseGrades;
       final courses = await loadCourses();
+      // One RPC per course, none of them dependent on another. Awaited in the
+      // loop this was N+1 sequential round trips before the page could paint.
+      final gradesPerCourse = await Future.wait(
+        courses.map((c) async {
+          try {
+            return await loadGrades(c.id);
+          } catch (_) {
+            return const <GradeRecord>[];
+          }
+        }),
+      );
       final summaries = <_CourseGradeSummary>[];
-      for (final c in courses) {
-        List<GradeRecord> records;
-        try {
-          records = await loadGrades(c.id);
-        } catch (_) {
-          records = const [];
-        }
+      for (var i = 0; i < courses.length; i++) {
+        final c = courses[i];
+        final records = gradesPerCourse[i];
         summaries.add(
           _CourseGradeSummary(
             courseId: c.id,
@@ -177,9 +187,9 @@ class _TeacherGradesPageState extends State<TeacherGradesPage> {
   void _exportCsv() {
     final rows = _buildReportRows();
     if (rows == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('ยังไม่มีข้อมูลคะแนนให้ส่งออก')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ยังไม่มีข้อมูลคะแนนให้ส่งออก')),
+      );
       return;
     }
     final csv = rows.map((row) => row.map(_csvField).join(',')).join('\r\n');
@@ -190,17 +200,17 @@ class _TeacherGradesPageState extends State<TeacherGradesPage> {
       bytes: utf8.encode('﻿$csv'),
       mimeType: 'text/csv',
     );
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('ส่งออกรายงานคะแนนแล้ว (CSV)')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('ส่งออกรายงานคะแนนแล้ว (CSV)')),
+    );
   }
 
   void _exportExcel() {
     final rows = _buildReportRows();
     if (rows == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('ยังไม่มีข้อมูลคะแนนให้ส่งออก')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ยังไม่มีข้อมูลคะแนนให้ส่งออก')),
+      );
       return;
     }
     final workbook = xls.Excel.createExcel();
@@ -210,9 +220,9 @@ class _TeacherGradesPageState extends State<TeacherGradesPage> {
     }
     final bytes = workbook.encode();
     if (bytes == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('สร้างไฟล์ Excel ไม่สำเร็จ')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('สร้างไฟล์ Excel ไม่สำเร็จ')),
+      );
       return;
     }
     final doDownload = widget.downloadBytesOverride ?? downloadBytes;
@@ -242,15 +252,50 @@ class _TeacherGradesPageState extends State<TeacherGradesPage> {
       title: 'คะแนน',
       activeMenuLabel: 'คะแนน',
       actions: [
+        // ไอคอนลอยเดี่ยว ๆ ไม่มีใครรู้ว่ากดแล้วได้อะไร — ใส่ป้ายกำกับให้ชัด
+        // และทำเป็นปุ่มมีขอบตามชุดคอนโทรล จะได้อ่านออกว่าเป็นปุ่ม
         PopupMenuButton<String>(
-          tooltip: 'Export รายงาน',
-          icon: const Icon(Icons.file_download_outlined),
+          tooltip: 'ส่งออกรายงานคะแนน',
           onSelected: (format) =>
               format == 'csv' ? _exportCsv() : _exportExcel(),
           itemBuilder: (context) => const [
             PopupMenuItem(value: 'csv', child: Text('ส่งออกเป็น CSV')),
             PopupMenuItem(value: 'excel', child: Text('ส่งออกเป็น Excel')),
           ],
+          child: Container(
+            height: 38,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE3E1EB)),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.file_download_outlined,
+                  size: 18,
+                  color: AirySpec.label,
+                ),
+                SizedBox(width: 7),
+                Text(
+                  'ส่งออกรายงาน',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    color: AirySpec.ink,
+                  ),
+                ),
+                SizedBox(width: 3),
+                Icon(
+                  Icons.expand_more_rounded,
+                  size: 17,
+                  color: AirySpec.label,
+                ),
+              ],
+            ),
+          ),
         ),
       ],
       builder: (context, isDesktop) {
@@ -281,88 +326,147 @@ class _TeacherGradesPageState extends State<TeacherGradesPage> {
             ),
           );
         }
+        final confirmed = _summaries.fold<int>(
+          0,
+          (sum, s) => sum + (s.records.length - s.pending.length),
+        );
+        final totalRecords = _summaries.fold<int>(
+          0,
+          (sum, s) => sum + s.records.length,
+        );
+
         return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final columns = isDesktop ? 3 : 2;
-                return GridView.count(
-                  crossAxisCount: columns,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 10,
-                  crossAxisSpacing: 10,
-                  childAspectRatio: isDesktop ? 1.6 : 1.3,
-                  children: [
-                    TeacherStatCard(
-                      label: 'คะแนนเฉลี่ยทุกวิชา',
-                      value: overallAverage > 0
-                          ? '${(overallAverage * 100).round()}%'
-                          : '-',
-                      icon: Icons.bar_chart_rounded,
-                      color: TeacherPalette.skyDeep,
-                    ),
-                    TeacherStatCard(
-                      label: 'รายวิชาที่มีคะแนน',
-                      value: '${_summaries.length} วิชา',
-                      icon: Icons.menu_book_rounded,
-                      color: TeacherPalette.primary,
-                    ),
-                    TeacherStatCard(
-                      label: 'รอยืนยันคะแนน',
-                      value: '$allPending รายการ',
-                      icon: Icons.pending_actions_rounded,
-                      color: allPending > 0
-                          ? TeacherPalette.orange
-                          : TeacherPalette.green,
-                    ),
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 16),
-            if (allPending > 0)
-              TeacherSectionCard(
-                title: 'รอครูยืนยันคะแนน',
-                icon: Icons.verified_rounded,
-                child: Column(
-                  children: [
-                    for (final s in _summaries)
-                      for (final r in s.pending) ...[
-                        _PendingGradeRow(
-                          courseName: s.subjectName,
-                          record: r,
-                          isConfirming: _confirming.contains(r.id),
-                          onConfirm: () => _confirm(r),
+            // เดิมเป็นการ์ดตัวเลขสามใบเรียงกัน ซึ่งอ่านได้แค่ 'มีเลขอะไรบ้าง'
+            // ไม่ได้บอกว่าสถานการณ์ตอนนี้เป็นอย่างไร — รวมเป็นการ์ดเดียวที่
+            // พูดเป็นประโยค พร้อมแถบสัดส่วนคะแนนที่ยืนยันแล้ว
+            AiryCard(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'คะแนนเฉลี่ยทุกวิชา',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w500,
+                          color: AirySpec.label,
                         ),
-                        const Divider(height: 18, color: Color(0xFFE8EEF3)),
-                      ],
-                  ],
-                ),
-              ),
-            if (allPending > 0) const SizedBox(height: 16),
-            TeacherSectionCard(
-              title: 'ภาพรวมรายวิชา',
-              icon: Icons.groups_2_rounded,
-              child: _summaries.isEmpty
-                  ? const Text(
-                      'ยังไม่มีรายวิชาที่มีคะแนน',
-                      style: TextStyle(
-                        color: TeacherPalette.muted,
-                        fontWeight: FontWeight.w700,
                       ),
-                    )
-                  : Column(
-                      children: [
-                        for (var i = 0; i < _summaries.length; i++) ...[
-                          _CourseGradeRow(summary: _summaries[i]),
-                          if (i != _summaries.length - 1)
-                            const Divider(height: 18, color: Color(0xFFE8EEF3)),
+                      const SizedBox(height: 4),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            overallAverage > 0
+                                ? '${(overallAverage * 100).round()}'
+                                : '—',
+                            style: const TextStyle(
+                              fontSize: 34,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -1.2,
+                              color: AirySpec.ink,
+                              fontFeatures: [FontFeature.tabularFigures()],
+                            ),
+                          ),
+                          if (overallAverage > 0)
+                            const Padding(
+                              padding: EdgeInsets.only(left: 3),
+                              child: Text(
+                                '%',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: AirySpec.label,
+                                ),
+                              ),
+                            ),
+                          const Spacer(),
+                          Text(
+                            '${_summaries.length} วิชา',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AirySpec.label,
+                            ),
+                          ),
                         ],
+                      ),
+                      const SizedBox(height: 10),
+                      if (totalRecords > 0) ...[
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(999),
+                          child: SizedBox(
+                            height: 6,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                if (confirmed > 0)
+                                  Expanded(
+                                    flex: confirmed,
+                                    child: const ColoredBox(
+                                      color: Color(0xFF107A50),
+                                    ),
+                                  ),
+                                if (allPending > 0)
+                                  Expanded(
+                                    flex: allPending,
+                                    child: const ColoredBox(
+                                      color: Color(0xFFEF9F27),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
                       ],
-                    ),
+                      Text(
+                        totalRecords == 0
+                            ? 'ยังไม่มีคะแนนในระบบ'
+                            : allPending > 0
+                            ? 'ยืนยันแล้ว $confirmed จาก $totalRecords รายการ · '
+                                  'รออีก $allPending'
+                            : 'ยืนยันครบทุกรายการแล้ว ($totalRecords)',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AirySpec.label,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
+            if (allPending > 0) ...[
+              AirySection('รอครูยืนยันคะแนน', count: allPending),
+              AiryCard(
+                children: [
+                  for (final s in _summaries)
+                    for (final r in s.pending)
+                      _PendingGradeRow(
+                        courseName: s.subjectName,
+                        record: r,
+                        isConfirming: _confirming.contains(r.id),
+                        onConfirm: () => _confirm(r),
+                      ),
+                ],
+              ),
+            ],
+            AirySection('ภาพรวมรายวิชา', count: _summaries.length),
+            if (_summaries.isEmpty)
+              const AiryCard(children: [AiryNote('ยังไม่มีรายวิชาที่มีคะแนน')])
+            else
+              AiryCard(
+                children: [
+                  for (final s in _summaries) _CourseGradeRow(summary: s),
+                ],
+              ),
+            const SizedBox(height: 8),
           ],
         );
       },
@@ -385,56 +489,62 @@ class _PendingGradeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '${record.studentFirstName} ${record.studentLastName}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: TeacherPalette.ink,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13.5,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                '$courseName · ${record.score}/${record.maxScore}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: TeacherPalette.muted,
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 8),
-        FilledButton(
-          onPressed: isConfirming ? null : onConfirm,
-          style: FilledButton.styleFrom(
-            backgroundColor: TeacherPalette.primary,
-            minimumSize: Size.zero,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          ),
-          child: isConfirming
-              ? const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 10, 12, 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$courseName · ${record.score}/${record.maxScore}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AirySpec.label,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
                   ),
-                )
-              : const Text('ยืนยัน', style: TextStyle(fontSize: 12.5)),
-        ),
-      ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${record.studentFirstName} ${record.studentLastName}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AirySpec.ink,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          // ต้องกำหนดความกว้าง: ปุ่มที่เป็นลูกของ Row ได้ constraint กว้าง
+          // ไม่จำกัด แล้ว ElevatedButton จะโยน infinite width ทั้งเฟรม
+          SizedBox(
+            width: 86,
+            child: AiryButton(
+              label: 'ยืนยัน',
+              kind: AiryCta.primary,
+              height: 38,
+              onPressed: isConfirming ? null : onConfirm,
+              child: isConfirming
+                  ? const SizedBox(
+                      width: 15,
+                      height: 15,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : null,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -446,44 +556,46 @@ class _CourseGradeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                summary.subjectName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: TeacherPalette.ink,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13.5,
+    final pct = summary.average > 0 ? (summary.average * 100).round() : null;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 13, 18, 13),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  summary.subjectName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AirySpec.ink,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15.5,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                '${summary.records.length} รายการ · ยืนยันแล้ว '
-                '${summary.records.length - summary.pending.length}',
-                style: const TextStyle(
-                  color: TeacherPalette.muted,
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
+                const SizedBox(height: 3),
+                Text(
+                  '${summary.records.length} รายการ · ยืนยันแล้ว '
+                  '${summary.records.length - summary.pending.length}',
+                  style: const TextStyle(color: AirySpec.label, fontSize: 12.5),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        Text(
-          summary.average > 0 ? '${(summary.average * 100).round()}%' : '-',
-          style: const TextStyle(
-            color: TeacherPalette.primary,
-            fontWeight: FontWeight.w900,
-            fontSize: 15,
+          const SizedBox(width: 12),
+          Text(
+            pct == null ? '—' : '$pct%',
+            style: const TextStyle(
+              color: AirySpec.ink,
+              fontWeight: FontWeight.w800,
+              fontSize: 17,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

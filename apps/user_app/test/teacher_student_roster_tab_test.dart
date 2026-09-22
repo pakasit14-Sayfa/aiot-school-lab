@@ -31,6 +31,14 @@ CourseStudent _student() => CourseStudent(
   enrolledAt: DateTime(2026, 9, 1),
 );
 
+CourseStudent _student2() => CourseStudent(
+  studentId: 'a1b2c3d4-0000-4000-8000-000000000002',
+  firstName: 'สมหญิง',
+  lastName: 'ตั้งใจ',
+  email: 'somying@aiot-school-lab.local',
+  enrolledAt: DateTime(2026, 9, 1),
+);
+
 Future<void> _pump(
   WidgetTester tester, {
   required TeacherCourseModel course,
@@ -60,13 +68,14 @@ Future<void> _pump(
 
 void main() {
   _retryTests();
+  _roomStatedOnceTests();
   testWidgets('a student row shows the course room and real email, never a fake room or uuid-prefix code', (
     tester,
   ) async {
     await _pump(tester, course: _course(), loadStudents: (_) async => [_student()]);
 
     expect(find.textContaining('สมชาย'), findsWidgets);
-    expect(find.text('ห้อง ม.5/3'), findsOneWidget);
+    expect(find.textContaining('ห้อง ม.5/3'), findsOneWidget);
     expect(find.text('somchai@aiot-school-lab.local'), findsOneWidget);
     expect(find.textContaining('ม.4/1'), findsNothing);
     expect(find.textContaining('a1b2c3d4'), findsNothing);
@@ -126,5 +135,26 @@ void _retryTests() {
 
     expect(find.text('โหลดรายชื่อนักเรียนไม่สำเร็จ'), findsNothing);
     expect(find.textContaining('สมชาย'), findsWidgets);
+  });
+}
+
+/// 2026-09-21: ห้องของรายวิชาเหมือนกันทุกแถวอยู่แล้ว (นักเรียนเข้าวิชาผ่าน
+/// ตารางเรียนของห้อง) การแปะป้ายห้องซ้ำทุกแถวจึงกินความกว้างจอมือถือโดยไม่
+/// เพิ่มข้อมูล — แบบเดียวกับป้าย "เรียนปกติ (Active)" ที่ถอดไปก่อนหน้านี้
+/// ตอนนี้บอกห้องครั้งเดียวที่หัวแท็บ
+void _roomStatedOnceTests() {
+  testWidgets('the course room is stated once in the header, not on every row', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      course: _course(),
+      loadStudents: (_) async => [_student(), _student2()],
+    );
+
+    expect(find.textContaining('สมชาย'), findsOneWidget);
+    expect(find.textContaining('สมหญิง'), findsOneWidget);
+    expect(find.textContaining('ห้อง ม.5/3'), findsOneWidget);
+    expect(find.text('นักเรียน 2 คน'), findsOneWidget);
   });
 }

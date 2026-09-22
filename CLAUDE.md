@@ -67,6 +67,13 @@ had *no* written design spec until 2026-09-10, so every session invented its own
 colors; that file records what actually exists (6 per-role palettes, deliberately
 different) plus the rules that stop the drift from growing.
 
+**เจออาการแปลก ๆ ที่ "ไม่น่าเป็นไปได้" — เปิด
+[docs/handoff/PITFALLS.md](docs/handoff/PITFALLS.md) ก่อนเดา** — บันทึกกับดักที่
+เคยกินเวลาไปแล้วอย่างน้อยหนึ่งรอบ (ธีมทับสไตล์ที่ตั้งเอง · แคช build ค้างจน
+ฟ้องว่าไม่รู้จักคลาสที่มีอยู่จริง · บิลด์ลงคนละเครื่องกับที่กำลังดู ฯลฯ) พร้อม
+"วินิจฉัยผิดที่เคยทำ" ของแต่ละเรื่อง เจอปัญหาใหม่ที่หลอกเราได้ ให้เขียนเพิ่มใน
+ไฟล์นี้ตามฟอร์แมตด้านบนของมัน
+
 **Before
 auditing a page for fake data, wiring something new to the backend, or
 verifying a "done" claim, read [docs/handoff/DATA_CONNECTION_METHODOLOGY.md](docs/handoff/DATA_CONNECTION_METHODOLOGY.md)**

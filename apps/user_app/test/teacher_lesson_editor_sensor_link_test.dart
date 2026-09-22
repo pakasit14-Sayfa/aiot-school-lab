@@ -66,57 +66,61 @@ Future<void> _pump(
 }
 
 void main() {
-  testWidgets('linking a sensor sends the chosen device/metric to the real RPC', (
-    tester,
-  ) async {
-    String? sentLesson, sentDevice, sentMetric, sentCaption;
-    await _pump(
-      tester,
-      lesson: _lesson(),
-      listDevices: () async => const [_pm25],
-      linkSensor: ({
-        required lessonId,
-        required deviceId,
-        required metric,
-        caption,
-      }) async {
-        sentLesson = lessonId;
-        sentDevice = deviceId;
-        sentMetric = metric;
-        sentCaption = caption;
-      },
-    );
+  testWidgets(
+    'linking a sensor sends the chosen device/metric to the real RPC',
+    (tester) async {
+      String? sentLesson, sentDevice, sentMetric, sentCaption;
+      await _pump(
+        tester,
+        lesson: _lesson(),
+        listDevices: () async => const [_pm25],
+        linkSensor:
+            ({
+              required lessonId,
+              required deviceId,
+              required metric,
+              caption,
+            }) async {
+              sentLesson = lessonId;
+              sentDevice = deviceId;
+              sentMetric = metric;
+              sentCaption = caption;
+            },
+      );
 
-    final button = find.text('+ ผูกข้อมูล AIoT Sensor');
-    expect(button, findsOneWidget);
-    expect(
-      tester.widget<ElevatedButton>(
-        find.ancestor(
-          of: button,
-          matching: find.byWidgetPredicate((w) => w is ElevatedButton),
-        ),
-      ).onPressed,
-      isNotNull,
-      reason: 'the backend exists on both sides — the button must be live',
-    );
-    await tester.tap(button);
-    await tester.pumpAndSettle();
+      final button = find.text('+ ผูกข้อมูล AIoT Sensor');
+      expect(button, findsOneWidget);
+      expect(
+        tester
+            .widget<ElevatedButton>(
+              find.ancestor(
+                of: button,
+                matching: find.byWidgetPredicate((w) => w is ElevatedButton),
+              ),
+            )
+            .onPressed,
+        isNotNull,
+        reason: 'the backend exists on both sides — the button must be live',
+      );
+      await tester.tap(button);
+      await tester.pumpAndSettle();
 
-    // อุปกรณ์จริงจาก list_school_devices อยู่ในตัวเลือก
-    expect(find.textContaining('PM2.5 ห้อง 101'), findsWidgets);
-    await tester.enterText(
-      find.widgetWithText(TextField, 'คำอธิบายกราฟ (ถ้ามี)'),
-      'ฝุ่นตอนเช้า',
-    );
-    await tester.tap(find.text('ผูกข้อมูล'));
-    await tester.pumpAndSettle();
+      // อุปกรณ์จริงจาก list_school_devices อยู่ในตัวเลือก
+      expect(find.textContaining('PM2.5 ห้อง 101'), findsWidgets);
+      await tester.enterText(
+        find.widgetWithText(TextField, 'คำอธิบายกราฟ (ถ้ามี)'),
+        'ฝุ่นตอนเช้า',
+      );
+      await tester.tap(find.text('ผูกข้อมูล'));
+      await tester.pumpAndSettle();
 
-    expect(sentLesson, 'lesson-1');
-    expect(sentDevice, 'dev-pm25');
-    expect(sentMetric, 'pm25', reason: 'pm25_sensor only measures pm25');
-    expect(sentCaption, 'ฝุ่นตอนเช้า');
-    expect(find.text('ผูกข้อมูลเซนเซอร์กับบทเรียนแล้ว'), findsOneWidget);
-  });
+      expect(sentLesson, 'lesson-1');
+      expect(sentDevice, 'dev-pm25');
+      expect(sentMetric, 'pm25', reason: 'pm25_sensor only measures pm25');
+      expect(sentCaption, 'ฝุ่นตอนเช้า');
+      expect(find.text('ผูกข้อมูลเซนเซอร์กับบทเรียนแล้ว'), findsOneWidget);
+    },
+  );
 
   /// list_school_devices คืนรีเลย์/กล้อง/gateway ด้วย — ต้องไม่ถูกเสนอเป็นแหล่ง
   /// ข้อมูลกราฟ (ผูกได้ แต่นักเรียนจะได้กราฟว่างถาวร)
@@ -144,53 +148,59 @@ void main() {
     expect(find.textContaining('ไฟห้อง 101'), findsNothing);
   });
 
-  testWidgets('a school with only non-sensor devices is told so, not shown an empty picker', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      lesson: _lesson(),
-      listDevices: () async => const [
-        DeviceOption(
-          id: 'dev-cam',
-          name: 'กล้องหน้าประตู',
-          type: 'camera',
-          location: null,
-          status: 'online',
-        ),
-      ],
-    );
-    await tester.tap(find.text('+ ผูกข้อมูล AIoT Sensor'));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'a school with only non-sensor devices is told so, not shown an empty picker',
+    (tester) async {
+      await _pump(
+        tester,
+        lesson: _lesson(),
+        listDevices: () async => const [
+          DeviceOption(
+            id: 'dev-cam',
+            name: 'กล้องหน้าประตู',
+            type: 'camera',
+            location: null,
+            status: 'online',
+          ),
+        ],
+      );
+      await tester.tap(find.text('+ ผูกข้อมูล AIoT Sensor'));
+      await tester.pumpAndSettle();
 
-    expect(find.textContaining('ยังไม่มีอุปกรณ์เซนเซอร์'), findsOneWidget);
-    expect(find.byType(AlertDialog), findsNothing);
-  });
+      expect(find.textContaining('ยังไม่มีอุปกรณ์เซนเซอร์'), findsOneWidget);
+      expect(find.byType(AlertDialog), findsNothing);
+    },
+  );
 
-  testWidgets('a failed link stays in the dialog with a fixed sentence, no leaked exception', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      lesson: _lesson(),
-      listDevices: () async => const [_pm25],
-      linkSensor: ({
-        required lessonId,
-        required deviceId,
-        required metric,
-        caption,
-      }) async => throw Exception('PostgrestException: link_boom'),
-    );
+  testWidgets(
+    'a failed link stays in the dialog with a fixed sentence, no leaked exception',
+    (tester) async {
+      await _pump(
+        tester,
+        lesson: _lesson(),
+        listDevices: () async => const [_pm25],
+        linkSensor:
+            ({
+              required lessonId,
+              required deviceId,
+              required metric,
+              caption,
+            }) async => throw Exception('PostgrestException: link_boom'),
+      );
 
-    await tester.tap(find.text('+ ผูกข้อมูล AIoT Sensor'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('ผูกข้อมูล'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('+ ผูกข้อมูล AIoT Sensor'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ผูกข้อมูล'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('ผูกข้อมูลเซนเซอร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), findsOneWidget);
-    expect(find.textContaining('link_boom'), findsNothing);
-    expect(find.text('ผูกข้อมูลเซนเซอร์กับบทเรียนแล้ว'), findsNothing);
-  });
+      expect(
+        find.text('ผูกข้อมูลเซนเซอร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('link_boom'), findsNothing);
+      expect(find.text('ผูกข้อมูลเซนเซอร์กับบทเรียนแล้ว'), findsNothing);
+    },
+  );
 
   testWidgets('an unsaved draft cannot link a sensor yet, and says why', (
     tester,
@@ -204,12 +214,14 @@ void main() {
     final button = find.text('+ ผูกข้อมูล AIoT Sensor (บันทึกบทเรียนก่อน)');
     expect(button, findsOneWidget);
     expect(
-      tester.widget<ElevatedButton>(
-        find.ancestor(
-          of: button,
-          matching: find.byWidgetPredicate((w) => w is ElevatedButton),
-        ),
-      ).onPressed,
+      tester
+          .widget<ElevatedButton>(
+            find.ancestor(
+              of: button,
+              matching: find.byWidgetPredicate((w) => w is ElevatedButton),
+            ),
+          )
+          .onPressed,
       isNull,
     );
   });

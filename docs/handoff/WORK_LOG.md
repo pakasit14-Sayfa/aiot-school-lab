@@ -1366,6 +1366,122 @@ test/director_learning_page_test.dart test/teacher_class_schedule_page_test.dart
 pgTAP 57 8/8 · สเปกเฟิร์มแวร์ FIRMWARE_COMMAND_LOOP.md อัปเดต · ส่งพรอมต์ให้ AI ฝั่ง
 เฟิร์มแวร์ 5 ข้อ (ack / report on boot / firmware+ip ใน heartbeat / watchdog / ต่อเซนเซอร์ครบ 10)
 
+### 2026-09-21 — guard ของ SupabaseConfig ครอบถึง debug บนมือถือ · ยืนยัน build ios --release ผ่าน
+เตรียมลงไอโฟนเครื่องจริงครั้งแรก. เดิม `assertConfigured` โยน error เฉพาะ
+`kReleaseMode` — แปลว่า `flutter run` แบบ debug ลงมือถือโดยลืม
+`--dart-define-from-file` จะ fallback ไป `http://127.0.0.1:54321` เงียบ ๆ ซึ่งบน
+เครื่องจริงคือตัวมือถือเอง ทุก request ล้มโดยไม่มีอะไรบอกสาเหตุ (อาการที่เห็นคือ
+"ล็อกอินไม่ได้"). ตอนนี้ iOS/Android บังคับต้องมี dart-define ทุกโหมด
+(`missingMobileEnvMessage`) ส่วน desktop/web ยัง fallback ไป local Docker ได้เหมือนเดิม
+— `isWeb` มาก่อน platform เพราะเว็บเปิดบนมือถือ `defaultTargetPlatform` คืน iOS.
+เทส `supabase_config_test.dart` 6 เทสผ่าน (เดิม 2), สวีททั้งหมด 912 ผ่าน.
+`flutter build ios --release --no-codesign --dart-define-from-file=env.prod.json`
+ผ่าน → `Runner.app` 106.4MB. ยังไม่ได้ทำ: ไอคอนแอปยังเป็นโลโก้ Flutter ตัว default
+(md5 ตรงกับ template เป๊ะ) และ `DEVELOPMENT_TEAM` ยังว่าง — ต้องใส่ Apple ID ใน Xcode
+เองก่อนลงเครื่องจริง.
+
+### 2026-09-21 — แอปขึ้นไอโฟนเครื่องจริงครั้งแรก (iPhone 16 Pro Max / iOS 27) ต่อ prod
+เดิมรันได้แค่ simulator (ตั้งแต่ 2026-09-17). ตอนนี้ลง**เครื่องจริง**ได้แล้ว
+รันอิสระไม่ต้องต่อสาย. `DEVELOPMENT_TEAM = X6KG8UP5VF` (Personal Team ฟรีของ
+`www.pakasit14@gmail.com`) เขียนลง `project.pbxproj` ทั้ง 6 build configurations.
+
+**คำสั่งที่ใช้ได้จริง — อย่าใช้ `flutter run` ลงเครื่องนี้** (ขั้น attach debugger
+ผ่าน Xcode automation ล้มเหลว `Error launching application`). ใช้ build แล้ว
+install ด้วย `devicectl` ตรง ๆ แทน:
+```
+cd apps/user_app
+flutter build ios --release --dart-define-from-file=../../env.prod.json
+xcrun devicectl device install app --device 00008140-00022DA2146A801C build/ios/iphoneos/Runner.app
+xcrun devicectl device process launch --device 00008140-00022DA2146A801C com.diliontech.aiotschoollab
+```
+
+**กับดักที่เสียเวลาที่สุด 2 อย่าง (จดไว้เพราะ build ไม่ฟ้อง error ทั้งคู่):**
+
+1. **framework 4 ตัวไม่ถูกเซ็น แต่ `Xcode build done` + `✓ Built Runner.app` ปกติ.**
+   ระหว่าง build มีหน้าต่าง keychain "codesign ต้องการเข้าถึงกุญแจ" ค้างรออนุญาต
+   4 อัน → `codesign` เข้าไม่ถึง private key แล้ว**ข้ามการเซ็นไปเงียบ ๆ**
+   (`DKImagePickerController`, `image_picker_ios`, `mobile_scanner`,
+   `webview_flutter_wkwebview` — จำนวนตรงกับหน้าต่างที่ค้างพอดี). ไปโผล่เป็น
+   `Failed to verify code signature ... 0xe800801c (No code signature found)`
+   ตอน install. แก้โดยกด **"อนุญาตเสมอ"** (ไม่ใช่ "อนุญาต") แล้ว build ใหม่.
+   ตรวจก่อน install เสมอ:
+   `cd build/ios/iphoneos/Runner.app/Frameworks && for f in *; do codesign -v "$f" || echo "unsigned: $f"; done`
+2. **debug build เปิดเองจากหน้า home screen ไม่ได้บน iOS 14+** — ขึ้นจอขาว
+   "In iOS 14+, debug mode Flutter apps can only be launched from Flutter tooling".
+   ไม่ใช่บั๊ก. ถ้าต้องการให้ผู้ใช้กดเปิดเองต้อง build `--release` (หรือ `--profile`).
+
+**ลำดับด่านทั้งหมดที่ต้องผ่าน** (เผื่อเครื่องใหม่): pair (Trust ที่ไอโฟน) →
+Developer Mode ในเครื่อง + restart → Apple ID ใน Xcode (Settings → Accounts) →
+Team ใน pbxproj → keychain "อนุญาตเสมอ" → install → **Trust profile ที่ไอโฟน**
+(Settings → General → VPN & Device Management → Apple Development: ...) → launch.
+**กับดักการตรวจสอบ:** `IDEProvisioningTeamByIdentifier` ใน Xcode prefs มี teamID
+ค้างอยู่ได้แม้ไม่มีบัญชีล็อกอิน — ตอนแรกอ่านคีย์นี้แล้วสรุปว่าใส่ Apple ID แล้ว
+ซึ่งผิด. ตัวที่เชื่อได้คือ `DVTDeveloperAccountManagerAppleIDLists` (ต้องไม่ว่าง)
+คู่กับ `security find-identity -v -p codesigning` (ต้อง ≥ 1 identity).
+
+**ข้อจำกัด Apple ID ฟรี:** แอป**หมดอายุ 7 วัน** (รอบนี้ ~2026-09-28) เปิดไม่ขึ้น
+ต้องต่อสาย build+install ใหม่ · ลงได้เฉพาะเครื่องที่ต่อสายเอง ส่งให้ครู/นักเรียน
+ลองไม่ได้ (ต้อง Apple Developer Program $99/ปี + TestFlight) · ไอคอนยังเป็นโลโก้
+Flutter ตัว default (md5 ตรงกับ template) — ยังไม่ทำตามที่เจ้าของงานสั่ง.
+
+**ยังไม่ได้ทดสอบ (simulator ทำไม่ได้ ต้องลองบนเครื่องนี้):** สแกน QR ด้วยกล้องจริง
+(`mobile_scanner`), ถ่ายรูป/เลือกรูปแนบรายงานเหตุการณ์ (`image_picker`),
+ปุ่มส่งออก CSV/Excel บน iOS.
+
+**ดิสก์เต็มลามอีกรอบระหว่างทำงานนี้** — เหลือ 104 MB, `docker` ทุกคำสั่งแขวน
+(อาการเดียวกับ 2026-09-09: `Docker.app` ตายแต่ `com.docker.backend` ค้างเป็นซอมบี้).
+กู้ด้วย `pkill -9 -f com.docker.backend` แล้ว `open -a Docker`. คืนพื้นที่เป็น 14 GB
+โดยลบ DerivedData (5.6 GB), simulator ที่ไม่ใช้ 2 เครื่อง, และ Supabase image
+**เฉพาะเวอร์ชันที่มีตัวใหม่กว่าแล้ว** 4 ตัว (postgres 17.6.1.141, storage-api
+v1.72.1/v1.71.0, postgrest v14.5) = 5.06 GB. **หมายเหตุสำคัญ:** สูตรเดิมใน
+memory ใช้ `docker ps` ซึ่งเห็นแค่ container ที่รันอยู่ — หลัง Docker crash
+container หายไปหลายตัว ทำให้ `edge-runtime`/`studio`/`realtime` หลุดเข้ามาใน
+รายการ "ลบได้" ทั้งที่เป็นเวอร์ชันปัจจุบัน (ถ้าลบ `edge-runtime` = ล็อกอิน local
+ไม่ได้ทั้งระบบ). ต้องกรองด้วยการเทียบเวอร์ชันเอง ไม่ใช่เชื่อ `docker ps`.
+`iOS DeviceSupport` โตเป็น 12 GB หลังเสียบ iOS 27 — ลบไม่ได้ผล เพราะโหลดกลับทันที
+ที่เสียบเครื่องรอบหน้า.
+
+### 2026-09-21 — แก้แอปช้าบนมือถือ 2 สาเหตุ (`e44ce7b`)
+เจ้าของงานรายงานว่าแอปบนไอโฟนช้าทั้ง "ตอนเปิด" และ "ตอนเปลี่ยนหน้า" — ไล่แล้วเป็น
+คนละสาเหตุกันจริง ๆ วัดจากโค้ดไม่ใช่เดา (latency ไป prod วัดได้ ~100ms สม่ำเสมอ
+ไม่ใช่ปัญหาฝั่ง backend).
+
+**1. เปิดแอปช้า — ฟอนต์โหลดจากเน็ตทุก cold start.** `google_fonts` ดึง
+NotoSansThai + PlusJakartaSans จาก fonts.gstatic.com **แยก request ต่อน้ำหนัก**
+และตัวหนังสือยังไม่มีสไตล์จนกว่าจะโหลดเสร็จ. บนเว็บแทบไม่รู้สึกเพราะเบราว์เซอร์
+cache ไว้ บนมือถือเห็นชัด. แก้โดยฝังไฟล์ `.ttf` ทุกน้ำหนักที่ UI เรียกจริงไว้ที่
+`apps/user_app/assets/google_fonts/` (11 ไฟล์ 624 KB — ฟอนต์ไทยเป็น subset เลยเล็ก
+กว่าที่ประเมินไว้มาก) แล้วปิด `GoogleFonts.config.allowRuntimeFetching` ใน
+`main.dart`. **ไม่ต้องแก้ call site 62 จุด** เพราะ google_fonts หาไฟล์จาก assets
+ด้วยชื่อ `{Family}-{Variant}.ttf` ให้อยู่แล้ว. ที่มาของไฟล์: hash ในตัวแพ็กเกจเอง
+(`google_fonts-6.3.3/lib/src/google_fonts_parts/part_*.g.dart`) → `https://fonts.gstatic.com/s/a/<hash>.ttf`
+ตรวจขนาดไฟล์ให้ตรงกับที่แพ็กเกจระบุทุกไฟล์ + แนบ OFL ทั้งสองตระกูล.
+`test/bundled_fonts_test.dart` (4 เทส) ล้มถ้ามีคนลบไฟล์หรือเปิด fetching กลับ.
+**หมายเหตุ:** PlusJakartaSans ไม่มี w900 ต้นทาง — โค้ดที่เขียน w900 ไว้ 681 จุด
+ได้ ExtraBold อยู่แล้วตั้งแต่ก่อนแก้ ไม่ใช่การเปลี่ยนหน้าตา.
+
+**2. เปลี่ยนหน้าช้า — N+1 query 8 หน้า.** รูปแบบเดียวกันหมด: โหลดรายการหลักมา
+แล้ว `await` RPC ทีละแถวในลูป. หนักสุดคือ `teacher_grading_page` ที่ซ้อน 2 ชั้น
+(assignments ต่อวิชา → submissions ต่อ assignment) = `1 + N + N*M` รอบเรียงกัน
+ก่อนจอจะขึ้นอะไรเลย. เปลี่ยนเป็น `Future.wait` ทีละชั้น — **คงพฤติกรรม error
+เดิมไว้ครบ** (แถวที่พังยังได้ 0 / ลิสต์ว่าง / เรคอร์ดไม่มีรายละเอียด และไม่ลาก
+ทั้งหน้าตายไปด้วย). หน้าที่แก้: teacher_courses, teacher_grades, teacher_grading,
+teacher_students, teacher_question_bank, teacher_knowledge_library, teacher_rubric,
+teacher_assignment_editor, student_search_popup.
+
+**จงใจไม่แก้ 2 จุด:** ลูปบันทึก threshold (`teacher_aiot_dashboard_page`) และลูป
+สร้างคำขออนุมัติรายเครื่อง (`super_admin_device_control_page`) — เป็น **write**
+ที่ลำดับมีความหมายและยิงขนานเสี่ยงชน rate limit.
+
+**false positive ที่สแกนเจอแต่ไม่ใช่ปัญหา** (จดไว้กันคนถัดไปไล่ซ้ำ):
+`school_teachers_page` / `school_students_page` — `await` อยู่คนละฟังก์ชันกับลูป,
+`student_lesson_view_page` — เรียกแบบ fire-and-forget ขนานอยู่แล้ว,
+`student_assignments_page` — เป็นลูป upload ไฟล์ ไม่ควรขนาน.
+
+เทส 916 ผ่าน (เดิม 912 + เทสฟอนต์ 4) · `flutter analyze lib` 0 error ·
+build release + install ลงเครื่องจริงแล้ว. **ยังไม่ได้วัดตัวเลขก่อน–หลังบนเครื่อง
+จริง** — เจ้าของงานให้ลองจากความรู้สึกก่อน ถ้าต้องการตัวเลขจริงต้อง build
+`--profile` แล้วจับเวลา.
 ## 2026-09-21 — Assignment save/readback and submission upload retry (Codex)
 
 - Fixed the teacher assignment form dropping `dueAt`: the form now accepts a validated local `YYYY-MM-DD HH:mm` value (Gregorian year), sends it on create/update, and does not invent a default deadline. The existing RPC treats null as keep-existing, so clearing an existing deadline is explicitly rejected; no migration was added.
@@ -1375,3 +1491,83 @@ pgTAP 57 8/8 · สเปกเฟิร์มแวร์ FIRMWARE_COMMAND_LOOP
 - Validation in isolated worktree fix/assignment-save-confirmation: focused assignment tests 23 passed; shared_core 66 passed; shared_ui 16 passed / 1 existing ListTile assertion failed; user_app 910 passed / 8 existing screenshot path failures (hard-coded /Users/sayfa path). No added regression failures. Analyze: shared_core clean; shared_ui 4 infos; user_app 7 warnings + 181 infos, no errors. Production-config web release build passed; existing Wasm compatibility warnings remain.
 - Manual browser click-through remains unverified: cua browser inventory returned no connected browsers (Chrome unavailable). Widget tests use injected backend callbacks; they are not a live UI-to-production verification. No production data or schema was changed for this implementation.
 - Retry state lasts while the submit sheet is open. This change does not add server-side idempotency for an ambiguous initial-submit network timeout, recovery across app restarts, or an assignment deletion API.
+
+### 2026-09-21 — หน้าแก้ไขใบงานออกแบบใหม่ทั้งหน้า + เลิกใช้สวิตช์เผยแพร่ (`62e7d13`)
+
+เจ้าของขอ "ออกแบบหน้านี้ใหม่ให้ดูโก้" แล้วขยายเป็น "เลเยอร์ · ตำแหน่งปุ่ม · สี ·
+ขนาด · รูปทรง · การวางข้อความ" และ "ให้ทำงานแบบ Google Classroom" ทำมาให้เลือก
+5 แบบ (เรนเดอร์จริงจาก widget test ที่โหลด NotoSansThai + MaterialIcons เข้า
+FontLoader แล้ว `matchesGoldenFile` — วิธีนี้ดูหน้าจริงได้โดยไม่ต้อง build ลงเครื่อง)
+เจ้าของเลือก "เอาแบบให้น่าใช้งานด้วย" → รวมสามอย่างเป็นตัวเดียว ตัวเลือกที่เหลือลบทิ้ง
+
+- **เลเยอร์** พื้นสีอ่อนของวิชา → หัวสีเข้มไหลใต้แถบสถานะ (`extendBodyBehindAppBar`)
+  → แผ่นขาวมุมมน 26 เลื่อนทับหัว 26pt พร้อมเงา
+- **ปุ่ม** ปุ่มหลักลงแถบล่างเต็มความกว้าง (เดิมมุมบนขวา = จุดที่นิ้วโป้งไกลสุด)
+  ทรงเดียวกับหน้าสร้างใบงาน 4 ขั้น แถบบนเหลือ "ยกเลิก" + เมนู ⋯
+- **การเผยแพร่เป็นคำสั่ง ไม่ใช่สวิตช์** (วิธีของ Classroom) ร่าง → "มอบหมายให้นักเรียน"
+  · มอบหมายแล้ว → "บันทึก" · เมนู ⋯ = บันทึกร่าง / ยกเลิกการเผยแพร่ เบื้องหลังยังเป็น
+  `publish_assignment` / `unpublish_assignment` ตัวเดิม
+- **บั๊กที่ปิดไปด้วย** ชื่อแถวโดนตัดกลางคำ (`เกณฑ์การใ…`) เพราะแบ่งความกว้างตายตัว
+  1:2 · ปุ่ม 3 ตัวที่ `styleFrom(textStyle:)` ทับสไตล์ทั้งก้อนจน label หลุดฟอนต์แอป
+
+ฐานที่ต่อยอดคือ WIP ที่ยังไม่ commit ของอีกเซสชัน (สแนปช็อตไว้เป็น `a3a7801`)
+ทำในเวิร์กทรีแยกเพื่อไม่ให้ชนกัน แล้ว cherry-pick กลับเข้าเลนนี้
+
+เทส: connection test ของหน้านี้ 5/5 (เพิ่มเคส ร่าง→มอบหมาย, เคส unpublish เปลี่ยนไป
+กดผ่านเมนูเพราะไม่มีสวิตช์แล้ว) · ทั้งสวีท user_app **937 ผ่าน 0 ตก** · analyze 0 error
+
+### 2026-09-21 — merge main เข้าเลน d6-phase2 (`a7b03f6`)
+
+เลนนี้ตาม main ไม่ทัน 7 commit และสองเลนแก้ `teacher_grading_page.dart` คนละทาง:
+main (`3d6a39e`) เขียนหน้านี้ใหม่ทั้งหน้าเป็น 3 หน้าโทรศัพท์ ส่วนเลนนี้ (`e44ce7b`)
+ไล่แก้ perf บนโครงเดิมที่หายไปแล้ว — resolve โดยเอาโครงใหม่ของ main เป็นหลัก แต่คง
+เจตนา perf ไว้: `for` + `await` ทีละคอร์ส → `Future.wait` ครั้งเดียว (1+N รอบไป-กลับ → 2)
+
+**perf probe ที่ค้างใน working tree ถูก stash ไว้** (`stash@{0}` "perf probes
+(instrumentation only)") — เป็นเครื่องมือวัดชั่วคราว ไม่ใช่งานที่จะ commit
+`apps/user_app/lib/perf_probe.dart` ยังเป็นไฟล์ untracked ที่ไม่มีใคร import แล้ว
+
+### 2026-09-21 — เพิ่ม PITFALLS.md ที่เก็บกับดักที่เคยเสียเวลาไปแล้ว
+
+วันนี้เสียเวลาสองรอบกับกรอบฟ้ารอบช่องกรอก เพราะเดาว่าเป็น focus ring ของ iOS
+(ไปปิด Connect Hardware Keyboard ในซิมูเลเตอร์จนวางข้อความไม่ได้) ทั้งที่ต้นเหตุ
+คือ `inputDecorationTheme` ใน `app_theme.dart` ของเราเอง — เป็นประเภทปัญหาที่
+WORK_LOG เก็บไม่ได้ เพราะมันไม่ใช่ "งานที่ทำ" แต่เป็น "สิ่งที่หลอกเรา"
+
+`docs/handoff/PITFALLS.md` จึงเกิดขึ้น: หนึ่งรายการ = อาการ · วินิจฉัยผิดที่เคยทำ ·
+สาเหตุจริงพร้อมไฟล์:บรรทัด · commit ที่แก้ · วิธีกันซ้ำ ตั้งต้นด้วย 7 รายการจริง
+จากวันนี้ (ธีมทับ border ของช่องกรอก · ColoredBox ไม่มีลูกสูง 0 ·
+styleFrom(textStyle:) ทำ label หลุดฟอนต์ · แคช kernel ค้าง · บิลด์ลงคนละเครื่อง
+กับที่กำลังดู · Flexible flex ตายตัวตัดข้อความ · ListView ไม่สร้างแถวนอกจอในเทสต์ ·
+หลาย AI แก้ไฟล์เดียวกัน) และใส่ลิงก์ไว้ใน CLAUDE.md แล้ว
+
+## 2026-09-22 — บล็อกเนื้อหาบทเรียนไปถึงนักเรียนจริง (18c7bdd)
+
+ตัวแก้ไขบทเรียนแบบบล็อกของครูมีมานาน และบันทึก `content['blocks']` ลงฐานข้อมูล
+ถูกต้องมาตลอด แต่ **ไม่มีใครฝั่งนักเรียนอ่าน** — `student_lesson_view_page.dart`
+อ่านแค่ `content['body']` ข้อความแบน หัวข้อถูกตัดทิ้งตั้งแต่ตอน serialize
+กล่องเตือน/กล่องสรุปเหลือแต่ข้อความ และบล็อกกราฟไม่แสดง (กราฟฝั่งนักเรียนมาจาก
+ตาราง `lesson_sensor_links` คนละทางกัน)
+
+พบเพราะเจ้าของโครงการสั่งให้ไปเปิดหน้านักเรียนอ่านก่อนจะแก้ดีไซน์หน้าพรีวิวต่อ
+ก่อนหน้านั้นแก้ดีไซน์พรีวิวไปหลายรอบโดยไม่เคยเปิดหน้าปลายทางดูเลย
+
+- `761ce79` — พรีวิวครูวางโครงตามหน้านักเรียนจริง และเขียนบอกตรง ๆ ว่าอะไรไม่ถึง
+  นักเรียน (แก้ให้ซื่อสัตย์ก่อน ยังไม่แก้ต้นเหตุ)
+- `3fc8ef2` — บันทึกกับดักข้อ 10 ใน PITFALLS.md
+- `18c7bdd` — แก้ต้นเหตุ: ย้ายโมเดลบล็อกไป `shared_core` · ตัววาดบล็อกตัวเดียว
+  `lesson_block_view.dart` ใช้ร่วมสองเลน · หน้าฟอร์มรุ่นเก่าถามก่อนลบบล็อก
+  · เทสต์ใหม่ 11 ตัว (รวม 955 ผ่าน)
+
+ไม่มี migration ไม่มี RPC ใหม่ — `content` เป็น jsonb ที่ `update_lesson`/
+`get_lesson` ส่งผ่านทั้งก้อนอยู่แล้ว
+
+ต่อด้วย `51ce39e` — ปิดสองข้อที่ค้าง: บล็อกรูป/วิดีโอ/ไฟล์/ลิงก์ใช้งานได้จริง
+(เพิ่ม `materialId` ใน `ContentBlockModel` อ้างถึง `lesson_materials` ด้วย id
+เพราะ signed URL หมดอายุ เก็บไว้ไม่ได้ · ครูเลือกไฟล์จากคลังสื่อแนบ · รูปแสดง
+ในหน้า วิดีโอ/ไฟล์เป็นการ์ดพร้อมปุ่มเปิด เพราะยังไม่มีตัวเล่นวิดีโอในแอป) และ
+เชลล์เก่า `/home` → `pages/student/lesson_view_page.dart` ใช้ `LessonBlockView`
+ตัวเดียวกันแล้ว — ไม่เหลือหน้าไหนที่แสดงแต่ข้อความแบน (รวม 959 ผ่าน)
+
+ยังไม่ทำ: เล่นวิดีโอในแอป (ไม่มี package ตัวเล่น) · บล็อกสื่อยังต้องอัปโหลด
+ไฟล์ที่แท็บคลังสื่อแนบก่อน ยังอัปโหลดจากในบล็อกโดยตรงไม่ได้

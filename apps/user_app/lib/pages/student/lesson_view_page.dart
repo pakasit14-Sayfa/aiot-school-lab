@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
+import '../student_redesign_prototype/widgets/lesson_block_view.dart';
+
 /// Professional Enterprise Lesson View Page (Clean, Emoji-Free Layout)
 class LessonViewPage extends StatefulWidget {
   const LessonViewPage({
@@ -57,7 +59,9 @@ class _LessonViewPageState extends State<LessonViewPage> {
       // ไม่โชว์ข้อความ exception ดิบให้นักเรียนเห็น — log ไว้ debug แทน
       debugPrint('StudentLessonViewPage: โหลดบทเรียนไม่สำเร็จ — $e');
       if (!mounted) return;
-      setState(() => errorMessage = 'โหลดบทเรียนไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+      setState(
+        () => errorMessage = 'โหลดบทเรียนไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
+      );
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
@@ -93,9 +97,9 @@ class _LessonViewPageState extends State<LessonViewPage> {
       // ไม่โชว์ข้อความ exception ดิบให้นักเรียนเห็น — log ไว้ debug แทน
       debugPrint('StudentLessonViewPage: บันทึกสถานะไม่สำเร็จ — $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('บันทึกสถานะไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('บันทึกสถานะไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')),
+      );
     } finally {
       if (mounted) setState(() => isMarkingComplete = false);
     }
@@ -190,7 +194,9 @@ class _LessonViewPageState extends State<LessonViewPage> {
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF0284C7).withValues(alpha: 0.1),
+                              color: const Color(
+                                0xFF0284C7,
+                              ).withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Icon(
@@ -226,15 +232,16 @@ class _LessonViewPageState extends State<LessonViewPage> {
                         ],
                       ),
                       const Divider(height: 30),
-                      if (lesson!.content?['body'] != null)
-                        Text(
-                          lesson!.content!['body'] as String,
-                          style: const TextStyle(
-                            fontSize: 14.5,
-                            height: 1.7,
-                            color: Color(0xFF1E293B),
-                          ),
-                        ),
+                      // เชลล์เก่านี้ยังเข้าถึงได้ทาง '/home' — ให้แสดงบล็อก
+                      // ชุดเดียวกับหน้านักเรียนหลัก ไม่งั้นนักเรียนที่เข้า
+                      // ทางนี้ยังเห็นข้อความแบนอยู่คนเดียว
+                      LessonBlockView(
+                        blocks: lessonBlocksFromContent(lesson!.content),
+                        fallbackBody: lesson!.content?['body'] as String? ?? '',
+                        materials: lesson!.materials,
+                        resolveMaterialUrl:
+                            LessonService.getMaterialDownloadUrl,
+                      ),
                     ],
                   ),
                 ),
@@ -261,7 +268,9 @@ class _LessonViewPageState extends State<LessonViewPage> {
                         leading: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF0284C7).withValues(alpha: 0.1),
+                            color: const Color(
+                              0xFF0284C7,
+                            ).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Icon(

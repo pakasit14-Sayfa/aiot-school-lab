@@ -74,6 +74,38 @@ class _LessonFormPageState extends State<LessonFormPage> {
       return;
     }
 
+    // หน้านี้แก้ได้แค่ข้อความก้อนเดียว ถ้าบทเรียนถูกจัดเป็นบล็อกมาจากหน้า
+    // แก้ไขบทเรียนของเลนใหม่ การบันทึกทับจะลบรูปแบบทั้งหมดทิ้ง — ตั้งแต่
+    // นักเรียนอ่าน content['blocks'] จริง (2026-09-22) นี่คือการลบข้อมูล
+    // ที่นักเรียนเห็นอยู่ จึงต้องถามก่อน ไม่ใช่ทำเงียบ ๆ
+    final existingBlocks = lessonBlocksFromContent(lesson?.content);
+    if (existingBlocks.isNotEmpty) {
+      final proceed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('บทเรียนนี้จัดเนื้อหาเป็นบล็อก'),
+          content: Text(
+            'บทเรียนนี้มีบล็อกอยู่ ${existingBlocks.length} บล็อก '
+            '(หัวข้อ กล่องเตือน กล่องสรุป ฯลฯ) ที่นักเรียนเห็นอยู่ตอนนี้\n\n'
+            'บันทึกจากหน้านี้จะแทนที่ด้วยข้อความก้อนเดียว และรูปแบบทั้งหมด '
+            'จะหายถาวร — ถ้าต้องการคงรูปแบบไว้ ให้กลับไปแก้ที่หน้าแก้ไข '
+            'บทเรียนแทน',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('ยกเลิก'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('ลบรูปแบบและบันทึก'),
+            ),
+          ],
+        ),
+      );
+      if (proceed != true || !mounted) return;
+    }
+
     setState(() => isSaving = true);
     try {
       final content = {'body': bodyController.text.trim()};

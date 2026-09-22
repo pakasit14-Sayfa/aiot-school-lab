@@ -84,6 +84,9 @@ flutter:
   assets:
     - assets/images/
     - assets/models/
+    # Bundled so google_fonts never fetches at runtime — see
+    # GoogleFonts.config.allowRuntimeFetching = false in main.dart.
+    - assets/google_fonts/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

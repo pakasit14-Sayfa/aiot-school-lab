@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
 import '../school_admin/school_timetable_page.dart' show SubjectColor;
+import 'teacher_airy_kit.dart';
+import 'teacher_date_time_sheet.dart' show showTeacherDateTimeSheet;
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
+import 'teacher_rubric_page.dart' show TeacherRubricPage;
 
 /// สร้าง / แก้ไขใบงาน — iOS grouped form (design agreed 2026-09-21).
 ///
@@ -154,6 +157,10 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
   bool _saving = false;
   bool _dirty = false;
 
+  /// ข้อความผิดพลาดใต้ช่อง "ชื่อใบงาน" — เดิมบอกด้วย snackbar ที่เด้งขึ้นมา
+  /// แล้วหายไป โดยไม่ชี้ว่าช่องไหนผิด
+  String? _titleError;
+
   bool get _isEdit => widget.existing != null;
 
   @override
@@ -167,6 +174,11 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
     _published = a?.isPublished ?? false;
     _rubricId = a?.rubricId;
     _title.addListener(_markDirty);
+    _title.addListener(() {
+      if (_titleError != null && _title.text.trim().isNotEmpty) {
+        setState(() => _titleError = null);
+      }
+    });
     _instructions.addListener(_markDirty);
     _loadRubrics();
     if (_isEdit) _loadDatasets();
@@ -234,21 +246,19 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
     );
   }
 
-  Future<DateTime?> _pickDateTime(DateTime initial) async {
-    final d = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: DateTime(2024),
-      lastDate: DateTime(2035),
-    );
-    if (d == null || !mounted) return null;
-    final t = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(initial),
-    );
-    if (t == null) return null;
-    return DateTime(d.year, d.month, d.day, t.hour, t.minute);
-  }
+  /// ชีตเดียวได้ทั้งวันและเวลา แทน showDatePicker + showTimePicker ของ
+  /// Material ที่เป็นกล่อง Android สองกล่องต่อกัน
+  Future<DateTime?> _pickDateTime(
+    DateTime initial, {
+    String title = 'เลือกวันและเวลา',
+  }) => showTeacherDateTimeSheet(
+    context: context,
+    initial: initial,
+    accent: SubjectColor.of(widget.courseName).fg,
+    title: title,
+    first: DateTime(2024),
+    last: DateTime(2035, 12, 31),
+  );
 
   Future<void> _pickDue() async {
     final picked = await _pickDateTime(
@@ -256,6 +266,7 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
           DateTime.now()
               .add(const Duration(days: 7))
               .copyWith(hour: 23, minute: 59),
+      title: 'กำหนดส่งงาน',
     );
     if (picked == null) return;
     setState(() {
@@ -264,34 +275,34 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
     });
   }
 
+  /// ชีตเลือกเกณฑ์ — เดิมเป็น ListTile เปล่า ๆ ไม่มีหัวชีต และตอนไม่มีเกณฑ์
+  /// เลยจะโชว์บรรทัด "ยังไม่มีเกณฑ์…" ปนเป็นตัวเลือกที่กดไม่ได้ พร้อมบอกให้
+  /// "ไปสร้างจากเมนูเกณฑ์การให้คะแนน" ซึ่งเป็นทางตันในชีต — ตอนนี้มีหัวชีต
+  /// จริง ที่ว่างเป็นบล็อกของตัวเอง และมีปุ่มเปิดหน้าเกณฑ์ไปสร้างได้เลย
+  /// กลับมาแล้วโหลดรายการใหม่ให้อัตโนมัติ
   Future<void> _pickRubric() async {
+    final subject = SubjectColor.of(widget.courseName);
     final chosen = await showModalBottomSheet<String?>(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.block_rounded),
-              title: const Text('ไม่ใช้เกณฑ์การให้คะแนน'),
-              trailing: _rubricId == null ? const Icon(Icons.check) : null,
-              onTap: () => Navigator.pop(ctx, ''),
-            ),
-            for (final r in _rubrics)
-              ListTile(
-                leading: const Icon(Icons.rule_rounded),
-                title: Text(r.title),
-                subtitle: Text('${r.criteriaCount} เกณฑ์'),
-                trailing: _rubricId == r.id ? const Icon(Icons.check) : null,
-                onTap: () => Navigator.pop(ctx, r.id),
-              ),
-            if (_rubrics.isEmpty && !_rubricsLoading)
-              const ListTile(
-                title: Text('ยังไม่มีเกณฑ์การให้คะแนนของคุณ'),
-                subtitle: Text('สร้างได้จากเมนู เกณฑ์การให้คะแนน'),
-              ),
-          ],
-        ),
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+      ),
+      builder: (ctx) => _RubricPickerSheet(
+        rubrics: _rubrics,
+        selectedId: _rubricId,
+        accent: subject.fg,
+        onCreate: () async {
+          Navigator.pop(ctx);
+          await Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const TeacherRubricPage()),
+          );
+          if (!mounted) return;
+          setState(() => _rubricsLoading = true);
+          await _loadRubrics();
+        },
       ),
     );
     if (chosen == null) return;
@@ -304,6 +315,7 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
   Future<void> _save() async {
     final title = _title.text.trim();
     if (title.isEmpty) {
+      setState(() => _titleError = 'ยังไม่ได้ตั้งชื่อใบงาน');
       _snack('กรุณากรอกชื่อใบงาน', error: true);
       return;
     }
@@ -357,51 +369,26 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
       Navigator.pop(context, false);
       return;
     }
-    final leave = await showDialog<bool>(
+    final leave = await showAiryConfirm(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('ทิ้งการแก้ไข?'),
-        content: const Text('สิ่งที่แก้ไว้จะไม่ถูกบันทึก'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('แก้ต่อ'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'ทิ้งการแก้ไข',
-              style: TextStyle(color: Color(0xFFB91C1C)),
-            ),
-          ),
-        ],
-      ),
+      title: 'ทิ้งการแก้ไข?',
+      message: 'สิ่งที่แก้ไว้จะไม่ถูกบันทึก',
+      confirmLabel: 'ทิ้งการแก้ไข',
+      cancelLabel: 'แก้ต่อ',
     );
     if (leave == true && mounted) Navigator.pop(context, false);
   }
 
   Future<void> _unlink(AssignmentSensorDataset d) async {
-    final ok = await showDialog<bool>(
+    final ok = await showAiryConfirm(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('เอาชุดข้อมูลออก?'),
-        content: Text(
-          '${kMetricThai[d.metric] ?? d.metric} · ${_devices[d.deviceId]?.name ?? 'อุปกรณ์'}\nนักเรียนจะไม่เห็นกราฟชุดนี้ในใบงานอีก',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('ยกเลิก'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'เอาออก',
-              style: TextStyle(color: Color(0xFFB91C1C)),
-            ),
-          ),
-        ],
-      ),
+      title: 'เอาชุดข้อมูลออก?',
+      message:
+          '${kMetricThai[d.metric] ?? d.metric} · '
+          '${_devices[d.deviceId]?.name ?? 'อุปกรณ์'}\n'
+          'นักเรียนจะไม่เห็นกราฟชุดนี้ในใบงานอีก',
+      confirmLabel: 'เอาออก',
+      cancelLabel: 'ยกเลิก',
     );
     if (ok != true) return;
     try {
@@ -437,7 +424,15 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
     final req = await showModalBottomSheet<_LinkRequest>(
       context: context,
       isScrollControlled: true,
-      builder: (ctx) => _LinkDatasetSheet(devices: sensors),
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+      ),
+      builder: (ctx) => _LinkDatasetSheet(
+        devices: sensors,
+        accent: SubjectColor.of(widget.courseName).fg,
+      ),
     );
     if (req == null || !mounted) return;
     try {
@@ -458,6 +453,23 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
   }
 
   // ─────────────────────────── UI ───────────────────────────
+  //
+  // หน้าเดียวทั้งสร้างและแก้ไข — เคยแยกเป็น wizard 4 ขั้นตอนสร้าง (2026-09-21)
+  // แล้วถอยออกตามที่เจ้าของสั่ง: ครูไม่ต้องเรียนรู้สองแบบ และการเดินสี่จอเพื่อ
+  // กรอกสามช่องไม่ได้ช่วยอะไรนอกจากเพิ่มจำนวนครั้งที่ต้องกด
+
+  /// โหมด Classroom: ปุ่มหลักมุมขวาบนคือการกระทำ ไม่ใช่สวิตช์ในฟอร์ม
+  /// ร่าง → "มอบหมาย" (บันทึก+เผยแพร่) · เผยแพร่แล้ว → "บันทึก"
+  /// ส่วนอีกทางอยู่ในเมนู ⋮ (บันทึกร่าง / ยกเลิกการเผยแพร่)
+  Future<void> _assignNow() async {
+    setState(() => _published = true);
+    await _save();
+  }
+
+  Future<void> _saveAsDraft() async {
+    setState(() => _published = false);
+    await _save();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -477,421 +489,737 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
         if (!didPop) _cancel();
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF2F2F7),
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.white,
-          elevation: 0,
-          leading: TextButton(
-            onPressed: _saving ? null : _cancel,
-            child: const Text('ยกเลิก'),
-          ),
-          leadingWidth: 84,
-          centerTitle: true,
-          title: Text(
-            _isEdit ? 'แก้ไขใบงาน' : 'ใบงานใหม่',
-            style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-              color: TeacherPalette.ink,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: _saving ? null : _save,
-              child: _saving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text(
-                      'บันทึก',
-                      style: TextStyle(fontWeight: FontWeight.w700),
-                    ),
-            ),
-          ],
-        ),
-        body: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 12),
-              child: Row(
-                children: [
-                  Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: color.fg,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    widget.courseName,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: TeacherPalette.muted,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            _GroupLabel('ข้อมูล'),
-            _Group(
-              children: [
-                _TextRow(controller: _title, hint: 'ชื่อใบงาน', bold: true),
-                _TextRow(
-                  controller: _instructions,
-                  hint: 'คำสั่ง / รายละเอียดงาน',
-                  maxLines: 6,
-                ),
-              ],
-            ),
-            _GroupLabel('การส่งงาน'),
-            _Group(
-              children: [
-                _NavRow(
-                  icon: Icons.event_rounded,
-                  label: 'กำหนดส่ง',
-                  value: _dueAt == null
-                      ? 'ยังไม่กำหนด'
-                      : fmtThaiDateTime(_dueAt!),
-                  onTap: _saving ? null : _pickDue,
-                ),
-                _SwitchRow(
-                  icon: Icons.groups_rounded,
-                  label: 'งานกลุ่ม',
-                  value: _isGroup,
-                  onChanged: _saving
-                      ? null
-                      : (v) => setState(() {
-                          _isGroup = v;
-                          _dirty = true;
-                        }),
-                ),
-                _NavRow(
-                  icon: Icons.rule_rounded,
-                  label: 'เกณฑ์การให้คะแนน',
-                  value: rubricTitle,
-                  onTap: _saving || _rubricsLoading ? null : _pickRubric,
-                ),
-                _SwitchRow(
-                  icon: Icons.campaign_rounded,
-                  label: 'เผยแพร่ให้นักเรียน',
-                  value: _published,
-                  onChanged: _saving
-                      ? null
-                      : (v) => setState(() {
-                          _published = v;
-                          _dirty = true;
-                        }),
-                ),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-              child: Text(
-                _published
-                    ? 'นักเรียนในห้องจะเห็นใบงานนี้ทันทีที่บันทึก'
-                    : 'ฉบับร่าง — นักเรียนยังไม่เห็น',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: TeacherPalette.muted,
-                ),
-              ),
-            ),
-            _GroupLabel('ชุดข้อมูลเซนเซอร์'),
-            if (!_isEdit)
-              _Group(
-                children: const [
-                  _InfoRow(
-                    'บันทึกใบงานก่อน แล้วค่อยเพิ่มชุดข้อมูลได้จากหน้าแก้ไข',
-                  ),
-                ],
-              )
-            else
-              _Group(
-                children: [
-                  if (_datasetsLoading)
-                    const _InfoRow('กำลังโหลด…')
-                  else if (_datasets.isEmpty)
-                    const _InfoRow('ยังไม่มีชุดข้อมูล'),
-                  for (final d in _datasets)
-                    _DatasetRow(
-                      dataset: d,
-                      deviceName: _devices[d.deviceId]?.name ?? 'อุปกรณ์',
-                      onRemove: _saving ? null : () => _unlink(d),
-                    ),
-                  _NavRow(
-                    icon: Icons.add_circle_outline_rounded,
-                    label: 'เพิ่มชุดข้อมูล',
-                    value: '',
-                    accent: true,
-                    onTap: _saving ? null : _addDataset,
-                  ),
-                ],
-              ),
-          ],
-        ),
+        backgroundColor: const Color(0xFFF7F7FA),
+        extendBodyBehindAppBar: true,
+        bottomNavigationBar: _saveBar(color),
+        appBar: _editAppBar(),
+        body: _editBody(color, rubricTitle),
       ),
     );
   }
-}
 
-// ─────────────────────────── grouped-form widgets ───────────────────────────
-
-class _GroupLabel extends StatelessWidget {
-  const _GroupLabel(this.text);
-  final String text;
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(12, 18, 12, 6),
-    child: Text(
-      text,
+  /// แถบบนโปร่งวางทับหัวสีวิชา — เหลือแค่ทางออกซ้ายกับเมนูรองขวา
+  /// ปุ่มหลักอยู่แถบล่าง (นิ้วโป้งถึงกว่า และเห็นตลอดเวลาโดยไม่ต้องเลื่อน)
+  PreferredSizeWidget _editAppBar() => AppBar(
+    backgroundColor: Colors.transparent,
+    surfaceTintColor: Colors.transparent,
+    elevation: 0,
+    leading: TextButton(
+      onPressed: _saving ? null : _cancel,
+      style: TextButton.styleFrom(foregroundColor: Colors.white),
+      child: const Text('ยกเลิก'),
+    ),
+    leadingWidth: 84,
+    centerTitle: true,
+    title: Text(
+      _isEdit ? 'แก้ไขใบงาน' : 'ใบงานใหม่',
       style: const TextStyle(
-        fontSize: 13,
-        color: TeacherPalette.muted,
-        fontWeight: FontWeight.w600,
-      ),
-    ),
-  );
-}
-
-class _Group extends StatelessWidget {
-  const _Group({required this.children});
-  final List<Widget> children;
-  @override
-  Widget build(BuildContext context) {
-    final rows = <Widget>[];
-    for (var i = 0; i < children.length; i++) {
-      if (i > 0) {
-        rows.add(
-          const Divider(height: 1, indent: 16, color: Color(0xFFE5E5EA)),
-        );
-      }
-      rows.add(children[i]);
-    }
-    return Container(
-      decoration: BoxDecoration(
+        fontSize: 17,
+        fontWeight: FontWeight.w700,
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(children: rows),
-    );
-  }
-}
-
-class _TextRow extends StatelessWidget {
-  const _TextRow({
-    required this.controller,
-    required this.hint,
-    this.maxLines = 1,
-    this.bold = false,
-  });
-  final TextEditingController controller;
-  final String hint;
-  final int maxLines;
-  final bool bold;
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-    child: TextField(
-      controller: controller,
-      maxLines: maxLines,
-      minLines: 1,
-      style: TextStyle(
-        fontSize: 16,
-        fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
-        color: TeacherPalette.ink,
-      ),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(color: Color(0xFFC7C7CC)),
-        border: InputBorder.none,
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(vertical: 10),
       ),
     ),
+    actions: [
+      PopupMenuButton<String>(
+        tooltip: 'ตัวเลือกเพิ่มเติม',
+        icon: const Icon(Icons.more_horiz_rounded, color: Colors.white),
+        onSelected: (v) {
+          if (v == 'draft' || v == 'unpublish') _saveAsDraft();
+        },
+        itemBuilder: (_) => [
+          if (_published)
+            const PopupMenuItem(
+              value: 'unpublish',
+              child: Text('ยกเลิกการเผยแพร่'),
+            )
+          else
+            const PopupMenuItem(value: 'draft', child: Text('บันทึกร่าง')),
+        ],
+      ),
+      const SizedBox(width: 4),
+    ],
   );
-}
 
-class _NavRow extends StatelessWidget {
-  const _NavRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.onTap,
-    this.accent = false,
-  });
-  final IconData icon;
-  final String label;
-  final String value;
-  final VoidCallback? onTap;
-  final bool accent;
-  @override
-  Widget build(BuildContext context) {
-    final fg = accent ? TeacherPalette.primary : TeacherPalette.ink;
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
+  /// สามชั้น: (1) พื้นหลังสีอ่อนของวิชา (2) หัวสีเข้มที่ไหลขึ้นไปใต้แถบ
+  /// สถานะ (3) แผ่นขาวมุมมน 26 เลื่อนขึ้นทับหัว 26pt พร้อมเงา — ฟอร์มอยู่บน
+  /// แผ่นที่สามแผ่นเดียว ไม่ใช่การ์ดย่อยลอยเป็นชิ้น ๆ
+  Widget _editBody(SubjectColor subject, String rubricTitle) => ListView(
+    padding: EdgeInsets.zero,
+    children: [
+      _SubjectHeader(
+        subject: subject,
+        subjectName: widget.courseName,
+        title: _title,
+        published: _published,
+        dueAt: _dueAt,
+        isGroup: _isGroup,
+        datasetCount: _datasets.length,
+        topPadding: MediaQuery.paddingOf(context).top + kToolbarHeight,
+      ),
+      Transform.translate(
+        offset: const Offset(0, -26),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFFF7F7FA),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+          ),
+          padding: const EdgeInsets.fromLTRB(18, 10, 18, 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: _bodyRows(rubricTitle),
+          ),
+        ),
+      ),
+    ],
+  );
+
+  // เนื้อฟอร์ม — ค่าอยู่บรรทัดล่างของชื่อแถวเสมอ ค่ายาวแค่ไหนก็ไม่แย่งที่
+  // กับชื่อแถว (ปัญหาเดิมที่ทำให้ "เกณฑ์การให้คะแนน" โดนตัดกลางคำ) และเหลือ
+  // ที่พอเขียนผลของสวิตช์เป็นประโยคแทนคำเดียว
+  //
+  // ไม่มีหมวด "การเผยแพร่" ในฟอร์มแล้ว — การเผยแพร่เป็นผลของปุ่มที่กด ไม่ใช่
+  // ค่าที่ตั้งค้างไว้ (วิธีของ Google Classroom ที่ครูคุ้นอยู่แล้ว) ดูแถบล่าง
+
+  /// เนื้อฟอร์มสไตล์ "โปร่ง-ขาว" (2026-09-22 ตามภาพอ้างอิงที่เจ้าของเลือก):
+  /// การ์ดขาวเงานุ่ม แถวในการ์ดคั่นด้วยเส้นบาง ป้ายเล็กสีเทาคู่กับค่าตัวหนา
+  /// ไอคอนเส้นบางสีเดียว ไม่มีชิปสีและไม่มีพื้นเทารายแถวอีก
+  /// หัวสีประจำวิชาด้านบนคงไว้ตามที่เจ้าของสั่ง
+  List<Widget> _bodyRows(String rubricTitle) {
+    final accent = SubjectColor.of(widget.courseName).fg;
+    return [
+      const AirySection('ข้อมูล'),
+      AiryInput(
+        label: 'ชื่อใบงาน',
+        controller: _title,
+        hint: 'เช่น ใบงานทบทวนบทที่ 1',
+        accent: accent,
+        big: true,
+        errorText: _titleError,
+      ),
+      AiryInput(
+        label: 'คำอธิบาย',
+        controller: _instructions,
+        hint: 'อธิบายว่าต้องทำอะไร ส่งอย่างไร',
+        accent: accent,
+        minLines: 2,
+        maxLines: 8,
+      ),
+      const AirySection('การส่งงาน'),
+      AiryCard(
+        children: [
+          AiryRow(
+            icon: Icons.event_outlined,
+            label: 'กำหนดส่ง',
+            value: _dueAt == null ? 'ยังไม่กำหนด' : fmtThaiDateTime(_dueAt!),
+            muted: _dueAt == null,
+            onTap: _saving ? null : _pickDue,
+          ),
+          AirySwitchRow(
+            icon: Icons.groups_outlined,
+            label: 'งานกลุ่ม',
+            value: _isGroup ? 'ส่ง 1 ชิ้นต่อกลุ่ม' : 'นักเรียนส่งงานรายคน',
+            on: _isGroup,
+            accent: accent,
+            onChanged: _saving ? null : _toggleGroup,
+          ),
+          AiryRow(
+            icon: Icons.rule_outlined,
+            label: 'เกณฑ์การให้คะแนน',
+            value: rubricTitle,
+            muted: rubricTitle == 'ไม่ใช้',
+            onTap: _saving || _rubricsLoading ? null : _pickRubric,
+          ),
+        ],
+      ),
+      const AirySection('ชุดข้อมูลเซนเซอร์'),
+      if (!_isEdit)
+        const AiryCard(
           children: [
-            Icon(icon, size: 20, color: accent ? fg : TeacherPalette.muted),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Flexible(
-                    child: Text(
-                      label,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 16, color: fg),
+            AiryNote('บันทึกใบงานก่อน แล้วค่อยเพิ่มชุดข้อมูลได้จากหน้าแก้ไข'),
+          ],
+        )
+      else
+        AiryCard(
+          children: [
+            if (_datasetsLoading)
+              const AiryNote('กำลังโหลด…')
+            else if (_datasets.isEmpty)
+              const AiryNote('ยังไม่มีชุดข้อมูล'),
+            for (final d in _datasets)
+              AiryDatasetRow(
+                dataset: d,
+                deviceName: _devices[d.deviceId]?.name ?? 'อุปกรณ์',
+                onRemove: _saving ? null : () => _unlink(d),
+              ),
+            AiryRow(
+              icon: Icons.add_circle_outline_rounded,
+              label: 'เพิ่มชุดข้อมูล',
+              value: 'เลือกอุปกรณ์และค่าที่จะให้นักเรียนเห็น',
+              muted: true,
+              accent: accent,
+              onTap: _saving ? null : _addDataset,
+            ),
+          ],
+        ),
+    ];
+  }
+
+  void _toggleGroup(bool v) => setState(() {
+    _isGroup = v;
+    _dirty = true;
+  });
+
+  /// แถบล่าง — ปุ่มหลักเต็มความกว้างในระยะที่นิ้วโป้งถึง พร้อมบรรทัดบอก
+  /// สถานะปัจจุบันเหนือปุ่ม อ่านได้ตรงจุดที่กำลังจะกด
+  ///
+  /// ยังเป็นร่าง → ปุ่มคือ "มอบหมายให้นักเรียน" (บันทึก + เผยแพร่)
+  /// มอบหมายแล้ว → ปุ่มคือ "บันทึก" (แก้ไขของที่นักเรียนเห็นอยู่)
+  /// อีกทางอยู่ในเมนู ⋯ มุมขวาบน (บันทึกร่าง / ยกเลิกการเผยแพร่)
+  Widget _saveBar(SubjectColor subject) => Container(
+    decoration: const BoxDecoration(
+      color: Colors.white,
+      boxShadow: [
+        BoxShadow(
+          color: Color(0x14101828),
+          blurRadius: 18,
+          offset: Offset(0, -6),
+        ),
+      ],
+    ),
+    child: SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 8, 18, 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  _published
+                      ? Icons.public_rounded
+                      : Icons.lock_outline_rounded,
+                  size: 15,
+                  color: _published ? _chipGreenFg : TeacherPalette.muted,
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    _published
+                        ? 'นักเรียนในห้องเห็นใบงานนี้อยู่'
+                        : (_isEdit
+                              ? 'ยังไม่ได้มอบหมาย — นักเรียนยังไม่เห็น'
+                              : 'ยังไม่ได้มอบหมาย — บันทึกร่างได้จากเมนู ⋯'),
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: _published ? _chipGreenFg : TeacherPalette.muted,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Flexible(
-                    flex: 2,
-                    child: Text(
-                      value,
-                      textAlign: TextAlign.right,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        color: TeacherPalette.muted,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              width: double.infinity,
+              child: AiryButton(
+                label: _published ? 'บันทึก' : 'มอบหมายให้นักเรียน',
+                kind: AiryCta.primary,
+                accent: subject.fg,
+                onPressed: _saving ? null : (_published ? _save : _assignNow),
+                child: _saving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : null,
               ),
             ),
-            if (!accent) ...[
-              const SizedBox(width: 4),
-              const Icon(
-                Icons.chevron_right_rounded,
-                size: 20,
-                color: Color(0xFFC7C7CC),
-              ),
-            ],
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
-class _SwitchRow extends StatelessWidget {
-  const _SwitchRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.onChanged,
-  });
-  final IconData icon;
-  final String label;
-  final bool value;
-  final ValueChanged<bool>? onChanged;
+// ─────────────────────────── body widgets (3 แบบ) ───────────────────────────
+
+/// วันครบกำหนดเทียบกับวันนี้ — นับเป็น "วัน" ตามปฏิทิน ไม่ใช่ 24 ชม.
+/// (งานที่ส่ง 23:59 คืนนี้ต้องอ่านว่า "วันนี้" ไม่ใช่ "อีก 0 วัน")
+String? dueCountdownLabel(DateTime? due, {DateTime? now}) {
+  if (due == null) return null;
+  final n = (now ?? DateTime.now()).toLocal();
+  final d = due.toLocal();
+  final days = DateTime(
+    d.year,
+    d.month,
+    d.day,
+  ).difference(DateTime(n.year, n.month, n.day)).inDays;
+  if (days == 0) return 'ครบกำหนดวันนี้';
+  if (days == 1) return 'อีก 1 วัน';
+  if (days > 1) return 'อีก $days วัน';
+  if (days == -1) return 'เลยกำหนด 1 วัน';
+  return 'เลยกำหนด ${-days} วัน';
+}
+
+class _HeroStatusPill extends StatelessWidget {
+  const _HeroStatusPill({required this.published, required this.onColor});
+  final bool published;
+  final Color onColor;
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(left: 16, right: 8),
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+    decoration: BoxDecoration(
+      color: published ? Colors.white : Colors.white.withValues(alpha: 0.18),
+      borderRadius: BorderRadius.circular(999),
+      border: published
+          ? null
+          : Border.all(color: Colors.white.withValues(alpha: 0.45)),
+    ),
     child: Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 20, color: TeacherPalette.muted),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            label,
-            style: const TextStyle(fontSize: 16, color: TeacherPalette.ink),
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: published ? const Color(0xFF107A50) : Colors.white,
           ),
         ),
-        Switch.adaptive(
-          value: value,
-          onChanged: onChanged,
-          activeTrackColor: TeacherPalette.primary,
+        const SizedBox(width: 6),
+        Text(
+          published ? 'เผยแพร่แล้ว' : 'ฉบับร่าง',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            color: published ? onColor : Colors.white,
+          ),
         ),
       ],
     ),
   );
 }
 
-class _InfoRow extends StatelessWidget {
-  const _InfoRow(this.text);
+class _HeroChip extends StatelessWidget {
+  const _HeroChip({required this.icon, required this.text, this.solid = false});
+  final IconData icon;
   final String text;
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-    child: Text(
-      text,
-      style: const TextStyle(fontSize: 14, color: TeacherPalette.muted),
-    ),
-  );
-}
 
-class _DatasetRow extends StatelessWidget {
-  const _DatasetRow({
-    required this.dataset,
-    required this.deviceName,
-    required this.onRemove,
-  });
-  final AssignmentSensorDataset dataset;
-  final String deviceName;
-  final VoidCallback? onRemove;
+  /// ชิป "เลยกำหนด" กลับสี — พื้นขาวตัวแดง เพื่อให้เด้งออกจากชิปอื่นบนหัวสี
+  final bool solid;
   @override
   Widget build(BuildContext context) {
-    final d = dataset;
-    final range = d.timeStart == null && d.timeEnd == null
-        ? 'ข้อมูลล่าสุด'
-        : '${d.timeStart == null ? '…' : _fmtThaiShort(d.timeStart!)} – ${d.timeEnd == null ? 'ตอนนี้' : _fmtThaiShort(d.timeEnd!)}';
-    return Padding(
-      padding: const EdgeInsets.only(left: 16, right: 4, top: 8, bottom: 8),
+    final fg = solid ? const Color(0xFFB3261E) : Colors.white;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: solid ? Colors.white : Colors.white.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.sensors_rounded,
-            size: 20,
-            color: TeacherPalette.muted,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  d.label?.trim().isNotEmpty == true
-                      ? d.label!
-                      : (kMetricThai[d.metric] ?? d.metric),
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: TeacherPalette.ink,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${kMetricThai[d.metric] ?? d.metric} · $deviceName · $range',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: TeacherPalette.muted,
-                  ),
-                ),
-              ],
+          Icon(icon, size: 14, color: fg),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: solid ? FontWeight.w800 : FontWeight.w600,
+              color: fg,
             ),
-          ),
-          IconButton(
-            tooltip: 'เอาออก',
-            onPressed: onRemove,
-            icon: const Icon(Icons.close_rounded, size: 20),
-            color: TeacherPalette.muted,
           ),
         ],
       ),
     );
   }
+}
+
+/// หัวสีประจำวิชาเต็มความกว้าง ไหลขึ้นไปใต้แถบสถานะ — ตอบสามคำถามแรกที่ครู
+/// เปิดหน้านี้มาถาม: มอบหมายแล้วหรือยัง · ส่งเมื่อไหร่ เหลือกี่วัน · เดี่ยว
+/// หรือกลุ่ม (และผูกเซนเซอร์ไว้กี่ชุด) ทุกค่าเป็น state จริงของฟอร์มตอนนั้น
+/// ชื่อใบงานอัปเดตทุกตัวอักษรที่พิมพ์ในช่องข้างล่าง
+class _SubjectHeader extends StatelessWidget {
+  const _SubjectHeader({
+    required this.subject,
+    required this.subjectName,
+    required this.title,
+    required this.published,
+    required this.dueAt,
+    required this.isGroup,
+    required this.datasetCount,
+    required this.topPadding,
+  });
+
+  /// ระยะบน = safe area + ความสูงแถบบน เพราะหัวนี้วาดอยู่ใต้แถบบนที่โปร่ง
+  final double topPadding;
+
+  final SubjectColor subject;
+  final String subjectName;
+  final TextEditingController title;
+  final bool published;
+  final DateTime? dueAt;
+  final bool isGroup;
+  final int datasetCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final overdue = dueAt != null && dueAt!.toLocal().isBefore(DateTime.now());
+    final countdown = dueCountdownLabel(dueAt);
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(20, topPadding, 20, 46),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [subject.fg, Color.lerp(subject.fg, subject.bar, 0.45)!],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Flexible(
+                child: Text(
+                  subjectName,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.3,
+                    color: Colors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _HeroStatusPill(published: published, onColor: subject.fg),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: title,
+            builder: (_, value, _) {
+              final t = value.text.trim();
+              return Text(
+                t.isEmpty ? 'ยังไม่ได้ตั้งชื่อใบงาน' : t,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 24,
+                  height: 1.3,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
+                  color: t.isEmpty
+                      ? Colors.white.withValues(alpha: 0.6)
+                      : Colors.white,
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _HeroChip(
+                icon: Icons.event_rounded,
+                text: dueAt == null
+                    ? 'ยังไม่กำหนดส่ง'
+                    : 'ส่ง ${_fmtThaiShort(dueAt!)} น.',
+              ),
+              if (countdown != null)
+                _HeroChip(
+                  icon: overdue
+                      ? Icons.error_outline_rounded
+                      : Icons.schedule_rounded,
+                  text: countdown,
+                  solid: overdue,
+                ),
+              _HeroChip(
+                icon: isGroup ? Icons.groups_rounded : Icons.person_rounded,
+                text: isGroup ? 'งานกลุ่ม' : 'งานเดี่ยว',
+              ),
+              if (datasetCount > 0)
+                _HeroChip(
+                  icon: Icons.sensors_rounded,
+                  text: 'เซนเซอร์ $datasetCount ชุด',
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// เขียวสถานะ 'เผยแพร่แล้ว' — สีเดียวที่เหลือจากชุดชิปพาสเทลเดิม
+const _chipGreenFg = Color(0xFF107A50);
+
+// วิดเจ็ตชุด "grouped-form" เดิม (_NavRow / _InfoRow / _DatasetRow) ถูกแทนที่
+// ด้วยชุด _Airy* ข้างล่างทั้งหมดเมื่อ 2026-09-22
+
+// ─────────────────────────── rubric picker ───────────────────────────
+
+class _RubricPickerSheet extends StatelessWidget {
+  const _RubricPickerSheet({
+    required this.rubrics,
+    required this.selectedId,
+    required this.accent,
+    required this.onCreate,
+  });
+
+  final List<RubricModel> rubrics;
+  final String? selectedId;
+  final Color accent;
+  final VoidCallback onCreate;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Center(
+          child: Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.only(top: 10, bottom: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFDCDBE4),
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(20, 0, 20, 2),
+          child: Text(
+            'เกณฑ์การให้คะแนน',
+            style: TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.w800,
+              color: TeacherPalette.ink,
+            ),
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(20, 0, 20, 14),
+          child: Text(
+            'ใช้ให้คะแนนใบงานนี้ — เปลี่ยนทีหลังได้',
+            style: TextStyle(fontSize: 13, color: TeacherPalette.muted),
+          ),
+        ),
+        Flexible(
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            children: [
+              _RubricOption(
+                icon: Icons.block_rounded,
+                title: 'ไม่ใช้เกณฑ์',
+                subtitle: 'ให้คะแนนเป็นตัวเลขดิบ',
+                selected: selectedId == null,
+                accent: accent,
+                onTap: () => Navigator.pop(context, ''),
+              ),
+              for (final r in rubrics)
+                _RubricOption(
+                  icon: Icons.rule_rounded,
+                  title: r.title,
+                  subtitle: '${r.criteriaCount} เกณฑ์',
+                  selected: selectedId == r.id,
+                  accent: accent,
+                  onTap: () => Navigator.pop(context, r.id),
+                ),
+              // ที่ว่างเป็นบล็อกของตัวเอง ไม่ใช่แถวตัวเลือกที่กดไม่ได้
+              if (rubrics.isEmpty)
+                Container(
+                  margin: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF7F7FB),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.rule_folder_outlined,
+                        size: 30,
+                        color: Color(0xFFB0AEBD),
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'ยังไม่มีเกณฑ์การให้คะแนน',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: TeacherPalette.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'สร้างเกณฑ์ไว้หนึ่งชุด แล้วใช้ซ้ำกับใบงานอื่นได้ทั้งเทอม',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          height: 1.45,
+                          color: TeacherPalette.muted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+          child: SizedBox(
+            height: 48,
+            child: rubrics.isEmpty
+                ? ElevatedButton.icon(
+                    onPressed: onCreate,
+                    icon: const Icon(Icons.add_rounded, size: 20),
+                    label: const Text(
+                      'สร้างเกณฑ์การให้คะแนน',
+                      style: TextStyle(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: accent,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  )
+                : OutlinedButton.icon(
+                    onPressed: onCreate,
+                    icon: const Icon(Icons.tune_rounded, size: 18),
+                    label: const Text(
+                      'จัดการเกณฑ์ทั้งหมด',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: accent,
+                      side: const BorderSide(color: Color(0xFFDDDCE4)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _RubricOption extends StatelessWidget {
+  const _RubricOption({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.accent,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final Color accent;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Material(
+      color: selected
+          ? accent.withValues(alpha: 0.08)
+          : const Color(0xFFF7F7FB),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: selected ? accent : Colors.transparent,
+              width: 1.5,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? accent.withValues(alpha: 0.16)
+                      : const Color(0xFFEDECF5),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(
+                  icon,
+                  size: 18,
+                  color: selected ? accent : TeacherPalette.muted,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w700,
+                        color: selected ? accent : TeacherPalette.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: TeacherPalette.muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (selected) ...[
+                const SizedBox(width: 10),
+                Icon(Icons.check_circle_rounded, size: 22, color: accent),
+              ],
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 // ─────────────────────────── link sheet ───────────────────────────
@@ -912,8 +1240,9 @@ class _LinkRequest {
 }
 
 class _LinkDatasetSheet extends StatefulWidget {
-  const _LinkDatasetSheet({required this.devices});
+  const _LinkDatasetSheet({required this.devices, required this.accent});
   final List<DeviceOption> devices;
+  final Color accent;
   @override
   State<_LinkDatasetSheet> createState() => _LinkDatasetSheetState();
 }
@@ -934,118 +1263,374 @@ class _LinkDatasetSheetState extends State<_LinkDatasetSheet> {
     super.dispose();
   }
 
-  Future<DateTime?> _pick(DateTime initial) async {
-    final d = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: DateTime(2024),
-      lastDate: DateTime(2035),
-    );
-    if (d == null || !mounted) return null;
-    final t = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(initial),
-    );
-    if (t == null) return null;
-    return DateTime(d.year, d.month, d.day, t.hour, t.minute);
-  }
+  Future<DateTime?> _pick(DateTime initial) => showTeacherDateTimeSheet(
+    context: context,
+    initial: initial,
+    accent: widget.accent,
+    title: 'ช่วงเวลาของข้อมูล',
+    first: DateTime(2024),
+    last: DateTime(2035, 12, 31),
+  );
 
   @override
   Widget build(BuildContext context) {
-    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    final metrics = _metricsOf(_device);
+    final hasRange = _start != null || _end != null;
     return Padding(
-      padding: EdgeInsets.only(bottom: bottom),
-      child: SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'เพิ่มชุดข้อมูลเซนเซอร์',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              initialValue: _device.id,
-              decoration: const InputDecoration(labelText: 'อุปกรณ์'),
-              items: [
-                for (final d in widget.devices)
-                  DropdownMenuItem(
-                    value: d.id,
-                    child: Text(
-                      d.location == null ? d.name : '${d.name} · ${d.location}',
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-              ],
-              onChanged: (id) {
-                final d = widget.devices.firstWhere((x) => x.id == id);
-                setState(() {
-                  _device = d;
-                  _metric = _metricsOf(d).first;
-                });
-              },
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              key: ValueKey(_device.id),
-              initialValue: _metric,
-              decoration: const InputDecoration(labelText: 'ค่าที่วัด'),
-              items: [
-                for (final m in _metricsOf(_device))
-                  DropdownMenuItem(value: m, child: Text(kMetricThai[m] ?? m)),
-              ],
-              onChanged: (m) => setState(() => _metric = m ?? _metric),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _label,
-              decoration: const InputDecoration(
-                labelText: 'ชื่อชุดข้อมูล (ไม่บังคับ)',
-              ),
-            ),
-            const SizedBox(height: 8),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.play_arrow_rounded),
-              title: const Text('เริ่ม'),
-              subtitle: Text(
-                _start == null ? 'ไม่กำหนด' : fmtThaiDateTime(_start!),
-              ),
-              onTap: () async {
-                final v = await _pick(
-                  _start ?? DateTime.now().subtract(const Duration(days: 1)),
-                );
-                if (v != null) setState(() => _start = v);
-              },
-            ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.stop_rounded),
-              title: const Text('สิ้นสุด'),
-              subtitle: Text(_end == null ? 'ตอนนี้' : fmtThaiDateTime(_end!)),
-              onTap: () async {
-                final v = await _pick(_end ?? DateTime.now());
-                if (v != null) setState(() => _end = v);
-              },
-            ),
-            const SizedBox(height: 8),
-            FilledButton(
-              onPressed: () => Navigator.pop(
-                context,
-                _LinkRequest(
-                  deviceId: _device.id,
-                  metric: _metric,
-                  start: _start,
-                  end: _end,
-                  label: _label.text.trim().isEmpty ? null : _label.text.trim(),
+            Center(
+              child: Container(
+                width: 38,
+                height: 4,
+                margin: const EdgeInsets.only(top: 10, bottom: 18),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE4E3EA),
+                  borderRadius: BorderRadius.circular(999),
                 ),
               ),
-              child: const Text('เพิ่มชุดข้อมูล'),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(22, 0, 22, 4),
+              child: Text(
+                'เพิ่มชุดข้อมูลเซนเซอร์',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
+                  color: AirySpec.ink,
+                ),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(22, 0, 22, 18),
+              child: Text(
+                'นักเรียนจะเห็นกราฟของค่าที่เลือกอยู่ในใบงานนี้',
+                style: TextStyle(fontSize: 13.5, color: AirySpec.label),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AiryCard(
+                    children: [
+                      AiryRow(
+                        icon: Icons.sensors_outlined,
+                        label: 'อุปกรณ์',
+                        value: _device.name,
+                        trailingNote: _device.location,
+                        onTap: _pickDevice,
+                      ),
+                      AiryRow(
+                        icon: Icons.show_chart_rounded,
+                        label: 'ค่าที่วัด',
+                        value: kMetricThai[_metric] ?? _metric,
+                        onTap: metrics.length < 2 ? null : _pickMetric,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  AiryInput(
+                    label: 'ชื่อชุดข้อมูล',
+                    optional: true,
+                    controller: _label,
+                    hint: 'เช่น ค่าฝุ่นช่วงคาบเรียน',
+                    accent: widget.accent,
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(4, 22, 4, 10),
+                    child: Text(
+                      'ช่วงเวลาของข้อมูล',
+                      style: TextStyle(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w700,
+                        color: AirySpec.ink,
+                      ),
+                    ),
+                  ),
+                  AiryCard(
+                    children: [
+                      AiryRow(
+                        icon: Icons.play_circle_outline_rounded,
+                        label: 'เริ่ม',
+                        value: _start == null
+                            ? 'ข้อมูลล่าสุด'
+                            : fmtThaiDateTime(_start!),
+                        muted: _start == null,
+                        onTap: () async {
+                          final v = await _pick(
+                            _start ??
+                                DateTime.now().subtract(
+                                  const Duration(days: 1),
+                                ),
+                          );
+                          if (v != null) setState(() => _start = v);
+                        },
+                      ),
+                      AiryRow(
+                        icon: Icons.stop_circle_outlined,
+                        label: 'สิ้นสุด',
+                        value: _end == null
+                            ? 'ต่อเนื่องถึงตอนนี้'
+                            : fmtThaiDateTime(_end!),
+                        muted: _end == null,
+                        onTap: () async {
+                          final v = await _pick(_end ?? DateTime.now());
+                          if (v != null) setState(() => _end = v);
+                        },
+                      ),
+                    ],
+                  ),
+                  if (hasRange)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed: () => setState(() {
+                          _start = null;
+                          _end = null;
+                        }),
+                        style: TextButton.styleFrom(
+                          foregroundColor: widget.accent,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 8,
+                          ),
+                        ),
+                        child: const Text(
+                          'ล้างช่วงเวลา',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 18),
+                  AiryButton(
+                    label: 'เพิ่มชุดข้อมูล',
+                    kind: AiryCta.primary,
+                    accent: widget.accent,
+                    onPressed: () => Navigator.pop(
+                      context,
+                      _LinkRequest(
+                        deviceId: _device.id,
+                        metric: _metric,
+                        start: _start,
+                        end: _end,
+                        label: _label.text.trim().isEmpty
+                            ? null
+                            : _label.text.trim(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  AiryButton(
+                    label: 'ยกเลิก',
+                    kind: AiryCta.secondary,
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  const SizedBox(height: 6),
+                ],
+              ),
             ),
           ],
         ),
       ),
     );
   }
+
+  Future<void> _pickDevice() async {
+    final picked = await showModalBottomSheet<DeviceOption>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+      ),
+      builder: (ctx) => _OptionSheet(
+        title: 'เลือกอุปกรณ์',
+        accent: widget.accent,
+        options: [
+          for (final d in widget.devices)
+            _Option(
+              key: d.id,
+              title: d.name,
+              subtitle: d.location,
+              selected: d.id == _device.id,
+              value: d,
+            ),
+        ],
+      ),
+    );
+    if (picked == null) return;
+    setState(() {
+      _device = picked;
+      _metric = _metricsOf(picked).first;
+    });
+  }
+
+  Future<void> _pickMetric() async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+      ),
+      builder: (ctx) => _OptionSheet(
+        title: 'เลือกค่าที่วัด',
+        accent: widget.accent,
+        options: [
+          for (final m in _metricsOf(_device))
+            _Option(
+              key: m,
+              title: kMetricThai[m] ?? m,
+              subtitle: null,
+              selected: m == _metric,
+              value: m,
+            ),
+        ],
+      ),
+    );
+    if (picked != null) setState(() => _metric = picked);
+  }
+}
+
+class _Option<T> {
+  const _Option({
+    required this.key,
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.value,
+  });
+  final String key;
+  final String title;
+  final String? subtitle;
+  final bool selected;
+  final T value;
+}
+
+class _OptionSheet<T> extends StatelessWidget {
+  const _OptionSheet({
+    required this.title,
+    required this.options,
+    required this.accent,
+  });
+  final String title;
+  final List<_Option<T>> options;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 40,
+          height: 4,
+          margin: const EdgeInsets.only(top: 10, bottom: 14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFDCDBE4),
+            borderRadius: BorderRadius.circular(999),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: TeacherPalette.ink,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Flexible(
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            children: [
+              for (final o in options)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Material(
+                    color: o.selected
+                        ? Color.alphaBlend(
+                            accent.withValues(alpha: 0.06),
+                            Colors.white,
+                          )
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: () => Navigator.pop(context, o.value),
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: o.selected
+                                ? accent
+                                : const Color(0xFFEDECF2),
+                            width: o.selected ? 1.5 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    o.title,
+                                    style: TextStyle(
+                                      fontSize: 15.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: o.selected
+                                          ? accent
+                                          : TeacherPalette.ink,
+                                    ),
+                                  ),
+                                  if (o.subtitle != null) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      o.subtitle!,
+                                      style: const TextStyle(
+                                        fontSize: 12.5,
+                                        color: TeacherPalette.muted,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            if (o.selected)
+                              Icon(
+                                Icons.check_circle_rounded,
+                                size: 22,
+                                color: accent,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }
