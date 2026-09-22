@@ -237,38 +237,37 @@ class _TeacherGradingPageState extends State<TeacherGradingPage> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            // แถวกรองเดิมเป็น Wrap ของชิป 4 อัน ซึ่งพอมีชิปวิชาเพิ่มเข้ามา
+            // มันตกไปบรรทัดที่สองเดี่ยว ๆ ดูไม่เป็นแถว — สามตัวแรกเป็นตัวเลือก
+            // ที่เลือกได้ทีละอันอยู่แล้ว จึงยุบเป็น segmented control หนึ่งก้อน
+            // เต็มความกว้าง ส่วนตัวกรองวิชาเป็นปุ่มเล็กท้ายแถวเดียวกัน
+            Row(
               children: [
-                _Chip(
-                  label: 'รอตรวจ $_pendingTotal',
-                  active: _filter == _Filter.pending,
-                  onTap: () => setState(() => _filter = _Filter.pending),
+                Expanded(
+                  child: _SegmentedFilter(
+                    segments: [
+                      (_Filter.pending, 'รอตรวจ', _pendingTotal),
+                      (_Filter.overdue, 'เลยกำหนด', _overdueTotal),
+                      (_Filter.all, 'ทั้งหมด', _rows.length),
+                    ],
+                    value: _filter,
+                    onChanged: (f) => setState(() => _filter = f),
+                  ),
                 ),
-                _Chip(
-                  label: 'เลยกำหนด $_overdueTotal',
-                  active: _filter == _Filter.overdue,
-                  onTap: () => setState(() => _filter = _Filter.overdue),
-                ),
-                _Chip(
-                  label: 'ทั้งหมด ${_rows.length}',
-                  active: _filter == _Filter.all,
-                  onTap: () => setState(() => _filter = _Filter.all),
-                ),
-                if (_rows.isNotEmpty)
-                  _Chip(
+                if (_rows.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  _CourseFilterButton(
                     label: _courseFilter == null
-                        ? 'ทุกวิชา'
+                        ? null
                         : (_rows
                                   .where((r) => r.course.id == _courseFilter)
                                   .map((r) => r.course.subjectName)
                                   .firstOrNull ??
                               'วิชาที่เลือก'),
-                    active: _courseFilter != null,
-                    icon: Icons.expand_more_rounded,
                     onTap: _pickCourse,
+                    onClear: () => setState(() => _courseFilter = null),
                   ),
+                ],
               ],
             ),
             const SizedBox(height: 14),
@@ -349,49 +348,157 @@ class _TeacherGradingPageState extends State<TeacherGradingPage> {
   }
 }
 
-class _Chip extends StatelessWidget {
-  const _Chip({
-    required this.label,
-    required this.active,
-    required this.onTap,
-    this.icon,
+/// สามตัวเลือกที่เลือกได้ทีละอัน รวมเป็นก้อนเดียวเต็มความกว้าง
+class _SegmentedFilter extends StatelessWidget {
+  const _SegmentedFilter({
+    required this.segments,
+    required this.value,
+    required this.onChanged,
   });
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-  final IconData? icon;
+  final List<(_Filter, String, int)> segments;
+  final _Filter value;
+  final ValueChanged<_Filter> onChanged;
+
   @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: onTap,
-    borderRadius: BorderRadius.circular(999),
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-      decoration: BoxDecoration(
-        color: active ? AirySpec.ink : Colors.white,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: active ? AirySpec.ink : const Color(0xFFE3E1EB),
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(3),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF2F2F5),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Row(
+      children: [
+        for (final (f, label, count) in segments)
+          Expanded(
+            child: GestureDetector(
+              onTap: () => onChanged(f),
+              behavior: HitTestBehavior.opaque,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 140),
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: f == value ? Colors.white : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: f == value
+                      ? const [
+                          BoxShadow(
+                            color: Color(0x14101828),
+                            blurRadius: 6,
+                            offset: Offset(0, 2),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: f == value
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: f == value ? AirySpec.ink : AirySpec.label,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        '$count',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: f == value
+                              ? AirySpec.label
+                              : const Color(0xFFB6B4C2),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
+}
+
+/// ตัวกรองวิชา — ยังไม่เลือก = ปุ่มไอคอนเล็ก · เลือกแล้ว = ชิปชื่อวิชาพร้อม ✕
+class _CourseFilterButton extends StatelessWidget {
+  const _CourseFilterButton({
+    required this.label,
+    required this.onTap,
+    required this.onClear,
+  });
+  final String? label;
+  final VoidCallback onTap;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    if (label == null) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE3E1EB)),
+          ),
+          child: const Icon(
+            Icons.tune_rounded,
+            size: 19,
+            color: AirySpec.label,
+          ),
         ),
+      );
+    }
+    return Container(
+      height: 40,
+      padding: const EdgeInsets.only(left: 12, right: 6),
+      decoration: BoxDecoration(
+        color: AirySpec.ink,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: active ? Colors.white : AirySpec.ink,
+          GestureDetector(
+            onTap: onTap,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 96),
+              child: Text(
+                label!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
             ),
           ),
-          if (icon != null) ...[
-            const SizedBox(width: 3),
-            Icon(icon, size: 17, color: active ? Colors.white : AirySpec.label),
-          ],
+          const SizedBox(width: 4),
+          InkWell(
+            onTap: onClear,
+            borderRadius: BorderRadius.circular(999),
+            child: const Padding(
+              padding: EdgeInsets.all(5),
+              child: Icon(Icons.close_rounded, size: 15, color: Colors.white),
+            ),
+          ),
         ],
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _Section extends StatelessWidget {
@@ -524,11 +631,43 @@ class _AssignmentRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 3),
-                Text(
-                  _meta,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12.5, color: AirySpec.label),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        _meta,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: AirySpec.label,
+                        ),
+                      ),
+                    ),
+                    // ป้ายสถานะอยู่บรรทัดเดียวกับข้อมูลรอง ไม่ใช่ท้ายแถว —
+                    // ท้ายแถวมันเบียดกับปุ่ม/ลูกศรจนชื่อใบงานเหลือที่ครึ่งเดียว
+                    if (_statusLabel != null) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _statusBg,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          _statusLabel!,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            color: _statusFg,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 // จำนวนที่ส่งย้ายจากบรรทัดข้อความมาเป็นแถบสัดส่วน — กวาดตา
                 // เห็นความคืบหน้าของทั้งลิสต์ได้โดยไม่ต้องอ่านทีละตัวเลข
@@ -565,25 +704,6 @@ class _AssignmentRow extends StatelessWidget {
               ],
             ),
           ),
-          if (_statusLabel != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _statusBg,
-                  borderRadius: BorderRadius.circular(9),
-                ),
-                child: Text(
-                  _statusLabel!,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: _statusFg,
-                  ),
-                ),
-              ),
-            ),
           trailing ??
               const Icon(
                 Icons.chevron_right_rounded,
