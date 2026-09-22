@@ -16,3 +16,6 @@ __pycache__/
 *.pyc
 *.orig
 .claude/worktrees/
+# คีย์ผู้ให้บริการภายนอกที่เอามาลองใช้ — วางไว้กัน commit หลุด
+.env.zai
+.env.*.local
