@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:my_first_app/pages/teacher_redesign_prototype/teacher_assignment_detail_page.dart';
 import 'package:my_first_app/pages/teacher_redesign_prototype/teacher_assignment_editor_page.dart';
 import 'package:shared_core/shared_core.dart';
 
@@ -116,9 +117,10 @@ void main() {
       // hardcoded 0/30. ถ้อยคำเปลี่ยนเป็น 'ส่งแล้ว 1 จาก 2 คน' ตอน
       // ออกแบบการ์ดใหม่ 2026-09-22 — สิ่งที่เทสต์นี้ตรึงคือตัวเลขมาจาก
       // ข้อมูลจริง ไม่ใช่รูปประโยค
-      // แถวแสดงเป็น '1/2' ตอนเปลี่ยนจากการ์ดเป็นแถว — ที่ตรึงคือตัวเลข
-      // มาจาก roster และ submissions จริง ไม่ใช่รูปประโยค
-      expect(find.text('1/2'), findsOneWidget);
+      // แถวแสดงเป็น 'ส่งแล้ว 1/2' ตอนทำแถบแบบ B 2026-09-23 (เดิม '1/2'
+      // ลอย ๆ ไม่มีป้ายบอกว่าเป็นอะไร) — ที่ตรึงคือตัวเลขมาจาก roster
+      // และ submissions จริง ไม่ใช่รูปประโยค
+      expect(find.text('ส่งแล้ว 1/2'), findsOneWidget);
     },
   );
 
@@ -232,4 +234,131 @@ void main() {
       );
     },
   );
+
+  _menuGradingGoesToThatAssignment();
+  _progressSegments();
+}
+
+/// 2026-09-23: ⋯ → 'ตรวจงาน' ยังเปิด `TeacherGradingPage()` เปล่า ๆ อยู่
+/// หลังการยุบหน้าฟอร์มเมื่อ 1b4123a — ตอนนั้นแก้แค่การแตะแถว แล้วรายงานว่า
+/// แก้ทั้งสองทาง ทั้งที่ตรวจบนซิมทางเดียว เทสต์นี้กันไม่ให้หลุดซ้ำ
+void _menuGradingGoesToThatAssignment() {
+  testWidgets('เมนู ⋯ → ตรวจงาน ต้องเปิดใบงานใบนั้น ไม่ใช่หน้าตรวจงานเปล่า', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TeacherAssignmentEditorPage(
+          loadCourses: () async => const [_courseA],
+          loadAssignmentsForCourse: (_) async => const [
+            AssignmentSummary(
+              id: 'asg-9',
+              type: 'homework',
+              title: 'ใบงานเฉพาะใบนี้',
+              dueAt: null,
+              status: 'published',
+            ),
+          ],
+          loadCourseStudents: (_) async => _roster,
+          loadSubmissions: (_) async => <SubmissionRoster>[],
+          listMyRubrics: () async => const [],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ตรวจงาน').last);
+    await tester.pumpAndSettle();
+
+    // หน้าปลายทางต้องเป็นหน้ารายละเอียดของใบงานใบนั้นจริง — เดิมเป็น
+    // TeacherGradingPage() ที่ไม่รับ id เลย กดจากใบไหนก็ได้หน้าเดียวกัน
+    //
+    // เช็กที่ตัว widget ไม่ใช่ข้อความบนจอ เพราะ seam ทดสอบของหน้ารายการ
+    // ยังไม่ถูกส่งต่อไปหน้ารายละเอียด (มันโหลดข้อมูลเองจาก service จริง)
+    // — ข้อจำกัดที่รู้ตัว ไม่ใช่สิ่งที่เทสต์นี้ตรึง
+    final detail = tester.widget<TeacherAssignmentDetailPage>(
+      find.byType(TeacherAssignmentDetailPage),
+    );
+    expect(detail.assignment.id, 'asg-9');
+    expect(detail.courseId, 'course-a');
+  });
+}
+
+/// แถบความคืบหน้าแบบ B: หนึ่งช่องต่อนักเรียนหนึ่งคน ห้องใหญ่กลับไปใช้แถบเดียว
+void _progressSegments() {
+  Future<void> pumpWith(WidgetTester tester, int students) async {
+    tester.view.physicalSize = const Size(1400, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TeacherAssignmentEditorPage(
+          loadCourses: () async => const [_courseA],
+          loadAssignmentsForCourse: (_) async => const [
+            AssignmentSummary(
+              id: 'asg-1',
+              type: 'homework',
+              title: 'ใบงาน',
+              dueAt: null,
+              status: 'published',
+            ),
+          ],
+          loadCourseStudents: (_) async => [
+            for (var i = 0; i < students; i++)
+              CourseStudent(
+                studentId: 's$i',
+                firstName: 'นักเรียน$i',
+                lastName: 'ทดสอบ',
+                email: '$i@test',
+                enrolledAt: DateTime(2026, 1, 1),
+              ),
+          ],
+          loadSubmissions: (_) async => <SubmissionRoster>[],
+          listMyRubrics: () async => const [],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('ห้องเล็ก: จำนวนช่องเท่าจำนวนนักเรียนเป๊ะ', (tester) async {
+    await pumpWith(tester, 3);
+    // ตัวเลขต้องมีป้ายกำกับ ไม่ใช่ '0/3' ลอย ๆ แบบเดิม
+    expect(find.text('ส่งแล้ว 0/3'), findsOneWidget);
+    // ช่องคือ DecoratedBox ที่อยู่ใน SizedBox สูง 6 — เคยสูง 0 มองไม่เห็น
+    // เพราะลืม crossAxisAlignment.stretch
+    final bar = tester.widget<SizedBox>(
+      find
+          .descendant(
+            of: find.byType(Row),
+            matching: find.byWidgetPredicate(
+              (w) => w is SizedBox && w.height == 6 && w.child is Row,
+            ),
+          )
+          .first,
+    );
+    expect((bar.child! as Row).children.whereType<Expanded>().length, 3);
+  });
+
+  testWidgets('ห้องใหญ่เกิน 12 คน: กลับไปใช้แถบเดียว ไม่ใช่เส้นซอย', (
+    tester,
+  ) async {
+    await pumpWith(tester, 40);
+    expect(find.text('ส่งแล้ว 0/40'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+  });
+
+  testWidgets('ยังไม่มีนักเรียน: บอกตรง ๆ ไม่ใช่แถบเทาเปล่า', (tester) async {
+    await pumpWith(tester, 0);
+    expect(find.text('ยังไม่มีนักเรียนในวิชานี้'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+  });
 }

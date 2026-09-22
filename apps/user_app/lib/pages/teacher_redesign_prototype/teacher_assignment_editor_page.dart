@@ -9,7 +9,6 @@ import 'package:shared_core/shared_core.dart';
 import 'teacher_airy_kit.dart';
 import 'teacher_assignment_detail_page.dart' show TeacherAssignmentDetailPage;
 import 'teacher_assignment_form_page.dart' show TeacherAssignmentFormPage;
-import 'teacher_grading_page.dart' show TeacherGradingPage;
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart'
     show TeacherMockPageShell, TeacherSearchInput;
@@ -550,7 +549,6 @@ class _AssignmentRow extends StatelessWidget {
     final isPublished = assignment.isPublished;
     final total = assignment.totalStudents;
     final sent = assignment.submittedCount;
-    final ratio = total == 0 ? 0.0 : (sent / total).clamp(0.0, 1.0);
     final accent = isPublished
         ? const Color(0xFF107A50)
         : const Color(0xFFB4650F);
@@ -601,6 +599,8 @@ class _AssignmentRow extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 3),
+                      // ป้ายสถานะต้องไม่อยู่ต้นบรรทัดข้อความ — ข้อความ meta
+                      // ยาวพอจะไหลพันรอบป้ายจนเป็นบล็อกหยัก อ่านยากกว่าเดิม
                       Text(
                         meta,
                         style: const TextStyle(
@@ -609,7 +609,7 @@ class _AssignmentRow extends StatelessWidget {
                           color: AirySpec.label,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 9),
                       Row(
                         children: [
                           _MiniPill(
@@ -620,42 +620,9 @@ class _AssignmentRow extends StatelessWidget {
                                 : const Color(0xFFFDF1DE),
                           ),
                           const SizedBox(width: 10),
-                          // แถบความคืบหน้าโผล่เฉพาะเมื่อมีนักเรียนจริง —
-                          // เส้นเทาที่ 0/0 อ่านเหมือนเส้นคั่น ไม่ใช่ข้อมูล
-                          if (total > 0) ...[
-                            Expanded(
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(999),
-                                child: LinearProgressIndicator(
-                                  value: ratio,
-                                  minHeight: 4,
-                                  backgroundColor: const Color(0xFFF4F3F7),
-                                  valueColor:
-                                      const AlwaysStoppedAnimation<Color>(
-                                        TeacherPalette.primary,
-                                      ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '$sent/$total',
-                              style: const TextStyle(
-                                fontSize: TeacherType.caption,
-                                fontWeight: FontWeight.w800,
-                                color: AirySpec.label,
-                              ),
-                            ),
-                          ] else
-                            const Expanded(
-                              child: Text(
-                                'ยังไม่มีนักเรียนในวิชานี้',
-                                style: TextStyle(
-                                  fontSize: TeacherType.caption,
-                                  color: AirySpec.label,
-                                ),
-                              ),
-                            ),
+                          Expanded(
+                            child: _SubmitProgress(sent: sent, total: total),
+                          ),
                         ],
                       ),
                     ],
@@ -674,12 +641,10 @@ class _AssignmentRow extends StatelessWidget {
                       if (v == 'edit') {
                         onTapEdit();
                       } else {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const TeacherGradingPage(),
-                          ),
-                        );
+                        // เดิมเปิด TeacherGradingPage() เปล่า ๆ ไม่ส่ง id —
+                        // กดจากใบงานไหนก็ไปโผล่หน้าเดียวกันหมด ต้องไปที่
+                        // ใบงานใบนั้นจริง เหมือนการแตะแถว
+                        onTapOpen();
                       }
                     },
                     itemBuilder: (_) => const [
@@ -693,6 +658,101 @@ class _AssignmentRow extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// ความคืบหน้าการส่งงาน แบ่งเป็นช่องละหนึ่งคน
+///
+/// ห้องเรียนจริงของระบบนี้เล็ก (หลักหน่วยถึงหลักสิบต้น ๆ) ช่องแยกจึงนับด้วย
+/// ตาได้เลยว่าขาดอีกกี่คน แถบเดียวยาว ๆ บอกได้แค่สัดส่วนคร่าว ๆ
+/// เกิน [_maxSegments] คนแล้วช่องจะแคบกว่าเส้นแบ่งจนอ่านไม่ออก — ห้องใหญ่
+/// ขนาดนั้นให้กลับไปใช้แถบเดียว
+class _SubmitProgress extends StatelessWidget {
+  const _SubmitProgress({required this.sent, required this.total});
+
+  final int sent;
+  final int total;
+
+  static const int _maxSegments = 12;
+
+  @override
+  Widget build(BuildContext context) {
+    // 0/0 ไม่ใช่ความคืบหน้าที่เป็นศูนย์ แต่คือยังไม่มีใครให้ส่ง — เส้นเทา
+    // เปล่า ๆ ตรงนี้อ่านเหมือนเส้นคั่น ไม่ใช่ข้อมูล
+    if (total <= 0) {
+      return const Text(
+        'ยังไม่มีนักเรียนในวิชานี้',
+        style: TextStyle(fontSize: TeacherType.caption, color: AirySpec.label),
+      );
+    }
+
+    const track = Color(0xFFEDEAF2);
+    final done = sent.clamp(0, total);
+
+    return Row(
+      children: [
+        // แถบยอมแคบได้ถึง 32 แต่ไม่หายไปเลย — เหลือ 0 เมื่อไหร่ช่องที่บอก
+        // ว่าขาดกี่คนก็หมดความหมาย
+        Expanded(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 32),
+            child: SizedBox(
+              height: 6,
+              child: total <= _maxSegments
+                  ? Row(
+                      // DecoratedBox เปล่าใน Row สูง 0 ถ้าไม่ stretch — กับดัก
+                      // เดิมที่ไฟล์นี้จดไว้ตรงแถบสีซ้ายของแถว ตกซ้ำมาแล้วหนึ่งรอบ
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (var i = 0; i < total; i++) ...[
+                          if (i > 0) const SizedBox(width: 2),
+                          Expanded(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: i < done
+                                    ? TeacherPalette.primary
+                                    : track,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    )
+                  : ClipRRect(
+                      borderRadius: BorderRadius.circular(999),
+                      child: LinearProgressIndicator(
+                        value: done / total,
+                        minHeight: 6,
+                        backgroundColor: track,
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          TeacherPalette.primary,
+                        ),
+                      ),
+                    ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        // 'ส่งแล้ว' ติดกับตัวเลขไว้ด้วยกัน — เดิมมีแต่ '0/3' ลอย ๆ ท้ายแถบ
+        // ไม่มีอะไรบอกว่าเป็นจำนวนคนส่ง คะแนน หรือข้อ
+        //
+        // Flexible เพราะแถวนี้มีป้ายสถานะอยู่ด้วย พอจอ 360 กับฟอนต์ที่กว้าง
+        // กว่าปกติจะล้นขอบ — ยอมย่อข้อความดีกว่าล้น
+        Flexible(
+          child: Text(
+            'ส่งแล้ว $done/$total',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: TeacherType.caption,
+              fontWeight: FontWeight.w800,
+              color: AirySpec.ink,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
