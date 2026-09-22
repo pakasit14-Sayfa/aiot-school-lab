@@ -17,6 +17,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
+import 'teacher_airy_kit.dart';
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart' show TeacherSearchInput;
 
@@ -1919,7 +1920,7 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFF7F7FA),
       // แถบบนเดิมยัดทุกอย่างไว้บรรทัดเดียว: ปุ่มย้อนกลับ · ไอคอนหนังสือ ·
       // ช่องชื่อบทเรียน · บรรทัดรอง · ป้ายสถานะบันทึก · ปุ่มดูตัวอย่าง ·
       // ปุ่มเผยแพร่ — เกินความกว้างจอมือถือจน Flutter ขึ้น "OVERFLOWED BY"
@@ -2193,9 +2194,12 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
             const SizedBox(height: 6),
             Row(
               children: [
-                SizedBox(
-                  height: 50,
-                  child: OutlinedButton.icon(
+                Expanded(
+                  flex: 3,
+                  child: AiryButton(
+                    label: 'ดูตัวอย่าง',
+                    kind: AiryCta.tertiary,
+                    height: 44,
                     onPressed: () {
                       Navigator.push(
                         context,
@@ -2205,55 +2209,59 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                         ),
                       );
                     },
-                    icon: const Icon(Icons.visibility_outlined, size: 18),
-                    label: const Text(
-                      'ดูตัวอย่าง',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: TeacherPalette.ink,
-                      side: const BorderSide(color: Color(0xFFDDDCE4)),
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.visibility_outlined, size: 17),
+                        SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            'ดูตัวอย่าง',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: SizedBox(
-                    height: 50,
-                    child: ElevatedButton.icon(
-                      onPressed: widget.isCourseClosed
-                          ? null
-                          : _openPublishChecklist,
-                      icon: Icon(
-                        _isPublished
-                            ? Icons.published_with_changes_rounded
-                            : Icons.publish_rounded,
-                        size: 19,
-                      ),
-                      label: Text(
-                        _isPublished ? 'อัปเดตบทเรียน' : 'เผยแพร่บทเรียน',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
+                  flex: 5,
+                  child: AiryButton(
+                    label: _isPublished ? 'อัปเดตบทเรียน' : 'เผยแพร่บทเรียน',
+                    kind: AiryCta.primary,
+                    accent: TeacherPalette.primary,
+                    height: 44,
+                    onPressed: widget.isCourseClosed
+                        ? null
+                        : _openPublishChecklist,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _isPublished
+                              ? Icons.published_with_changes_rounded
+                              : Icons.publish_rounded,
+                          size: 18,
                         ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: TeacherPalette.primary,
-                        disabledBackgroundColor: const Color(0xFFE7E5EE),
-                        disabledForegroundColor: const Color(0xFF9E9AA9),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                        const SizedBox(width: 7),
+                        Flexible(
+                          child: Text(
+                            _isPublished ? 'อัปเดตบทเรียน' : 'เผยแพร่บทเรียน',
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ),
                 ),
@@ -2268,79 +2276,46 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
   /// Middle Block Editor Panel
   Widget _buildMiddleEditorPanel() {
     return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.all(24),
+      color: const Color(0xFFF7F7FA),
+      padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ชื่อบทเรียนเคยเป็นช่องกรอกเล็ก ๆ เบียดอยู่ในแถบบนระหว่างไอคอน
-            // กับปุ่มสองปุ่ม กว้างจริงไม่ถึงครึ่งจอและไม่มีป้ายบอกว่าเป็นอะไร
-            const Padding(
-              padding: EdgeInsets.only(bottom: 6, left: 2),
-              child: Text(
-                'ชื่อบทเรียน',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.2,
-                  color: TeacherPalette.muted,
-                ),
-              ),
+            // ชื่อบทเรียนใช้ช่องกรอกชุดเดียวกับทั้งแอป (โฟกัสแล้วขอบเป็น
+            // สีเน้น) เดิมเป็นกล่องขอบเทาที่วาดเองไม่เหมือนหน้าอื่น
+            AiryInput(
+              label: 'ชื่อบทเรียน',
+              controller: _titleController,
+              hint: 'ตั้งชื่อบทเรียน',
+              accent: TeacherPalette.primary,
+              big: true,
+              maxLines: 2,
             ),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE3E1EB), width: 1.2),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              child: TextField(
-                controller: _titleController,
-                readOnly: widget.isCourseClosed,
-                onChanged: (_) => _triggerAutoSave(),
-                maxLines: 2,
-                minLines: 1,
-                style: const TextStyle(
-                  fontSize: 18,
-                  height: 1.4,
-                  fontWeight: FontWeight.w800,
-                  color: TeacherPalette.ink,
-                ),
-                decoration: const InputDecoration.collapsed(
-                  hintText: 'ตั้งชื่อบทเรียน',
-                  hintStyle: TextStyle(
-                    color: Color(0xFFB9B8C6),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
             if (widget.lesson.status == LessonStatus.published)
               Container(
-                margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 4),
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF7ED),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFFFEDD5)),
+                  color: const Color(0xFFFDF1DE),
+                  borderRadius: BorderRadius.circular(18),
                 ),
                 child: const Row(
                   children: [
                     Icon(
-                      Icons.warning_amber_rounded,
-                      color: Color(0xFFC2410C),
-                      size: 18,
+                      Icons.info_outline_rounded,
+                      color: Color(0xFFB4650F),
+                      size: 19,
                     ),
-                    SizedBox(width: 10),
+                    SizedBox(width: 13),
                     Expanded(
                       child: Text(
-                        'บทเรียนนี้เผยแพร่แล้ว การแก้ไขและบันทึกจะมีผลต่อนักเรียนที่กำลังเรียนทันที',
+                        'เผยแพร่อยู่ — บันทึกแล้วนักเรียนที่กำลังเรียนเห็นทันที',
                         style: TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFFC2410C),
-                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          height: 1.4,
+                          color: Color(0xFFB4650F),
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -2355,66 +2330,73 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
             const SizedBox(height: 20),
 
             // Add Block Menu (Spec 4: All 10 Block Types)
-            Center(
-              child: PopupMenuButton<ContentBlockType>(
-                onSelected: _addBlock,
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: ContentBlockType.heading,
-                    child: Text('📌 เพิ่มหัวข้อ (Heading)'),
-                  ),
-                  const PopupMenuItem(
-                    value: ContentBlockType.text,
-                    child: Text('📝 เพิ่มข้อความ (Text)'),
-                  ),
-                  const PopupMenuItem(
-                    value: ContentBlockType.calloutWarning,
-                    child: Text('⚠️ เพิ่มกล่องข้อควรระวัง (Callout)'),
-                  ),
-                  const PopupMenuItem(
-                    value: ContentBlockType.summaryBox,
-                    child: Text('💡 เพิ่มกล่องสรุป (Summary)'),
-                  ),
-                  const PopupMenuItem(
-                    value: ContentBlockType.sensorChart,
-                    child: Text('📊 ฝังกราฟข้อมูล AIoT Sensor'),
-                  ),
-                ],
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: TeacherPalette.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: TeacherPalette.primary.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.add_circle_outline_rounded,
-                        color: TeacherPalette.primary,
-                        size: 20,
-                      ),
-                      SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          'เพิ่มบล็อกเนื้อหา',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            color: TeacherPalette.primary,
+            const SizedBox(height: 14),
+            PopupMenuButton<ContentBlockType>(
+              onSelected: _addBlock,
+              enabled: !widget.isCourseClosed,
+              itemBuilder: (context) => const [
+                PopupMenuItem(
+                  value: ContentBlockType.heading,
+                  child: Text('หัวข้อ'),
+                ),
+                PopupMenuItem(
+                  value: ContentBlockType.text,
+                  child: Text('ข้อความ'),
+                ),
+                PopupMenuItem(
+                  value: ContentBlockType.calloutWarning,
+                  child: Text('กล่องข้อควรระวัง'),
+                ),
+                PopupMenuItem(
+                  value: ContentBlockType.summaryBox,
+                  child: Text('กล่องสรุป'),
+                ),
+                PopupMenuItem(
+                  value: ContentBlockType.sensorChart,
+                  child: Text('กราฟข้อมูล AIoT'),
+                ),
+              ],
+              child: AiryCard(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.add_circle_outline_rounded,
+                          size: 19,
+                          color: TeacherPalette.primary,
+                        ),
+                        const SizedBox(width: 15),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'เพิ่มบล็อกเนื้อหา',
+                                style: TextStyle(
+                                  fontSize: 15.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: TeacherPalette.primary,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              const Text(
+                                'หัวข้อ · ข้อความ · กล่องเตือน · กล่องสรุป · กราฟ AIoT',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: AirySpec.label,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           ],
@@ -2425,24 +2407,26 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
 
   Widget _buildBlockEditorTile(ContentBlockModel block, int index) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(top: 14),
+      padding: const EdgeInsets.fromLTRB(16, 12, 10, 14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: TeacherPalette.border),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F101828),
+            blurRadius: 18,
+            offset: Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(
-                _getBlockIcon(block.type),
-                size: 16,
-                color: TeacherPalette.primary,
-              ),
-              const SizedBox(width: 8),
+              Icon(_getBlockIcon(block.type), size: 18, color: AirySpec.label),
+              const SizedBox(width: 10),
               // ชื่อประเภทบล็อกยาวไม่เท่ากัน ('กราฟ AIoT Sensor Chart' ยาว
               // ที่สุด) ถ้าไม่ให้หดได้ มันจะดันปุ่มสามตัวตกขอบที่จอ 360
               Expanded(
@@ -2451,9 +2435,9 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    color: TeacherPalette.muted,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
+                    color: AirySpec.label,
                   ),
                 ),
               ),
@@ -2487,10 +2471,11 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
           if (block.type == ContentBlockType.sensorChart)
             Container(
               padding: const EdgeInsets.all(14),
+              margin: const EdgeInsets.only(right: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFBFDBFE)),
+                border: Border.all(color: const Color(0xFFE3E1EB)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2498,45 +2483,63 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                   Row(
                     children: [
                       const Icon(
-                        Icons.sensors_rounded,
-                        color: Color(0xFF2563EB),
-                        size: 18,
+                        Icons.insights_outlined,
+                        color: AirySpec.label,
+                        size: 19,
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 12),
                       Expanded(
-                        child: Text(
-                          block.sensorDeviceId,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF1E40AF),
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              block.sensorDeviceId.isEmpty
+                                  ? 'ยังไม่ได้เลือกเซนเซอร์'
+                                  : block.sensorDeviceId,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 15.5,
+                                fontWeight: FontWeight.w700,
+                                color: block.sensorDeviceId.isEmpty
+                                    ? const Color(0xFF6E6C7A)
+                                    : AirySpec.ink,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              block.sensorDeviceId.isEmpty
+                                  ? 'แตะปุ่มเลือกเซนเซอร์เพื่อผูกข้อมูลจริง'
+                                  : '${block.sensorMetric} · ${block.timeRange}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                color: AirySpec.label,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Metric: ${block.sensorMetric} | ช่วงเวลา: ${block.timeRange}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF1E3A8A),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   Container(
-                    height: 80,
+                    height: 76,
                     width: double.infinity,
-                    color: Colors.white,
-                    child: const Center(
-                      child: Text(
-                        '[พรีวิว กราฟเรียลไทม์ AIoT]',
-                        style: TextStyle(
-                          color: Colors.blueAccent,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF7F7FA),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      block.sensorDeviceId.isEmpty
+                          ? 'กราฟจะขึ้นที่นี่เมื่อผูกเซนเซอร์แล้ว'
+                          : 'นักเรียนจะเห็นกราฟข้อมูลจริงตรงนี้',
+                      style: const TextStyle(
+                        color: AirySpec.label,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
@@ -2544,22 +2547,41 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
               ),
             )
           else
-            TextFormField(
-              initialValue: block.text,
-              maxLines: block.type == ContentBlockType.heading ? 1 : 3,
-              onChanged: (val) {
-                block.text = val;
-                _triggerAutoSave();
-              },
-              style: TextStyle(
-                fontWeight: block.type == ContentBlockType.heading
-                    ? FontWeight.w900
-                    : FontWeight.normal,
-                fontSize: block.type == ContentBlockType.heading ? 16 : 14,
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE3E1EB)),
               ),
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                hintText: 'กรอกเนื้อหา...',
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+              margin: const EdgeInsets.only(right: 6),
+              child: TextFormField(
+                initialValue: block.text,
+                maxLines: block.type == ContentBlockType.heading ? 1 : 4,
+                minLines: 1,
+                readOnly: widget.isCourseClosed,
+                onChanged: (val) {
+                  block.text = val;
+                  _triggerAutoSave();
+                },
+                cursorColor: TeacherPalette.primary,
+                style: TextStyle(
+                  height: 1.45,
+                  fontWeight: block.type == ContentBlockType.heading
+                      ? FontWeight.w700
+                      : FontWeight.w500,
+                  fontSize: block.type == ContentBlockType.heading ? 17 : 15,
+                  color: AirySpec.ink,
+                ),
+                decoration: InputDecoration.collapsed(
+                  hintText: block.type == ContentBlockType.heading
+                      ? 'หัวข้อของส่วนนี้'
+                      : 'พิมพ์เนื้อหา…',
+                  hintStyle: const TextStyle(
+                    color: Color(0xFFB6B4C2),
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
               ),
             ),
         ],

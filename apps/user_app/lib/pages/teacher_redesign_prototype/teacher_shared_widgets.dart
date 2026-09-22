@@ -469,6 +469,11 @@ class _TeacherMockPageShellState extends State<TeacherMockPageShell> {
                 // เดียว (เช่นไอคอนส่งออก/ตัวกรอง) จึงไปลอยกลางจอ ดูเหมือน
                 // ของหลุดมามากกว่าปุ่มของหน้า — บังคับให้เต็มความกว้างและ
                 // ชิดซ้ายเหมือนแถบเครื่องมือจริง ๆ
+                // Column จัดลูกกึ่งกลางเป็นค่าเริ่มต้น ปุ่มเดียวจึงเคยลอยกลางจอ
+                // — บังคับเต็มความกว้างแล้วชิดขวาแบบแถบเครื่องมือของหน้า
+                // (reverse: true ทำให้ชิดขวาเมื่อพอดีจอ และเลื่อนจากขวาไปซ้าย
+                // เมื่อปุ่มเยอะเกิน ซึ่ง mainAxisAlignment ทำไม่ได้เพราะ Row
+                // ในสกรอลล์แนวนอนได้ความกว้างแบบไม่จำกัด)
                 if (widget.actions != null && widget.actions!.isNotEmpty)
                   SizedBox(
                     width: double.infinity,
@@ -476,12 +481,17 @@ class _TeacherMockPageShellState extends State<TeacherMockPageShell> {
                       padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
                       child: SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
+                        reverse: true,
                         physics: const BouncingScrollPhysics(),
                         child: Row(
                           children: [
-                            for (final action in widget.actions!) ...[
-                              action,
-                              const SizedBox(width: 8),
+                            for (
+                              var i = 0;
+                              i < widget.actions!.length;
+                              i++
+                            ) ...[
+                              if (i > 0) const SizedBox(width: 8),
+                              widget.actions![i],
                             ],
                           ],
                         ),
