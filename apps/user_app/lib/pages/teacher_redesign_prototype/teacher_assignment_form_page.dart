@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
 import '../school_admin/school_timetable_page.dart' show SubjectColor;
+import 'teacher_date_time_sheet.dart' show showTeacherDateTimeSheet;
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_rubric_page.dart' show TeacherRubricPage;
 
@@ -235,21 +236,19 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
     );
   }
 
-  Future<DateTime?> _pickDateTime(DateTime initial) async {
-    final d = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: DateTime(2024),
-      lastDate: DateTime(2035),
-    );
-    if (d == null || !mounted) return null;
-    final t = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(initial),
-    );
-    if (t == null) return null;
-    return DateTime(d.year, d.month, d.day, t.hour, t.minute);
-  }
+  /// ชีตเดียวได้ทั้งวันและเวลา แทน showDatePicker + showTimePicker ของ
+  /// Material ที่เป็นกล่อง Android สองกล่องต่อกัน
+  Future<DateTime?> _pickDateTime(
+    DateTime initial, {
+    String title = 'เลือกวันและเวลา',
+  }) => showTeacherDateTimeSheet(
+    context: context,
+    initial: initial,
+    accent: SubjectColor.of(widget.courseName).fg,
+    title: title,
+    first: DateTime(2024),
+    last: DateTime(2035, 12, 31),
+  );
 
   Future<void> _pickDue() async {
     final picked = await _pickDateTime(
@@ -257,6 +256,7 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
           DateTime.now()
               .add(const Duration(days: 7))
               .copyWith(hour: 23, minute: 59),
+      title: 'กำหนดส่งงาน',
     );
     if (picked == null) return;
     setState(() {
@@ -1728,21 +1728,14 @@ class _LinkDatasetSheetState extends State<_LinkDatasetSheet> {
     super.dispose();
   }
 
-  Future<DateTime?> _pick(DateTime initial) async {
-    final d = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: DateTime(2024),
-      lastDate: DateTime(2035),
-    );
-    if (d == null || !mounted) return null;
-    final t = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(initial),
-    );
-    if (t == null) return null;
-    return DateTime(d.year, d.month, d.day, t.hour, t.minute);
-  }
+  Future<DateTime?> _pick(DateTime initial) => showTeacherDateTimeSheet(
+    context: context,
+    initial: initial,
+    accent: TeacherPalette.primary,
+    title: 'ช่วงเวลาของข้อมูล',
+    first: DateTime(2024),
+    last: DateTime(2035, 12, 31),
+  );
 
   @override
   Widget build(BuildContext context) {

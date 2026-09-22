@@ -3,6 +3,7 @@ import 'package:shared_core/shared_core.dart';
 
 import '../school_admin/school_timetable_page.dart' show SubjectColor;
 import 'teacher_assignment_form_page.dart';
+import 'teacher_date_time_sheet.dart' show showTeacherDateTimeSheet;
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_submission_review_page.dart';
 
@@ -163,25 +164,15 @@ class _TeacherAssignmentDetailPageState
 
   Future<void> _extend() async {
     final base = (_a.dueAt ?? DateTime.now()).toLocal();
-    final date = await showDatePicker(
+    final due = await showTeacherDateTimeSheet(
       context: context,
-      initialDate: base.isBefore(DateTime.now()) ? DateTime.now() : base,
-      firstDate: DateTime.now().subtract(const Duration(days: 1)),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+      initial: base.isBefore(DateTime.now()) ? DateTime.now() : base,
+      accent: SubjectColor.of(widget.courseName).fg,
+      title: 'ขยายเวลาส่ง',
+      first: DateTime.now().subtract(const Duration(days: 1)),
+      last: DateTime.now().add(const Duration(days: 365)),
     );
-    if (date == null || !mounted) return;
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(base),
-    );
-    if (time == null || !mounted) return;
-    final due = DateTime(
-      date.year,
-      date.month,
-      date.day,
-      time.hour,
-      time.minute,
-    );
+    if (due == null || !mounted) return;
     await (widget.extendDue ??
         (id, d) => AssignmentService.updateAssignment(
           assignmentId: id,
