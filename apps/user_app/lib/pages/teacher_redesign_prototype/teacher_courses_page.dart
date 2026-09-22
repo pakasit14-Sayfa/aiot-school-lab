@@ -2116,17 +2116,25 @@ class _TeacherCourseCard extends StatelessWidget {
                     runSpacing: 8,
                     children: [
                       ElevatedButton.icon(
-                        icon: const Icon(Icons.add_rounded, size: 18),
-                        label: const Text('สร้างงาน / สื่อ'),
+                        icon: const Icon(Icons.add_rounded, size: 16),
+                        label: const Text(
+                          'สร้างงาน / สื่อ',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                         style: ElevatedButton.styleFrom(
+                          // ธีมตั้ง minimumSize ไว้ Size(double.infinity, 52)
+                          // ปุ่มใน Wrap จึงกินเต็มความกว้างและสูงเกินจำเป็น
+                          // — override ให้พอดีเนื้อหา
+                          minimumSize: const Size(0, 38),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           backgroundColor: TeacherPalette.primary,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           elevation: 0,
                         ),
@@ -2137,21 +2145,24 @@ class _TeacherCourseCard extends StatelessWidget {
                           icon: const Icon(Icons.fact_check_rounded, size: 16),
                           label: Text(
                             'ตรวจงาน (${course.pendingGradingCount})',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                           style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(0, 38),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             backgroundColor: const Color(0xFFFFF7ED),
                             foregroundColor: const Color(0xFFC2410C),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 12,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
                             elevation: 0,
                             side: const BorderSide(
                               color: Color(0xFFFFEDD5),
                               width: 1.2,
                             ),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                           ),
                           onPressed: () {
@@ -2164,20 +2175,25 @@ class _TeacherCourseCard extends StatelessWidget {
                           },
                         ),
                       OutlinedButton.icon(
-                        icon: const Icon(Icons.groups_rounded, size: 18),
-                        label: const Text('นักเรียน'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: TeacherPalette.primary,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 12,
+                        icon: const Icon(Icons.groups_rounded, size: 16),
+                        label: const Text(
+                          'นักเรียน',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
                           ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(0, 38),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          foregroundColor: TeacherPalette.primary,
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
                           side: const BorderSide(
                             color: TeacherPalette.border,
-                            width: 1.5,
+                            width: 1.3,
                           ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                         ),
                         onPressed: () {
@@ -4571,11 +4587,7 @@ class _TeacherStudentRosterTabState extends State<TeacherStudentRosterTab> {
 /// and an optional trailing widget. Shared by the roster and gradebook tabs so
 /// both read as the same list rather than a card wall and a wide table.
 class _PersonRow extends StatelessWidget {
-  const _PersonRow({
-    required this.name,
-    required this.subtitle,
-    this.trailing,
-  });
+  const _PersonRow({required this.name, required this.subtitle, this.trailing});
 
   final String name;
   final String subtitle;

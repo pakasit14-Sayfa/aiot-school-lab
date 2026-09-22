@@ -507,25 +507,26 @@ class _TeacherLessonListPageState extends State<TeacherLessonListPage> {
                     onPressed: widget.isCourseClosed
                         ? null
                         : _openCreateLessonDialog,
-                    icon: const Icon(Icons.add_rounded, size: 18),
+                    icon: const Icon(Icons.add_rounded, size: 16),
                     label: const Text(
                       'สร้างบทเรียนใหม่',
-                      style: TextStyle(fontWeight: FontWeight.w800),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     style: ElevatedButton.styleFrom(
                       // ปุ่มนี้อยู่ใน Row ไม่ใช่เต็มความกว้าง — ต้อง override
                       // minimumSize ของธีม (Size(double.infinity, 52)) ไม่งั้น
                       // Row จะส่ง constraint กว้างไม่จำกัดให้ปุ่มแล้วชนกับ
                       // minWidth: infinity ของธีม ทำให้พังทั้งหน้าแบบเงียบ ๆ
-                      minimumSize: const Size(0, 44),
+                      minimumSize: const Size(0, 38),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       backgroundColor: TeacherPalette.primary,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
                   ),
