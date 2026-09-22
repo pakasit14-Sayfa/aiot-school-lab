@@ -307,8 +307,23 @@ void main() {
             // บล็อกกราฟที่ยังไม่ผูกอุปกรณ์ — เคสที่เคยพิมพ์ '()' ออกมา
             ContentBlockModel(id: 'b3', type: ContentBlockType.sensorChart),
           ],
-          materials: const [],
-          sensorLinks: const [],
+          materials: [
+            LessonMaterialModel(
+              id: 'm1',
+              title: 'ใบความรู้เรื่องเซนเซอร์อุณหภูมิในห้องเรียน.pdf',
+              type: 'pdf',
+              url: 'https://example.invalid/a.pdf',
+            ),
+          ],
+          sensorLinks: [
+            LessonSensorLinkModel(
+              id: 's1',
+              deviceName: 'เซนเซอร์ห้องปฏิบัติการวิทยาศาสตร์ ชั้น 2',
+              metric: 'temperature',
+              timeRange: '08:00 - 16:00',
+              caption: 'อุณหภูมิระหว่างคาบเรียน',
+            ),
+          ],
         ),
       ),
     );

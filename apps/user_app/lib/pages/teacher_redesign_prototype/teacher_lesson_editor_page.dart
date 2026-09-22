@@ -17,6 +17,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
+import '../student_redesign_prototype/widgets/student_redesign_palette.dart'
+    show SchoolPalette;
 import 'teacher_airy_kit.dart';
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart' show TeacherSearchInput;
@@ -1302,15 +1304,7 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
   Map<String, dynamic> _serializeBlocksToContent(
     List<ContentBlockModel> blocks,
   ) {
-    final bodyText = blocks
-        .where(
-          (b) =>
-              b.text.trim().isNotEmpty &&
-              b.type != ContentBlockType.heading &&
-              !b.text.trimLeft().startsWith('สื่อแนบ:'),
-        )
-        .map((b) => b.text.trim())
-        .join('\n\n');
+    final bodyText = lessonBodyTextForStudent(blocks);
     return {
       'body': bodyText,
       'blocks': blocks
@@ -3083,6 +3077,23 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
 // 7. STUDENT PREVIEW MODE PAGE (SPEC 7)
 // ==========================================
 
+/// ข้อความที่นักเรียนเห็นจริง ๆ — `student_lesson_view_page.dart` อ่าน
+/// `content['body']` ก้อนเดียวมาแสดงในการ์ดใบเดียว ไม่ได้อ่าน `content['blocks']`
+/// ดังนั้นการจัดรูปแบบรายบล็อก (หัวข้อ/กล่องเตือน/กล่องสรุป) ไม่ถึงนักเรียน
+String lessonBodyTextForStudent(List<ContentBlockModel> blocks) => blocks
+    .where(
+      (b) =>
+          b.text.trim().isNotEmpty &&
+          b.type != ContentBlockType.heading &&
+          !b.text.trimLeft().startsWith('สื่อแนบ:'),
+    )
+    .map((b) => b.text.trim())
+    .join('\n\n');
+
+/// ตัวอย่างหน้าบทเรียนฝั่งนักเรียน — วางโครงตาม
+/// `student_redesign_prototype/widgets/student_lesson_view_page.dart` ของจริง
+/// (แบนเนอร์เขียว → เนื้อหาก้อนเดียว → เอกสารแนบ → กราฟเซนเซอร์ที่ผูกไว้ →
+/// ปุ่มเรียนจบ) ไม่ใช่การวาดบล็อกทีละใบแบบในหน้าแก้ไข ซึ่งนักเรียนไม่เคยเห็น
 class TeacherLessonPreviewPage extends StatelessWidget {
   const TeacherLessonPreviewPage({super.key, required this.lesson});
 
@@ -3090,6 +3101,21 @@ class TeacherLessonPreviewPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final body = lessonBodyTextForStudent(lesson.blocks);
+    final droppedHeadings = lesson.blocks
+        .where((b) => b.type == ContentBlockType.heading)
+        .length;
+    final styledBlocks = lesson.blocks
+        .where(
+          (b) =>
+              b.type == ContentBlockType.calloutWarning ||
+              b.type == ContentBlockType.summaryBox,
+        )
+        .length;
+    final sensorBlocks = lesson.blocks
+        .where((b) => b.type == ContentBlockType.sensorChart)
+        .length;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7FA),
       appBar: AppBar(
@@ -3099,8 +3125,6 @@ class TeacherLessonPreviewPage extends StatelessWidget {
         elevation: 0,
         scrolledUnderElevation: 1,
         centerTitle: true,
-        // ชื่อเดิม 'มุมมองนักเรียน (Student Preview Mode)' ยาวจนโดนตัดกลางคำ
-        // บนมือถือ — เหลือคำเดียวที่บอกครบ ส่วนคำอธิบายย้ายลงแถบใต้หัว
         title: const Text(
           'ดูตัวอย่าง',
           style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
@@ -3123,8 +3147,6 @@ class TeacherLessonPreviewPage extends StatelessWidget {
       ),
       body: Column(
         children: [
-          // แถบเดิมจัดข้อความกึ่งกลางในแถวเดียวโดยไม่ยอมตัดบรรทัด จึงล้นขอบขวา
-          // (เห็น RIGHT OVERFLOWED บนเครื่องจริง) — ตอนนี้ห่อบรรทัดได้
           Container(
             width: double.infinity,
             color: const Color(0xFFFDF1DE),
@@ -3154,51 +3176,189 @@ class TeacherLessonPreviewPage extends StatelessWidget {
           ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    lesson.title.trim().isEmpty
-                        ? 'ยังไม่ได้ตั้งชื่อบทเรียน'
-                        : lesson.title,
-                    style: TextStyle(
-                      fontSize: 24,
-                      height: 1.3,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.3,
-                      color: lesson.title.trim().isEmpty
-                          ? AirySpec.label
-                          : AirySpec.ink,
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6, bottom: 4),
+                  _StudentBanner(lesson: lesson),
+                  const SizedBox(height: 24),
+                  const _StudentSectionTitle('📖 เนื้อหาบทเรียน'),
+                  const SizedBox(height: 10),
+                  _StudentCard(
                     child: Text(
-                      '${lesson.courseName} · ${lesson.blocks.length} ส่วนเนื้อหา',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AirySpec.label,
+                      body.isEmpty ? 'ไม่มีเนื้อหาข้อความในบทเรียนนี้' : body,
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        height: 1.65,
+                        fontWeight: FontWeight.w500,
+                        color: body.isEmpty
+                            ? SchoolPalette.muted
+                            : SchoolPalette.ink,
                       ),
                     ),
                   ),
-                  if (lesson.blocks.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 14),
-                      child: AiryCard(
-                        children: [
-                          AiryNote(
-                            'ยังไม่มีเนื้อหาในบทเรียนนี้ — นักเรียนจะเห็นหน้าว่าง '
-                            'กลับไปเพิ่มบล็อกก่อนเผยแพร่',
-                          ),
-                        ],
+                  if (droppedHeadings + styledBlocks + sensorBlocks > 0) ...[
+                    const SizedBox(height: 12),
+                    AiryNote(
+                      _mismatchNote(
+                        headings: droppedHeadings,
+                        styled: styledBlocks,
+                        sensors: sensorBlocks,
                       ),
                     ),
-                  for (final block in lesson.blocks)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 18),
-                      child: _PreviewBlock(block: block),
+                  ],
+                  const SizedBox(height: 24),
+                  const _StudentSectionTitle('📄 เอกสารและไฟล์ประกอบการเรียน'),
+                  const SizedBox(height: 10),
+                  if (lesson.materials.isEmpty)
+                    const _StudentEmpty(
+                      'ยังไม่มีไฟล์แนบ — นักเรียนจะไม่เห็นหัวข้อนี้',
+                    )
+                  else
+                    for (final mat in lesson.materials)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _StudentCard(
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: SchoolPalette.deepGreen.withValues(
+                                    alpha: 0.1,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  mat.type == 'link'
+                                      ? Icons.link_rounded
+                                      : Icons.picture_as_pdf_rounded,
+                                  color: SchoolPalette.deepGreen,
+                                  size: 22,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      mat.title,
+                                      style: const TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: SchoolPalette.ink,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      mat.type.toUpperCase(),
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: SchoolPalette.muted,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  const SizedBox(height: 14),
+                  const _StudentSectionTitle(
+                    '📊 ข้อมูลเซนเซอร์ AIoT ที่ผูกกับบทเรียน',
+                  ),
+                  const SizedBox(height: 10),
+                  if (lesson.sensorLinks.isEmpty)
+                    const _StudentEmpty(
+                      'ยังไม่ได้ผูกเซนเซอร์กับบทเรียน — นักเรียนจะไม่เห็นกราฟ',
+                    )
+                  else
+                    for (final link in lesson.sensorLinks)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: _StudentCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: SchoolPalette.deepGreen.withValues(
+                                        alpha: 0.1,
+                                      ),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: const Icon(
+                                      Icons.sensors_rounded,
+                                      color: SchoolPalette.deepGreen,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      link.caption.trim().isEmpty
+                                          ? 'กราฟข้อมูลเซนเซอร์ (${link.metric})'
+                                          : link.caption,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w800,
+                                        color: SchoolPalette.ink,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+                              Container(
+                                height: 120,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: SchoolPalette.softGreenBg,
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                  ),
+                                  child: Text(
+                                    '${link.deviceName} · ${link.metric} · ${link.timeRange}\n'
+                                    'กราฟจะวาดจากข้อมูลจริงตอนนักเรียนเปิดบทเรียน',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      fontSize: 12.5,
+                                      height: 1.5,
+                                      color: SchoolPalette.muted,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  const SizedBox(height: 10),
+                  Container(
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    decoration: BoxDecoration(
+                      gradient: SchoolPalette.primaryGradient,
+                      borderRadius: BorderRadius.circular(14),
                     ),
+                    child: const Text(
+                      'ทำเครื่องหมายว่าเรียนจบแล้ว',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -3207,157 +3367,135 @@ class TeacherLessonPreviewPage extends StatelessWidget {
       ),
     );
   }
-}
 
-/// หนึ่งบล็อกตามที่นักเรียนจะเห็น
-class _PreviewBlock extends StatelessWidget {
-  const _PreviewBlock({required this.block});
-  final ContentBlockModel block;
-
-  @override
-  Widget build(BuildContext context) {
-    switch (block.type) {
-      case ContentBlockType.heading:
-        return Text(
-          block.text,
-          style: const TextStyle(
-            fontSize: 18.5,
-            height: 1.35,
-            fontWeight: FontWeight.w700,
-            color: AirySpec.ink,
-          ),
-        );
-      case ContentBlockType.calloutWarning:
-        return _TintBox(
-          bg: const Color(0xFFFDF1DE),
-          fg: const Color(0xFFB4650F),
-          icon: Icons.warning_amber_rounded,
-          label: 'ข้อควรระวัง',
-          text: block.text,
-        );
-      case ContentBlockType.summaryBox:
-        return _TintBox(
-          bg: const Color(0xFFE1F6EC),
-          fg: const Color(0xFF107A50),
-          icon: Icons.lightbulb_outline_rounded,
-          label: 'สรุป',
-          text: block.text,
-        );
-      case ContentBlockType.sensorChart:
-        final linked = block.sensorDeviceId.trim().isNotEmpty;
-        return AiryCard(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.insights_outlined,
-                        size: 19,
-                        color: AirySpec.label,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          // เดิมพิมพ์ 'กราฟเรียลไทม์ AIoT: ()' ออกมาดื้อ ๆ
-                          // เมื่อยังไม่ผูกอุปกรณ์ ซึ่งอ่านแล้วเหมือนหน้าพัง
-                          linked
-                              ? block.sensorDeviceId
-                              : 'ยังไม่ได้ผูกเซนเซอร์',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 15.5,
-                            fontWeight: FontWeight.w700,
-                            color: linked
-                                ? AirySpec.ink
-                                : const Color(0xFF6E6C7A),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    height: 120,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF7F7FA),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      linked
-                          ? 'กราฟ ${block.sensorMetric} · ${block.timeRange}'
-                          : 'นักเรียนจะไม่เห็นกราฟจนกว่าจะผูกเซนเซอร์',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AirySpec.label,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      default:
-        return Text(
-          block.text,
-          style: const TextStyle(
-            fontSize: 15,
-            height: 1.65,
-            color: Color(0xFF4B4558),
-          ),
-        );
-    }
+  static String _mismatchNote({
+    required int headings,
+    required int styled,
+    required int sensors,
+  }) {
+    final parts = <String>[];
+    if (headings > 0) parts.add('บล็อกหัวข้อ $headings ใบ (ตัดออกทั้งหมด)');
+    if (styled > 0)
+      parts.add('กล่องเตือน/กล่องสรุป $styled ใบ (เหลือแต่ข้อความ)');
+    if (sensors > 0) parts.add('บล็อกกราฟ $sensors ใบ (ไม่แสดง)');
+    return 'นักเรียนอ่านเนื้อหาเป็นข้อความก้อนเดียว — ${parts.join(' · ')}'
+        '${sensors > 0 ? '\nกราฟขึ้นเฉพาะเซนเซอร์ที่ผูกไว้ในหัวข้อด้านล่างเท่านั้น' : ''}';
   }
 }
 
-class _TintBox extends StatelessWidget {
-  const _TintBox({
-    required this.bg,
-    required this.fg,
-    required this.icon,
-    required this.label,
-    required this.text,
-  });
-  final Color bg;
-  final Color fg;
-  final IconData icon;
-  final String label;
+class _StudentSectionTitle extends StatelessWidget {
+  const _StudentSectionTitle(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    text,
+    style: const TextStyle(
+      fontSize: 16,
+      fontWeight: FontWeight.w900,
+      color: SchoolPalette.navy,
+    ),
+  );
+}
+
+class _StudentCard extends StatelessWidget {
+  const _StudentCard({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(18),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: SchoolPalette.glassBorder),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x0F101828),
+          blurRadius: 18,
+          offset: Offset(0, 6),
+        ),
+      ],
+    ),
+    child: child,
+  );
+}
+
+class _StudentEmpty extends StatelessWidget {
+  const _StudentEmpty(this.text);
   final String text;
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     decoration: BoxDecoration(
-      color: bg,
-      borderRadius: BorderRadius.circular(18),
+      color: SchoolPalette.softGreenBg,
+      borderRadius: BorderRadius.circular(14),
+    ),
+    child: Text(
+      text,
+      style: const TextStyle(
+        fontSize: 12.5,
+        height: 1.45,
+        color: SchoolPalette.muted,
+      ),
+    ),
+  );
+}
+
+class _StudentBanner extends StatelessWidget {
+  const _StudentBanner({required this.lesson});
+  final LessonModel lesson;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(22),
+    decoration: BoxDecoration(
+      gradient: SchoolPalette.primaryGradient,
+      borderRadius: BorderRadius.circular(24),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x25165042),
+          blurRadius: 20,
+          offset: Offset(0, 8),
+        ),
+      ],
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Icon(icon, size: 17, color: fg),
-            const SizedBox(width: 7),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-                color: fg,
-              ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.18),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+          ),
+          child: Text(
+            lesson.courseName.trim().isEmpty ? 'บทเรียน' : lesson.courseName,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
             ),
-          ],
+          ),
         ),
-        const SizedBox(height: 7),
-        Text(text, style: TextStyle(fontSize: 14.5, height: 1.55, color: fg)),
+        const SizedBox(height: 14),
+        Text(
+          lesson.title.trim().isEmpty
+              ? 'ยังไม่ได้ตั้งชื่อบทเรียน'
+              : lesson.title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.3,
+            height: 1.3,
+          ),
+        ),
       ],
     ),
   );
