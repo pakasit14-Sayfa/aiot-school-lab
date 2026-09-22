@@ -1662,8 +1662,10 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
 
     String selectedPackage = school?.packageName ?? 'Basic';
 
-    final _SchoolFormResult? result = await showDialog<_SchoolFormResult>(
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final route = DialogRoute<_SchoolFormResult>(
       context: context,
+      themes: InheritedTheme.capture(from: context, to: navigator.context),
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
@@ -1884,6 +1886,10 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
       },
     );
 
+    final result = await navigator.push(route);
+    // pop returns before the reverse transition removes the TextFields.
+    // Keep their controllers alive until the dialog's overlay is unmounted.
+    await route.completed;
     nameController.dispose();
     provinceController.dispose();
     emailController.dispose();
