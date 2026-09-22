@@ -61,6 +61,41 @@ void main() {
     expect(parseAssignmentDue('ไม่ใช่วันที่'), isNull);
   });
 
+  /// 2026-09-22: ชีตนี้เคยให้เลือกประเภทงานซ้ำอีกรอบ ทั้งที่ทางเข้า
+  /// ('สร้างงาน / สื่อ' → ใบงานดิจิทัล / คลังข้อสอบ / สไลด์) เลือกไปแล้ว
+  /// และค่านั้นไม่เคยเปลี่ยนพฤติกรรมอะไร — Google Classroom เลือกชนิดตอน
+  /// กดสร้างแล้วไม่ถามซ้ำ ส่วน Teams ไม่มีประเภทตายตัวเลย
+  testWidgets('ชีตไม่ถามประเภทงานซ้ำ และของใหม่ถูกบันทึกเป็น worksheet', (
+    tester,
+  ) async {
+    String? sentType;
+    await openEditor(
+      tester,
+      create:
+          ({
+            required courseId,
+            required type,
+            required title,
+            instructions,
+            dueAt,
+            rubricId,
+            isGroup = false,
+          }) async {
+            sentType = type;
+            return 'a1';
+          },
+      read: (_) async => [],
+    );
+
+    expect(find.text('ประเภทงาน'), findsNothing);
+    expect(find.text('ใบงานทดลอง'), findsNothing);
+    expect(find.text('โครงงาน AIoT'), findsNothing);
+
+    await tester.tap(find.text('บันทึกร่าง'));
+    await tester.pumpAndSettle();
+    expect(sentType, 'worksheet');
+  });
+
   test('format แล้ว parse กลับต้องได้เวลาเดิมเป๊ะ', () {
     for (final dt in [
       DateTime(2027, 1, 25, 16, 30),

@@ -847,87 +847,6 @@ class _SheetLabel extends StatelessWidget {
   );
 }
 
-/// แถบเลือกประเภทงาน — แทน dropdown ที่ต้องกดสองครั้งกว่าจะเลือกได้
-///
-/// เลื่อนแนวนอนได้ เพราะใบงานเก่าอาจมีชนิดที่ไม่อยู่ในสามตัวมาตรฐาน
-/// (ค่ามาจากฐานข้อมูล ไม่ใช่ enum) ซึ่งต้องไม่หายไปตอนเปิดแก้ไข
-class _TypeSegmented extends StatelessWidget {
-  const _TypeSegmented({required this.value, required this.onChanged});
-
-  final String value;
-  final ValueChanged<String> onChanged;
-
-  /// ชนิดมาตรฐานสามตัว พร้อมไอคอนประจำแต่ละชนิด
-  static const _standard = <(String, IconData)>[
-    ('ใบงานทดลอง', Icons.science_outlined),
-    ('การบ้าน', Icons.description_outlined),
-    ('โครงงาน AIoT', Icons.insights_outlined),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    // ใบงานเก่าอาจมีชนิดนอกสามตัวนี้ (ค่ามาจากฐานข้อมูล ไม่ใช่ enum)
-    // ต้องไม่หายไปตอนเปิดแก้ไข — ต่อท้ายเป็นช่องที่สี่
-    final options = <(String, IconData)>[
-      ..._standard,
-      if (!_standard.any((e) => e.$1 == value)) (value, Icons.label_outline),
-    ];
-
-    Widget seg((String, IconData) e) {
-      final on = e.$1 == value;
-      return Expanded(
-        child: Material(
-          color: on ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(9),
-          elevation: on ? 1 : 0,
-          shadowColor: const Color(0x22301E4E),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(9),
-            onTap: () => onChanged(e.$1),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    e.$2,
-                    size: 14,
-                    color: on ? TeacherPalette.primary : AirySpec.label,
-                  ),
-                  const SizedBox(width: 5),
-                  Flexible(
-                    child: Text(
-                      e.$1,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: TeacherType.label,
-                        fontWeight: FontWeight.w700,
-                        color: on ? TeacherPalette.primary : AirySpec.label,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    // รางเดียวพื้นเทา ช่องที่เลือกเป็นการ์ดขาวยกขึ้นมา — แบบเดียวกับ
-    // แถบกรองในหน้าตรวจงาน จะได้เป็นภาษาเดียวกันทั้งเลน
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF2F0F6),
-        borderRadius: BorderRadius.circular(11),
-      ),
-      child: Row(children: [for (final e in options) seg(e)]),
-    );
-  }
-}
-
 /// ช่องกรอกในชีต — ขอบบาง ไม่มีพื้นเทา ไม่มี label ลอยแบบ Material
 class _SheetField extends StatelessWidget {
   const _SheetField({
@@ -1781,9 +1700,13 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
       }
       final confirmed = await _saveController.save(
         courseId: courseId,
-        type: _type == 'โครงงาน AIoT'
-            ? 'project'
-            : (_type == 'ใบงานทดลอง' ? 'worksheet' : 'homework'),
+        // หน้านี้คือ 'ใบงานดิจิทัล' ของใหม่จึงเป็น worksheet เสมอ ส่วน
+        // ใบงานเดิมคงชนิดที่เคยบันทึกไว้ ไม่ถูกเปลี่ยนตอนแก้ไข
+        type: switch (_type) {
+          'โครงงาน AIoT' || 'project' => 'project',
+          'การบ้าน' || 'homework' => 'homework',
+          _ => 'worksheet',
+        },
         title: title,
         instructions: _instructionsController.text.trim(),
         dueAt: dueAt,
@@ -2032,14 +1955,16 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
                     child: ListView(
                       controller: scrollController,
                       children: [
-                        const _SheetLabel('ประเภทงาน'),
-                        // แถบเลือกแทน dropdown — เห็นทุกตัวเลือกพร้อมกัน
-                        // กดครั้งเดียวจบ ไม่ต้องเปิดเมนูแล้วค่อยเลือก
-                        _TypeSegmented(
-                          value: _type,
-                          onChanged: (v) => setState(() => _type = v),
-                        ),
-
+                        // ไม่มีช่องเลือกประเภทงาน — ทางเข้าเป็นตัวกำหนดแล้ว
+                        // ('สร้างงาน / สื่อ' → ใบงานดิจิทัล / คลังข้อสอบ /
+                        // สไลด์) เหมือน Google Classroom ที่เลือกชนิดตอนกด
+                        // สร้าง แล้วไม่ถามซ้ำในฟอร์ม และเหมือน Teams ที่ไม่มี
+                        // ประเภทตายตัวเลย มีแต่ป้ายที่ครูพิมพ์เอง
+                        //
+                        // ของเดิมให้เลือกซ้ำได้จนขัดกับทางเข้า (เข้ามาทาง
+                        // 'ใบงานดิจิทัล' แล้วเลือก 'โครงงาน AIoT' ข้างใน)
+                        // ทั้งที่ค่านี้ไม่เคยเปลี่ยนพฤติกรรมอะไรเลย
+                        // หน้าฟอร์มใบงานรุ่นใหม่ตัดช่องนี้ออกไปก่อนแล้ว
                         const _SheetLabel('รายละเอียด'),
                         _SheetField(
                           controller: _titleController,
