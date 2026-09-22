@@ -30,7 +30,11 @@ class AppTheme {
     // ไปคนละฟอนต์กันเงียบ ๆ (ไม่เคยมีใครเลือกฟอนต์นี้จริงจัง) กำหนดไว้ตรงนี้
     // ที่เดียวให้ทุกหน้าที่ไม่ได้ห่อ Theme ของตัวเอง (student/parent/teacher/
     // executive/super_admin) เรนเดอร์เหมือนกันทุกเครื่อง
-    fontFamily: GoogleFonts.notoSansThai().fontFamily,
+    // ฟอนต์ไทย 'มีหัว' (looped) — อ่านง่ายกว่าในขนาดเล็กและเป็นแบบที่
+    // คนไทยคุ้นตาในเอกสาร เปลี่ยนจาก Noto Sans Thai (ไม่มีหัว)
+    // เมื่อ 2026-09-22 ทั้งสองตัวเป็นตระกูลเดียวกัน ความกว้างใกล้เคียง
+    // มาก เลย์เอาต์จึงแทบไม่ขยับ
+    fontFamily: GoogleFonts.notoSansThaiLooped().fontFamily,
 
     // โทนสีหลักของแอป
     colorScheme: ColorScheme.fromSeed(
