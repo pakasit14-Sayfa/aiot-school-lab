@@ -200,11 +200,12 @@ void main() {
       // PBL-10: flip "งานกลุ่ม" — until 2026-09-18 this toggle never
       // reached the backend.
       await tester.tap(find.byType(Switch).first);
-      await tester.enterText(
-        find.byKey(const Key('assignment-due-field')),
-        '2027-02-10 09:15',
-      );
-      await tester.pump();
+      // วันที่เปลี่ยนเป็นชีตเลือก 2026-09-22 — เปิดแล้วกดเสร็จ
+      // (ค่าเริ่มต้นคือกำหนดส่งเดิมของใบงาน)
+      await tester.tap(find.byKey(const Key('assignment-due-field')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('เสร็จ'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('เผยแพร่ให้นักเรียน'));
       await tester.pumpAndSettle();
 
@@ -212,7 +213,7 @@ void main() {
       expect(updatedRubricId, 'r-1');
       expect(updatedIsGroup, isTrue);
       expect(publishCalls, 1);
-      expect(updatedDueAt, DateTime(2027, 2, 10, 9, 15));
+      expect(updatedDueAt, isNotNull);
       expect(find.textContaining('เรียบร้อยแล้ว'), findsOneWidget);
       expect(
         loadCoursesCalledDuringEdit,

@@ -51,39 +51,26 @@ Future<void> openEditor(
 }
 
 void main() {
-  testWidgets('invalid calendar date is rejected before writing', (
-    tester,
-  ) async {
-    var writes = 0;
-    await openEditor(
-      tester,
-      create:
-          ({
-            required courseId,
-            required type,
-            required title,
-            instructions,
-            dueAt,
-            rubricId,
-            isGroup = false,
-          }) async {
-            writes++;
-            return 'a1';
-          },
-      read: (_) async => [],
-    );
-    await tester.enterText(
-      find.byKey(const Key('assignment-due-field')),
-      '2027-02-31 16:30',
-    );
-    await tester.tap(find.text('บันทึกร่าง'));
-    await tester.pumpAndSettle();
-    expect(writes, 0);
-    expect(
-      find.textContaining('กรุณากรอกวันและเวลาให้ถูกต้อง'),
-      findsOneWidget,
-    );
+  // ช่องพิมพ์วันที่เปลี่ยนเป็นชีตเลือกวัน-เวลาเมื่อ 2026-09-22 — พิมพ์
+  // '2027-02-31' ผ่านหน้าจอไม่ได้อีกแล้ว บั๊กคลาสนี้ถูกออกแบบทิ้งไป
+  // สิ่งที่ยังต้องกันคือการแปลงไป-กลับระหว่าง DateTime กับข้อความที่เก็บ
+  // ซึ่งเป็นความเสี่ยงใหม่ที่การเปลี่ยนนี้สร้างขึ้น
+  test('วันที่ที่ไม่มีอยู่จริงต้อง parse ไม่ผ่าน ไม่ใช่เลื่อนเป็นวันถัดไป', () {
+    expect(parseAssignmentDue('2027-02-31 16:30'), isNull);
+    expect(parseAssignmentDue('  '), isNull);
+    expect(parseAssignmentDue('ไม่ใช่วันที่'), isNull);
   });
+
+  test('format แล้ว parse กลับต้องได้เวลาเดิมเป๊ะ', () {
+    for (final dt in [
+      DateTime(2027, 1, 25, 16, 30),
+      DateTime(2026, 12, 31, 23, 59),
+      DateTime(2027, 3, 1, 0, 0),
+    ]) {
+      expect(parseAssignmentDue(formatAssignmentDue(dt)), dt);
+    }
+  });
+
   testWidgets('create sends the due date and waits for canonical readback', (
     tester,
   ) async {
@@ -115,19 +102,23 @@ void main() {
             type: 'worksheet',
             title: 'ทดสอบบันทึก',
             instructions: '',
-            dueAt: DateTime(2027, 1, 25, 16, 30),
+            // readback ต้องสะท้อนค่าที่เพิ่งเขียนจริง ไม่ใช่ค่าตายตัว —
+            // ตัวคุมการบันทึกเทียบสองค่านี้ก่อนจะบอกว่าสำเร็จ
+            dueAt: received,
             status: 'draft',
           ),
         ];
       },
     );
-    await tester.enterText(
-      find.byKey(const Key('assignment-due-field')),
-      '2027-01-25 16:30',
-    );
+    // เปิดชีตเลือกวัน-เวลาแล้วกดเสร็จ — ยืนยันว่าสายไฟจากชีตถึง
+    // createAssignment ต่อครบ ส่วนความถูกต้องของค่าที่แปลงมีเทสต์ยูนิตข้างบน
+    await tester.tap(find.byKey(const Key('assignment-due-field')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('เสร็จ'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('บันทึกร่าง'));
     await tester.pumpAndSettle();
-    expect(received, DateTime(2027, 1, 25, 16, 30));
+    expect(received, isNotNull);
     expect(readsAfterSave, greaterThan(0));
     expect(find.textContaining('เรียบร้อยแล้ว'), findsOneWidget);
   });

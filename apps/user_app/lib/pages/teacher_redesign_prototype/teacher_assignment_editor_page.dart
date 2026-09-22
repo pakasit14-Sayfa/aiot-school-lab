@@ -8,9 +8,9 @@ import 'package:shared_core/shared_core.dart';
 import '../assignments/assignment_save_controller.dart';
 
 import 'teacher_airy_kit.dart';
+import 'teacher_date_time_sheet.dart' show showTeacherDateTimeSheet;
 import 'teacher_grading_page.dart' show TeacherGradingPage;
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
-import 'teacher_rubric_page.dart' show TeacherRubricPage;
 import 'teacher_shared_widgets.dart'
     show TeacherMockPageShell, TeacherSearchInput;
 
@@ -126,6 +126,7 @@ class TeacherAssignmentEditorPage extends StatefulWidget {
 void openAssignmentFormModal(
   BuildContext context, {
   AssignmentModel? assignment,
+  String? courseLabel,
   ValueChanged<AssignmentModel>? onSave,
   Future<List<RubricModel>> Function()? listMyRubrics,
   Future<List<CourseSummary>> Function()? loadCoursesForNew,
@@ -171,6 +172,7 @@ void openAssignmentFormModal(
     backgroundColor: Colors.transparent,
     builder: (ctx) => _AssignmentFormSheet(
       assignment: assignment,
+      courseLabel: courseLabel,
       onSave: onSave ?? (_) {},
       listMyRubrics: listMyRubrics,
       loadCoursesForNew: loadCoursesForNew,
@@ -196,6 +198,10 @@ class _TeacherAssignmentEditorPageState
   // อยู่ตลอดไป ตอนนี้เริ่มจากลิสต์ว่างจริง
   List<AssignmentModel> _assignments = [];
   bool _loading = true;
+
+  /// 'คณิตศาสตร์ · ม.1/1 · นักเรียน 3 คน' — ชีตสร้างใบงานเอาไปขึ้นหัว
+  /// ครูสอนหลายห้อง ต้องเห็นว่ากำลังสร้างให้วิชาไหนก่อนกรอก
+  String? _courseLabel;
 
   @override
   void initState() {
@@ -231,6 +237,12 @@ class _TeacherAssignmentEditorPageState
       } catch (_) {
         // เหลือ 0 — โชว์ 'ยังไม่มีข้อมูล' ตรงๆ ดีกว่าเดา
       }
+
+      _courseLabel = [
+        course.subjectName,
+        if ((course.room ?? '').trim().isNotEmpty) course.room!.trim(),
+        if (totalStudents > 0) 'นักเรียน $totalStudents คน',
+      ].join(' · ');
 
       // One submissions RPC per assignment, awaited in the loop — N sequential
       // round trips before the editor could render. They are independent.
@@ -292,6 +304,7 @@ class _TeacherAssignmentEditorPageState
     openAssignmentFormModal(
       context,
       assignment: existingAssignment,
+      courseLabel: _courseLabel,
       listMyRubrics: widget.listMyRubrics,
       loadCoursesForNew: widget.loadCourses,
       updateAssignment: widget.updateAssignment,
@@ -732,6 +745,30 @@ class _MiniPill extends StatelessWidget {
   );
 }
 
+/// แปลง DateTime เป็นข้อความที่ช่องกำหนดส่งเก็บไว้ ('yyyy-MM-dd HH:mm')
+/// และแปลงกลับ — แยกออกมาเป็นฟังก์ชันเพื่อให้เทสต์ตรวจการไป-กลับได้โดยไม่
+/// ต้องผ่าน UI หลังจากที่ช่องกรอกวันที่เปลี่ยนเป็นชีตเลือก (2026-09-22)
+/// ทำให้พิมพ์วันที่ผิดรูปแบบผ่านหน้าจอไม่ได้อีก
+String formatAssignmentDue(DateTime dt) =>
+    '${dt.year.toString().padLeft(4, '0')}-'
+    '${dt.month.toString().padLeft(2, '0')}-'
+    '${dt.day.toString().padLeft(2, '0')} '
+    '${dt.hour.toString().padLeft(2, '0')}:'
+    '${dt.minute.toString().padLeft(2, '0')}';
+
+/// คืน null เมื่อข้อความว่างหรือไม่ใช่วันที่จริง
+///
+/// `DateTime.tryParse('2027-02-31')` **ไม่คืน null** แต่เลื่อนเป็น 3 มี.ค.
+/// เงียบ ๆ ครูจะได้กำหนดส่งคนละวันกับที่ตั้งใจโดยไม่มีอะไรเตือน จึงเทียบ
+/// ค่าที่ parse ได้กับข้อความต้นทางอีกชั้น
+DateTime? parseAssignmentDue(String raw) {
+  final t = raw.trim();
+  if (t.isEmpty) return null;
+  final dt = DateTime.tryParse(t.replaceFirst(' ', 'T'));
+  if (dt == null) return null;
+  return formatAssignmentDue(dt) == t ? dt : null;
+}
+
 /// ป้ายหมวดในชีต — ตัวเล็ก เว้นวรรคกว้าง สีจาง
 /// หนึ่งตัวเลือกในชีตเกณฑ์ให้คะแนน
 class _RubricOption extends StatelessWidget {
@@ -820,54 +857,73 @@ class _TypeSegmented extends StatelessWidget {
   final String value;
   final ValueChanged<String> onChanged;
 
-  static const _standard = ['ใบงานทดลอง', 'การบ้าน', 'โครงงาน AIoT'];
+  /// ชนิดมาตรฐานสามตัว พร้อมไอคอนประจำแต่ละชนิด
+  static const _standard = <(String, IconData)>[
+    ('ใบงานทดลอง', Icons.science_outlined),
+    ('การบ้าน', Icons.description_outlined),
+    ('โครงงาน AIoT', Icons.insights_outlined),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    final options = <String>[
+    // ใบงานเก่าอาจมีชนิดนอกสามตัวนี้ (ค่ามาจากฐานข้อมูล ไม่ใช่ enum)
+    // ต้องไม่หายไปตอนเปิดแก้ไข — ต่อท้ายเป็นช่องที่สี่
+    final options = <(String, IconData)>[
       ..._standard,
-      if (!_standard.contains(value)) value,
+      if (!_standard.any((e) => e.$1 == value)) (value, Icons.label_outline),
     ];
-    return SizedBox(
-      height: 38,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        itemCount: options.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 7),
-        itemBuilder: (_, i) {
-          final t = options[i];
-          final on = t == value;
-          return Material(
-            color: on ? TeacherPalette.primary : Colors.white,
-            borderRadius: BorderRadius.circular(11),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(11),
-              onTap: () => onChanged(t),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(11),
-                  border: Border.all(
-                    color: on
-                        ? TeacherPalette.primary
-                        : const Color(0xFFE6E3EE),
+
+    Widget seg((String, IconData) e) {
+      final on = e.$1 == value;
+      return Expanded(
+        child: Material(
+          color: on ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(9),
+          elevation: on ? 1 : 0,
+          shadowColor: const Color(0x22301E4E),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(9),
+            onTap: () => onChanged(e.$1),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    e.$2,
+                    size: 14,
+                    color: on ? TeacherPalette.primary : AirySpec.label,
                   ),
-                ),
-                child: Text(
-                  t,
-                  style: TextStyle(
-                    fontSize: TeacherType.secondary,
-                    fontWeight: FontWeight.w700,
-                    color: on ? Colors.white : AirySpec.label,
+                  const SizedBox(width: 5),
+                  Flexible(
+                    child: Text(
+                      e.$1,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: TeacherType.label,
+                        fontWeight: FontWeight.w700,
+                        color: on ? TeacherPalette.primary : AirySpec.label,
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
-          );
-        },
+          ),
+        ),
+      );
+    }
+
+    // รางเดียวพื้นเทา ช่องที่เลือกเป็นการ์ดขาวยกขึ้นมา — แบบเดียวกับ
+    // แถบกรองในหน้าตรวจงาน จะได้เป็นภาษาเดียวกันทั้งเลน
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF2F0F6),
+        borderRadius: BorderRadius.circular(11),
       ),
+      child: Row(children: [for (final e in options) seg(e)]),
     );
   }
 }
@@ -878,19 +934,11 @@ class _SheetField extends StatelessWidget {
     required this.controller,
     required this.hint,
     this.maxLines = 1,
-    this.icon,
-    this.helper,
-    this.fieldKey,
   });
 
   final TextEditingController controller;
   final String hint;
   final int maxLines;
-  final IconData? icon;
-  final String? helper;
-
-  /// ให้เทสต์อ้างถึงช่องได้โดยไม่ผูกกับข้อความ hint ที่เปลี่ยนตามดีไซน์
-  final Key? fieldKey;
 
   @override
   Widget build(BuildContext context) {
@@ -898,7 +946,6 @@ class _SheetField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TextField(
-          key: fieldKey,
           controller: controller,
           maxLines: maxLines,
           style: const TextStyle(
@@ -911,13 +958,6 @@ class _SheetField extends StatelessWidget {
               fontSize: TeacherType.secondary,
               color: AirySpec.chevron,
             ),
-            prefixIcon: icon == null
-                ? null
-                : Icon(icon, size: 17, color: AirySpec.chevron),
-            prefixIconConstraints: const BoxConstraints(
-              minWidth: 40,
-              minHeight: 0,
-            ),
             isDense: true,
             filled: false,
             contentPadding: const EdgeInsets.symmetric(
@@ -929,18 +969,6 @@ class _SheetField extends StatelessWidget {
             focusedBorder: _border(TeacherPalette.primary, width: 1.6),
           ),
         ),
-        if (helper != null)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 5, 4, 0),
-            child: Text(
-              helper!,
-              style: const TextStyle(
-                fontSize: TeacherType.caption,
-                height: 1.5,
-                color: AirySpec.label,
-              ),
-            ),
-          ),
       ],
     );
   }
@@ -954,12 +982,15 @@ class _SheetField extends StatelessWidget {
 /// แถวที่กดแล้วเปิดตัวเลือก — ไอคอนนำ ค่าอยู่กลาง ลูกศรท้าย
 class _SheetPickRow extends StatelessWidget {
   const _SheetPickRow({
+    this.rowKey,
     required this.icon,
     required this.value,
     required this.placeholder,
     required this.onTap,
   });
 
+  /// ให้เทสต์อ้างถึงแถวได้โดยไม่ผูกกับข้อความที่เปลี่ยนตามดีไซน์
+  final Key? rowKey;
   final IconData icon;
   final String? value;
   final String placeholder;
@@ -969,6 +1000,7 @@ class _SheetPickRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final filled = value != null && value!.trim().isNotEmpty;
     return Material(
+      key: rowKey,
       color: Colors.white,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
@@ -1174,6 +1206,7 @@ class _FilterChip extends StatelessWidget {
 class _AssignmentFormSheet extends StatefulWidget {
   const _AssignmentFormSheet({
     required this.assignment,
+    this.courseLabel,
     required this.onSave,
     this.listMyRubrics,
     this.loadCoursesForNew,
@@ -1187,6 +1220,9 @@ class _AssignmentFormSheet extends StatefulWidget {
   });
 
   final AssignmentModel? assignment;
+
+  /// 'วิชา · ห้อง · จำนวนนักเรียน' แสดงใต้ชื่อชีต
+  final String? courseLabel;
   final ValueChanged<AssignmentModel> onSave;
   final Future<List<AssignmentSummary>> Function(String courseId)?
   loadAssignmentsForCourse;
@@ -1794,6 +1830,49 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
     }
   }
 
+  static const _thMonths = [
+    'ม.ค.',
+    'ก.พ.',
+    'มี.ค.',
+    'เม.ย.',
+    'พ.ค.',
+    'มิ.ย.',
+    'ก.ค.',
+    'ส.ค.',
+    'ก.ย.',
+    'ต.ค.',
+    'พ.ย.',
+    'ธ.ค.',
+  ];
+
+  /// ข้อความกำหนดส่งแบบไทยที่ครูอ่านออก — ตัว controller ยังเก็บรูปแบบ
+  /// 'yyyy-MM-dd HH:mm' เหมือนเดิมเพราะตรรกะบันทึกอ่านจากตรงนั้น
+  String? _dueLabel() {
+    final raw = _dueDateController.text.trim();
+    if (raw.isEmpty) return null;
+    final dt = parseAssignmentDue(raw);
+    if (dt == null) return raw;
+    final hh = dt.hour.toString().padLeft(2, '0');
+    final mm = dt.minute.toString().padLeft(2, '0');
+    return '${dt.day} ${_thMonths[dt.month - 1]} ${dt.year + 543} · $hh:$mm น.';
+  }
+
+  Future<void> _openDuePicker() async {
+    final raw = _dueDateController.text.trim();
+    final initial =
+        parseAssignmentDue(raw) ?? DateTime.now().add(const Duration(days: 7));
+    final picked = await showTeacherDateTimeSheet(
+      context: context,
+      initial: initial,
+      accent: TeacherPalette.primary,
+      title: 'กำหนดส่งงาน',
+      first: DateTime(2024),
+      last: DateTime(2035, 12, 31),
+    );
+    if (!mounted || picked == null) return;
+    setState(() => _dueDateController.text = formatAssignmentDue(picked));
+  }
+
   /// ค่าที่ชีตคืนเมื่อครูเลือก "ไม่ใช้เกณฑ์" — ต้องแยกจาก null ที่แปลว่า
   /// ปิดชีตทิ้ง ไม่งั้นการปัดชีตลงจะไปล้างเกณฑ์ที่ผูกไว้โดยครูไม่ได้สั่ง
   static const _noRubric = '__none__';
@@ -1903,13 +1982,13 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
                                 color: AirySpec.ink,
                               ),
                             ),
-                            // แสดงชื่อวิชาเฉพาะตอนแก้ไข ตอนสร้างใหม่ชีตยัง
-                            // ไม่รู้ว่าวิชาไหนจนกว่าจะบันทึก จึงไม่เดาให้
-                            if (widget.assignment != null)
+                            if (widget.courseLabel != null ||
+                                widget.assignment != null)
                               Padding(
                                 padding: const EdgeInsets.only(top: 2),
                                 child: Text(
-                                  widget.assignment!.courseName,
+                                  widget.courseLabel ??
+                                      widget.assignment!.courseName,
                                   style: const TextStyle(
                                     fontSize: TeacherType.caption,
                                     height: 1.5,
@@ -1974,12 +2053,15 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
                         ),
 
                         const _SheetLabel('กำหนดและเกณฑ์'),
-                        _SheetField(
-                          fieldKey: const Key('assignment-due-field'),
-                          controller: _dueDateController,
-                          hint: 'กำหนดส่ง เช่น 2027-01-25 16:30',
+                        // แถวเปิดชีตเลือกวัน-เวลา ไม่ใช่ช่องให้พิมพ์
+                        // '2027-01-25 16:30' เอง — ครูไม่ควรต้องจำรูปแบบ
+                        // และไม่ควรพิมพ์วันที่ที่ไม่มีอยู่จริงได้
+                        _SheetPickRow(
+                          rowKey: const Key('assignment-due-field'),
                           icon: Icons.calendar_today_outlined,
-                          helper: 'ปี ค.ศ. เวลาท้องถิ่น · เว้นว่างหากไม่กำหนด',
+                          value: _dueLabel(),
+                          placeholder: 'ยังไม่กำหนดวันส่ง',
+                          onTap: _openDuePicker,
                         ),
                         const SizedBox(height: 8),
                         if (_rubricsLoading)
@@ -2068,26 +2150,6 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
                               ),
                             ),
                         ],
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton.icon(
-                            onPressed: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const TeacherRubricPage(),
-                              ),
-                            ),
-                            icon: const Icon(
-                              Icons.open_in_new_rounded,
-                              size: 14,
-                            ),
-                            label: const Text(
-                              'จัดการเกณฑ์ให้คะแนนทั้งหมด',
-                              style: TextStyle(fontSize: TeacherType.label),
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                   ),
