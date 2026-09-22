@@ -3,6 +3,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
+import 'teacher_airy_kit.dart';
 import 'teacher_redesign_prototype_page.dart';
 import 'teacher_shared_widgets.dart';
 import 'teacher_question_bank_page.dart';
@@ -321,7 +322,9 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
     }
     if (_questions.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ยังไม่มีโจทย์ในชุดข้อสอบ กรุณาเพิ่มอย่างน้อย 1 ข้อ')),
+        const SnackBar(
+          content: Text('ยังไม่มีโจทย์ในชุดข้อสอบ กรุณาเพิ่มอย่างน้อย 1 ข้อ'),
+        ),
       );
       return;
     }
@@ -495,28 +498,38 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: TeacherPalette.primary.withValues(
-                                  alpha: 0.1,
+                            // Flexible + ellipsis — ชื่อวิชาบวกรหัสวิชายาว
+                            // เกินแล้วดันปุ่มปิดตกขอบขวาที่จอ 360pt
+                            Flexible(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
                                 ),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                '${widget.courseName} · ${widget.courseCode}',
-                                style: const TextStyle(
-                                  color: TeacherPalette.primary,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 12,
+                                decoration: BoxDecoration(
+                                  color: TeacherPalette.primary.withValues(
+                                    alpha: 0.1,
+                                  ),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  '${widget.courseName} · ${widget.courseCode}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: TeacherPalette.primary,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ),
                             ),
-                            const Spacer(),
+                            // ไม่มี Spacer — Spacer เป็น flex:1 จึงแย่ง
+                            // พื้นที่ไปจาก Flexible ของชิป ทำให้ชื่อวิชาโดน
+                            // ตัดเป็น '...' ทั้งที่ยังมีที่ว่างเหลือ
+                            const SizedBox(width: 8),
                             IconButton(
                               onPressed: () => Navigator.pop(context),
                               icon: const Icon(Icons.close_rounded, size: 20),
@@ -679,12 +692,16 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
             // Section Header
             Row(
               children: [
-                const Text(
-                  'รายการโจทย์ข้อสอบ',
-                  style: TextStyle(
-                    color: TeacherPalette.ink,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 15,
+                const Flexible(
+                  child: Text(
+                    'รายการโจทย์ข้อสอบ',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: TeacherPalette.ink,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 15,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -821,12 +838,14 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
                         side: const BorderSide(color: TeacherPalette.border),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: const StadiumBorder(),
-                        textStyle: const TextStyle(
-                          fontSize: 13,
+                      ),
+                      child: const Text(
+                        'บันทึกร่างข้อสอบ',
+                        style: TextStyle(
+                          fontSize: TeacherType.secondary,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      child: const Text('บันทึกร่างข้อสอบ'),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -835,16 +854,18 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
                     child: FilledButton.icon(
                       onPressed: () => _saveExam(true),
                       icon: const Icon(Icons.check_circle_rounded, size: 18),
-                      label: const Text('เผยแพร่ข้อสอบให้นักเรียนทำ'),
+                      label: const Text(
+                        'เผยแพร่ข้อสอบให้นักเรียนทำ',
+                        style: TextStyle(
+                          fontSize: TeacherType.body,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
                       style: FilledButton.styleFrom(
                         backgroundColor: TeacherPalette.primary,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: const StadiumBorder(),
-                        textStyle: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w900,
-                        ),
                       ),
                     ),
                   ),
@@ -896,8 +917,11 @@ class _SegmentedCapsule<T> extends StatelessWidget {
                   onTap: () => onChanged(seg.value),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
+                    // บีบ padding และไอคอนลง — สามช่องที่มีทั้งไอคอนและ
+                    // ข้อความไทยไม่พอที่จอ 390pt ป้ายยาวสุดจึงโดนตัดเป็น
+                    // 'เก็บคะแ...' ทั้งที่อ่านครบได้ถ้าให้ที่พอ
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
+                      horizontal: 9,
                       vertical: 9,
                     ),
                     decoration: BoxDecoration(
@@ -909,12 +933,12 @@ class _SegmentedCapsule<T> extends StatelessWidget {
                       children: [
                         Icon(
                           seg.icon,
-                          size: 14,
+                          size: 13,
                           color: value == seg.value
                               ? Colors.white
                               : TeacherPalette.muted,
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 5),
                         Flexible(
                           child: Text(
                             seg.label,
@@ -1104,37 +1128,36 @@ class _PillActionButton extends StatelessWidget {
   final bool filled;
   final VoidCallback onTap;
 
+  /// ตั้งที่ป้าย ไม่ใช่ `styleFrom(textStyle:)` — ตัวหลังแทนสไตล์ของธีม
+  /// ทั้งก้อนแทนที่จะผสม จึงเสี่ยงหลุด fontFamily ที่ธีมตั้งไว้
+  static const _labelStyle = TextStyle(
+    fontSize: TeacherType.secondary,
+    fontWeight: FontWeight.w900,
+  );
+
   @override
   Widget build(BuildContext context) {
     return filled
         ? FilledButton.icon(
             onPressed: onTap,
             icon: Icon(icon, size: 18),
-            label: Text(label),
+            label: Text(label, style: _labelStyle),
             style: FilledButton.styleFrom(
               backgroundColor: color,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
               shape: const StadiumBorder(),
-              textStyle: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w900,
-              ),
             ),
           )
         : OutlinedButton.icon(
             onPressed: onTap,
             icon: Icon(icon, size: 18),
-            label: Text(label),
+            label: Text(label, style: _labelStyle),
             style: OutlinedButton.styleFrom(
               foregroundColor: color,
               side: BorderSide(color: color, width: 1.5),
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
               shape: const StadiumBorder(),
-              textStyle: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w900,
-              ),
             ),
           );
   }

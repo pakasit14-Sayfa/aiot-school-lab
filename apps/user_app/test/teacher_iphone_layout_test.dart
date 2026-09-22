@@ -4,8 +4,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_first_app/pages/teacher_redesign_prototype/teacher_assignment_detail_page.dart';
+import 'package:my_first_app/pages/teacher_redesign_prototype/teacher_assignment_editor_page.dart';
 import 'package:my_first_app/pages/teacher_redesign_prototype/teacher_assignment_form_page.dart';
 import 'package:my_first_app/pages/teacher_redesign_prototype/teacher_courses_page.dart';
+import 'package:my_first_app/pages/teacher_redesign_prototype/teacher_exam_builder_page.dart';
 import 'package:my_first_app/pages/teacher_redesign_prototype/teacher_grading_page.dart';
 import 'package:my_first_app/pages/teacher_redesign_prototype/teacher_lesson_editor_page.dart';
 import 'package:shared_core/shared_core.dart';
@@ -337,6 +339,41 @@ void main() {
             ),
           ],
         ),
+      ),
+    );
+  });
+  // 2026-09-22: เห็น RIGHT OVERFLOWED BY 77 PIXELS ที่แถวชิปสถานะ และ
+  // BY 38 PIXELS ที่แถวล่างของการ์ด (ส่งแล้ว x คน / % / ปุ่มแก้ไข+ตรวจงาน)
+  testWidgets('assignment editor has no overflow at phone widths', (
+    tester,
+  ) async {
+    await _probe(
+      tester,
+      'assignment editor',
+      TeacherAssignmentEditorPage(
+        loadCourses: () async => const [course],
+        loadAssignmentsForCourse: (_) async => [
+          asg.copyWith(status: 'draft'),
+          asg,
+        ],
+        loadCourseStudents: (_) async => students,
+        loadSubmissions: (_) async => const [],
+        listMyRubrics: () async => const <RubricModel>[],
+        listDevices: () async => const <DeviceOption>[],
+        loadAssignmentDetail: (_) async => detail,
+      ),
+    );
+  });
+
+  testWidgets('exam builder has no overflow at phone widths', (tester) async {
+    await _probe(
+      tester,
+      'exam builder',
+      TeacherExamBuilderPage(
+        courseId: 'c1',
+        courseCode: 'fcf029bf',
+        courseName: 'คณิตศาสตร์',
+        listMyCourses: () async => const [course],
       ),
     );
   });

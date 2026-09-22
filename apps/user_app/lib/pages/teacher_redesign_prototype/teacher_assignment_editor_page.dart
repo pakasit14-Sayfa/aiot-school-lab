@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 import '../assignments/assignment_save_controller.dart';
 
+import 'teacher_airy_kit.dart';
 import 'teacher_grading_page.dart' show TeacherGradingPage;
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_rubric_page.dart' show TeacherRubricPage;
@@ -385,6 +386,9 @@ class _TeacherAssignmentEditorPageState
                   ],
                 ),
                 child: Column(
+                  // ไม่ระบุ = Column จัดลูกไว้กึ่งกลาง ป้าย 'สถานะ' เลยลอย
+                  // อยู่กลางการ์ดแทนที่จะชิดซ้ายเหนือชิป
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     TeacherSearchInput(
                       hintText:
@@ -394,52 +398,56 @@ class _TeacherAssignmentEditorPageState
                       onClear: () => setState(() => _searchQuery = ''),
                     ),
                     const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        const Text(
-                          'สถานะ:',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: TeacherPalette.muted,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Wrap(
-                          spacing: 8,
-                          children:
-                              ['ทั้งหมด', 'เผยแพร่แล้ว', 'ร่าง', 'งานกลุ่ม']
-                                  .map(
-                                    (tab) => ChoiceChip(
-                                      label: Text(tab),
-                                      selected: _selectedTab == tab,
-                                      onSelected: (sel) {
-                                        if (sel) {
-                                          setState(() => _selectedTab = tab);
-                                        }
-                                      },
-                                      selectedColor: TeacherPalette.primary
-                                          .withValues(alpha: 0.15),
-                                      labelStyle: TextStyle(
-                                        color: _selectedTab == tab
-                                            ? TeacherPalette.primary
-                                            : TeacherPalette.muted,
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 12,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      side: BorderSide(
-                                        color: _selectedTab == tab
-                                            ? TeacherPalette.primary
-                                            : const Color(0xFFE2E8F0),
-                                      ),
+                    // ป้ายอยู่เหนือชิป ไม่ใช่ข้าง ๆ — เดิมเป็น Row ที่มี Wrap
+                    // เป็นลูกโดยไม่ห่อ Expanded ทำให้ Wrap ได้ความกว้าง
+                    // ไม่จำกัด จึงไม่เคยตัดบรรทัดเลยและล้นขอบ 362px
+                    const Text(
+                      'สถานะ',
+                      style: TextStyle(
+                        fontSize: TeacherType.label,
+                        fontWeight: FontWeight.w600,
+                        color: AirySpec.label,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: ['ทั้งหมด', 'เผยแพร่แล้ว', 'ร่าง', 'งานกลุ่ม']
+                          .map((tab) {
+                            final on = _selectedTab == tab;
+                            return Material(
+                              color: on ? TeacherPalette.primary : Colors.white,
+                              borderRadius: BorderRadius.circular(999),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(999),
+                                onTap: () => setState(() => _selectedTab = tab),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(999),
+                                    border: Border.all(
+                                      color: on
+                                          ? TeacherPalette.primary
+                                          : const Color(0xFFE3E1EB),
                                     ),
-                                  )
-                                  .toList(),
-                        ),
-                      ],
+                                  ),
+                                  child: Text(
+                                    tab,
+                                    style: TextStyle(
+                                      fontSize: TeacherType.secondary,
+                                      fontWeight: FontWeight.w700,
+                                      color: on ? Colors.white : AirySpec.label,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          })
+                          .toList(),
                     ),
                   ],
                 ),
@@ -563,7 +571,11 @@ class _AssignmentCardItem extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    // Wrap ไม่ใช่ Row — ชื่อชนิดงานยาว ๆ บวกป้าย 'งานกลุ่ม'
+                    // เกินหนึ่งบรรทัดที่จอ 360pt
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -583,8 +595,7 @@ class _AssignmentCardItem extends StatelessWidget {
                             ),
                           ),
                         ),
-                        if (assignment.isGroupWork) ...[
-                          const SizedBox(width: 6),
+                        if (assignment.isGroupWork)
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 8,
@@ -613,7 +624,6 @@ class _AssignmentCardItem extends StatelessWidget {
                               ],
                             ),
                           ),
-                        ],
                       ],
                     ),
                     const SizedBox(height: 6),
@@ -709,36 +719,46 @@ class _AssignmentCardItem extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     const Text(
-                      'กำหนดส่ง:',
+                      'กำหนดส่ง',
                       style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
+                        fontSize: TeacherType.label,
+                        fontWeight: FontWeight.w600,
                         color: TeacherPalette.muted,
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      assignment.dueDate,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: TeacherPalette.ink,
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        assignment.dueDate,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: TeacherType.label,
+                          fontWeight: FontWeight.w700,
+                          color: TeacherPalette.ink,
+                        ),
                       ),
                     ),
-                    const Spacer(),
+                  ],
+                ),
+                // เกณฑ์ให้คะแนนขึ้นบรรทัดใหม่ — เดิมต่อท้ายกำหนดส่งใน Row
+                // เดียวกันโดยมี Spacer คั่น พอชื่อเกณฑ์ยาวก็ล้นขอบ 133px
+                const SizedBox(height: 6),
+                Row(
+                  children: [
                     const Icon(
                       Icons.fact_check_outlined,
                       size: 14,
                       color: TeacherPalette.primary,
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         assignment.rubricTitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 11,
+                          fontSize: TeacherType.caption,
                           fontWeight: FontWeight.w700,
                           color: TeacherPalette.primary,
                         ),
@@ -799,92 +819,99 @@ class _AssignmentCardItem extends StatelessWidget {
 
           const SizedBox(height: 16),
 
-          // Submission Progress Bar & Bottom Actions
-          Row(
+          // แถบความคืบหน้าอยู่ชั้นบน ปุ่มอยู่ชั้นล่างชิดขวา — เดิมยัดไว้
+          // บรรทัดเดียวกันหมด ('ส่งแล้ว x/y คน' + % + ปุ่มสองปุ่ม) แล้วล้น
+          // ขอบ 65px ที่จอ 360pt
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'ส่งแล้ว ${assignment.submittedCount}/${assignment.totalStudents} คน',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: TeacherPalette.ink,
-                          ),
-                        ),
-                        Text(
-                          assignment.totalStudents == 0
-                              ? 'ยังไม่มีนักเรียน'
-                              : '${((assignment.submittedCount / assignment.totalStudents) * 100).round()}%',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: TeacherPalette.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: assignment.totalStudents == 0
-                            ? 0
-                            : (assignment.submittedCount /
-                                      assignment.totalStudents)
-                                  .clamp(0.0, 1.0),
-                        minHeight: 6,
-                        backgroundColor: const Color(0xFFE2E8F0),
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                          TeacherPalette.primary,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'ส่งแล้ว ${assignment.submittedCount}/${assignment.totalStudents} คน',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: TeacherPalette.ink,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-
-              // Action Buttons
-              OutlinedButton.icon(
-                onPressed: onTapEdit,
-                icon: const Icon(Icons.edit_outlined, size: 15),
-                label: const Text('แก้ไข'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: TeacherPalette.ink,
-                  side: const BorderSide(color: Color(0xFFCBD5E1)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                      Text(
+                        assignment.totalStudents == 0
+                            ? 'ยังไม่มีนักเรียน'
+                            : '${((assignment.submittedCount / assignment.totalStudents) * 100).round()}%',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: TeacherPalette.primary,
+                        ),
+                      ),
+                    ],
                   ),
-                  minimumSize: const Size(0, 38),
-                ),
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const TeacherGradingPage(),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: assignment.totalStudents == 0
+                          ? 0
+                          : (assignment.submittedCount /
+                                    assignment.totalStudents)
+                                .clamp(0.0, 1.0),
+                      minHeight: 6,
+                      backgroundColor: const Color(0xFFE2E8F0),
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        TeacherPalette.primary,
+                      ),
                     ),
-                  );
-                },
-                icon: const Icon(Icons.fact_check_rounded, size: 15),
-                label: const Text('ตรวจงาน'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: TeacherPalette.primary,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(0, 38),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
                   ),
-                  elevation: 0,
-                ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Wrap ไม่ใช่ Row — ธีมใส่ padding ปุ่มไว้กว้าง สองปุ่มนี้
+              // รวมกันยังเกินความกว้างการ์ดที่จอ 360pt
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: onTapEdit,
+                    icon: const Icon(Icons.edit_outlined, size: 15),
+                    label: const Text('แก้ไข'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: TeacherPalette.ink,
+                      side: const BorderSide(color: Color(0xFFCBD5E1)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      minimumSize: const Size(0, 38),
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const TeacherGradingPage(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.fact_check_rounded, size: 15),
+                    label: const Text('ตรวจงาน'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: TeacherPalette.primary,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(0, 38),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 0,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
