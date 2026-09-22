@@ -30,11 +30,18 @@ Two regression tests exercise focused form submission and cancellation through t
 - Analyze: user_app 188 existing issues (7 warnings, 181 info, 0 errors); shared_core clean; shared_ui 4 existing info diagnostics.
 - No increase over the pre-change failure counts. No database schema changes were needed.
 
-## Live-browser verification limitation
+## Live-browser verification
 
 The original creation and subsequent canonical/list verification were completed through the visible browser. After applying this fix, the local app server was rebuilt and returned HTTP 200. However, agy's Chrome tools timed out consecutively while waiting for the app, reading console messages, and attempting a fresh navigation (10:13–10:16 local time). The alternate computer-use channel exposed no browsers.
 
-Consequently, post-fix live Cancel/Close verification is **not confirmed**. The passing automated regression is not a substitute for this remaining manual/browser check. No second school was submitted during verification. The local server is left running on port 8085 for continuation.
+That initial attempt was blocked, not passed. A later verification on 2026-09-22 completed through the Computer Use Windows interface in the visible Chrome window at port 8085:
+
+- Opened Create School, focused the name field, entered `Dialog lifecycle check`, and clicked Cancel. The dialog disappeared and the school page rendered normally without a red screen.
+- Reopened the form; its name field was empty. Entered `Dialog close check` and clicked X. The dialog closed normally again.
+- The page still showed two schools, including `SCH-202609-9990`. No create or edit submission was performed during this check.
+- Opened Chrome Console after the checks: visible default-level output contained only four startup/info messages and no error messages. DevTools separately listed 36 Issues; these were not investigated by this bounded lifecycle check.
+
+The previously blocked live Cancel/Close check is now complete. This does not claim a new post-fix production create submission or full CRUD/role verification. The existing automated focused-save regression covers the save dismissal path.
 
 ## Remaining scope
 
