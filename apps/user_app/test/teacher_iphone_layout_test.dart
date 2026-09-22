@@ -306,6 +306,18 @@ void main() {
             ),
             // บล็อกกราฟที่ยังไม่ผูกอุปกรณ์ — เคสที่เคยพิมพ์ '()' ออกมา
             ContentBlockModel(id: 'b3', type: ContentBlockType.sensorChart),
+            ContentBlockModel(
+              id: 'b4',
+              type: ContentBlockType.fileDownload,
+              materialId: 'm1',
+              caption: 'ใบความรู้ที่ต้องอ่านก่อนเข้าคาบเรียนสัปดาห์หน้า',
+            ),
+            ContentBlockModel(
+              id: 'b5',
+              type: ContentBlockType.externalLink,
+              mediaUrl: 'https://example.invalid/aiot/temperature-lab-guide',
+              caption: 'คู่มือการทดลองฉบับเต็ม',
+            ),
           ],
           materials: [
             LessonMaterialModel(

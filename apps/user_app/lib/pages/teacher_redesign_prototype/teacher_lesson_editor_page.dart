@@ -1277,13 +1277,21 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
     final newBlock = ContentBlockModel(
       id: newId,
       type: type,
-      text: type == ContentBlockType.heading
-          ? 'หัวข้อใหม่'
-          : (type == ContentBlockType.calloutWarning
-                ? 'ข้อควรระวังสำคัญ...'
-                : (type == ContentBlockType.summaryBox
-                      ? 'สรุปประเด็นสำคัญประจำบทเรียน...'
-                      : 'ข้อความเนื้อหาใหม่...')),
+      // บล็อกสื่อเริ่มต้นด้วยข้อความว่าง — เนื้อหาของมันคือไฟล์/ลิงก์
+      // ไม่ใช่ตัวอักษร ถ้าใส่ข้อความตัวอย่างไว้ มันจะไหลไปโผล่ใน
+      // content['body'] ที่หน้าจอรุ่นเก่าอ่าน
+      text: switch (type) {
+        ContentBlockType.heading => 'หัวข้อใหม่',
+        ContentBlockType.calloutWarning => 'ข้อควรระวังสำคัญ...',
+        ContentBlockType.summaryBox => 'สรุปประเด็นสำคัญประจำบทเรียน...',
+        ContentBlockType.bulletList => 'ข้อแรก\nข้อสอง',
+        ContentBlockType.image ||
+        ContentBlockType.video ||
+        ContentBlockType.fileDownload ||
+        ContentBlockType.externalLink ||
+        ContentBlockType.sensorChart => '',
+        ContentBlockType.text => 'ข้อความเนื้อหาใหม่...',
+      },
     );
 
     setState(() {
@@ -2449,7 +2457,9 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
             ],
           ),
           const SizedBox(height: 8),
-          if (block.type == ContentBlockType.sensorChart)
+          if (_isMediaBlock(block.type))
+            _mediaBlockEditor(block)
+          else if (block.type == ContentBlockType.sensorChart)
             Container(
               padding: const EdgeInsets.all(14),
               margin: const EdgeInsets.only(right: 6),
@@ -2570,6 +2580,253 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
     );
   }
 
+  /// ช่องกรอกในการ์ดบล็อก — ใช้ TextFormField แบบ initialValue เหมือนช่อง
+  /// ข้อความของบล็อกอื่น ไม่ใช่ AiryInput เพราะตัวนั้นต้องมี controller
+  /// ต่อหนึ่งช่อง ซึ่งบล็อกที่ลากสลับ/ลบได้ตลอดจัดการ lifecycle ยาก
+  Widget _blockField({
+    required String label,
+    required String hint,
+    required String initialValue,
+    required ValueChanged<String> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            color: AirySpec.label,
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextFormField(
+          initialValue: initialValue,
+          readOnly: widget.isCourseClosed,
+          onChanged: onChanged,
+          style: const TextStyle(fontSize: 14, color: AirySpec.ink),
+          decoration: InputDecoration(
+            isDense: true,
+            hintText: hint,
+            hintStyle: const TextStyle(fontSize: 13.5, color: AirySpec.label),
+            filled: false,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 11,
+            ),
+            border: _blockFieldBorder(const Color(0xFFE3E1EB)),
+            enabledBorder: _blockFieldBorder(const Color(0xFFE3E1EB)),
+            focusedBorder: _blockFieldBorder(
+              TeacherPalette.primary,
+              width: 1.6,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  OutlineInputBorder _blockFieldBorder(Color color, {double width = 1}) =>
+      OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: color, width: width),
+      );
+
+  static bool _isMediaBlock(ContentBlockType type) =>
+      type == ContentBlockType.image ||
+      type == ContentBlockType.video ||
+      type == ContentBlockType.fileDownload ||
+      type == ContentBlockType.externalLink;
+
+  /// ตัวแก้บล็อกสื่อ — รูป/วิดีโอ/ไฟล์ อ้างถึงสื่อแนบของบทเรียนด้วย id
+  /// (ไฟล์อยู่ใน bucket แบบ private เก็บ URL ตรง ๆ ไม่ได้ มันหมดอายุ)
+  /// ส่วนลิงก์ภายนอกเก็บ URL ที่ครูวางไว้ตรง ๆ
+  Widget _mediaBlockEditor(ContentBlockModel block) {
+    final isLink = block.type == ContentBlockType.externalLink;
+    final wantedType = switch (block.type) {
+      ContentBlockType.image => 'image',
+      ContentBlockType.video => 'video',
+      _ => 'file',
+    };
+    final picked = block.materialId.trim().isEmpty
+        ? null
+        : widget.lesson.materials
+              .where((m) => m.id == block.materialId.trim())
+              .firstOrNull;
+    final choices = widget.lesson.materials
+        .where((m) => m.type == wantedType)
+        .toList();
+
+    return Container(
+      margin: const EdgeInsets.only(right: 6),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE3E1EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (isLink)
+            _blockField(
+              label: 'ลิงก์',
+              hint: 'https://...',
+              initialValue: block.mediaUrl,
+              onChanged: (val) {
+                block.mediaUrl = val;
+                _triggerAutoSave();
+              },
+            )
+          else ...[
+            Row(
+              children: [
+                Icon(
+                  _getBlockIcon(block.type),
+                  size: 19,
+                  color: AirySpec.label,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    picked?.title ??
+                        (block.materialId.trim().isEmpty
+                            ? 'ยังไม่ได้เลือกไฟล์'
+                            : 'ไฟล์ที่เลือกไว้ถูกลบออกจากบทเรียนแล้ว'),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      height: 1.4,
+                      fontWeight: FontWeight.w600,
+                      color: picked == null ? AirySpec.label : AirySpec.ink,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: AiryButton(
+                label: picked == null ? 'เลือกไฟล์' : 'เปลี่ยนไฟล์',
+                kind: AiryCta.secondary,
+                accent: TeacherPalette.primary,
+                onPressed: widget.isCourseClosed
+                    ? null
+                    : () => _pickBlockMaterial(block, choices),
+              ),
+            ),
+            if (choices.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(top: 10),
+                child: AiryNote(
+                  'ยังไม่มีไฟล์ชนิดนี้ในบทเรียน — อัปโหลดที่แท็บคลังสื่อแนบก่อน '
+                  'แล้วกลับมาเลือก',
+                ),
+              ),
+          ],
+          const SizedBox(height: 12),
+          _blockField(
+            label: 'คำบรรยาย (ไม่บังคับ)',
+            hint: 'นักเรียนจะเห็นข้อความนี้ใต้สื่อ',
+            initialValue: block.caption,
+            onChanged: (val) {
+              block.caption = val;
+              _triggerAutoSave();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickBlockMaterial(
+    ContentBlockModel block,
+    List<LessonMaterialModel> choices,
+  ) async {
+    if (choices.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ยังไม่มีไฟล์ชนิดนี้ — อัปโหลดที่แท็บคลังสื่อแนบก่อน'),
+        ),
+      );
+      return;
+    }
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(22, 20, 22, 12),
+              child: Text(
+                'เลือกไฟล์จากคลังสื่อแนบ',
+                style: TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
+                  color: AirySpec.ink,
+                ),
+              ),
+            ),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+                children: [
+                  for (final m in choices)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Material(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(14),
+                          onTap: () => Navigator.pop(sheetContext, m.id),
+                          child: Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: m.id == block.materialId
+                                    ? TeacherPalette.primary
+                                    : const Color(0xFFEDECF2),
+                                width: m.id == block.materialId ? 1.6 : 1,
+                              ),
+                            ),
+                            child: Text(
+                              m.title,
+                              style: const TextStyle(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w600,
+                                color: AirySpec.ink,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    setState(() => block.materialId = picked);
+    _triggerAutoSave();
+  }
+
   IconData _getBlockIcon(ContentBlockType type) {
     return switch (type) {
       ContentBlockType.heading => Icons.title_rounded,
@@ -2577,7 +2834,11 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
       ContentBlockType.calloutWarning => Icons.warning_amber_rounded,
       ContentBlockType.summaryBox => Icons.lightbulb_outline_rounded,
       ContentBlockType.sensorChart => Icons.sensors_rounded,
-      _ => Icons.article_outlined,
+      ContentBlockType.bulletList => Icons.format_list_bulleted_rounded,
+      ContentBlockType.image => Icons.image_outlined,
+      ContentBlockType.video => Icons.play_circle_outline_rounded,
+      ContentBlockType.fileDownload => Icons.insert_drive_file_outlined,
+      ContentBlockType.externalLink => Icons.link_rounded,
     };
   }
 
@@ -2588,7 +2849,11 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
       ContentBlockType.calloutWarning => 'กล่องข้อควรระวัง (Callout)',
       ContentBlockType.summaryBox => 'กล่องสรุป (Summary)',
       ContentBlockType.sensorChart => 'กราฟ AIoT Sensor Chart',
-      _ => 'Block',
+      ContentBlockType.bulletList => 'รายการ (Bullet list)',
+      ContentBlockType.image => 'รูปภาพ (Image)',
+      ContentBlockType.video => 'วิดีโอ (Video)',
+      ContentBlockType.fileDownload => 'ไฟล์ (File)',
+      ContentBlockType.externalLink => 'ลิงก์ภายนอก (Link)',
     };
   }
 
@@ -3092,6 +3357,19 @@ class TeacherLessonPreviewPage extends StatelessWidget {
                     child: LessonBlockView(
                       blocks: lesson.blocks,
                       fallbackBody: '',
+                      // พรีวิวใช้รายการสื่อของบทเรียนชุดเดียวกับที่นักเรียน
+                      // จะได้ แต่ไม่ส่ง resolveMaterialUrl/onOpen — ครูจึง
+                      // เห็นกรอบสื่อครบโดยที่พรีวิวไม่พาออกจากหน้า
+                      materials: [
+                        for (final m in lesson.materials)
+                          LessonMaterial(
+                            id: m.id,
+                            type: m.type,
+                            title: m.title,
+                            url: m.url,
+                            sortOrder: 0,
+                          ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -3476,14 +3754,70 @@ class _AddBlockSheet extends StatelessWidget {
         const Icon(Icons.insights_outlined, size: 22, color: AirySpec.label),
       ),
       (
-        null,
-        'รูปภาพ · วิดีโอ · ไฟล์ · ลิงก์',
-        'ยังต่อระบบอัปโหลดไม่เสร็จ',
-        const Icon(
-          Icons.lock_outline_rounded,
-          size: 20,
-          color: Color(0xFFC9C7D2),
+        ContentBlockType.bulletList,
+        'รายการ',
+        'ข้อย่อยบรรทัดละข้อ มีจุดนำหน้า',
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final w in const [96.0, 74.0])
+              Padding(
+                padding: const EdgeInsets.only(bottom: 5),
+                child: Row(
+                  children: [
+                    const SizedBox(
+                      width: 4,
+                      height: 4,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Color(0xFF8E8C99),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      height: 5,
+                      width: w,
+                      color: const Color(0xFFE3E1EB),
+                    ),
+                  ],
+                ),
+              ),
+          ],
         ),
+      ),
+      (
+        ContentBlockType.image,
+        'รูปภาพ',
+        'เลือกรูปที่อัปโหลดไว้ในคลังสื่อแนบ นักเรียนเห็นรูปในหน้าเลย',
+        const Icon(Icons.image_outlined, size: 22, color: AirySpec.label),
+      ),
+      (
+        ContentBlockType.video,
+        'วิดีโอ',
+        'วิดีโอจากคลังสื่อแนบ เปิดด้วยแอปดูวิดีโอของเครื่อง',
+        const Icon(
+          Icons.play_circle_outline_rounded,
+          size: 22,
+          color: AirySpec.label,
+        ),
+      ),
+      (
+        ContentBlockType.fileDownload,
+        'ไฟล์',
+        'เอกสารจากคลังสื่อแนบ นักเรียนกดเปิดได้',
+        const Icon(
+          Icons.insert_drive_file_outlined,
+          size: 22,
+          color: AirySpec.label,
+        ),
+      ),
+      (
+        ContentBlockType.externalLink,
+        'ลิงก์ภายนอก',
+        'วาง URL เว็บไซต์หรือวิดีโอออนไลน์',
+        const Icon(Icons.link_rounded, size: 22, color: AirySpec.label),
       ),
     ];
 

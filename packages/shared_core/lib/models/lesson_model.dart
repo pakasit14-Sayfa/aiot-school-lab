@@ -270,6 +270,7 @@ class ContentBlockModel {
     this.sensorDeviceId = '',
     this.sensorMetric = '',
     this.timeRange = '',
+    this.materialId = '',
   });
 
   factory ContentBlockModel.fromJson(Map json, {required String fallbackId}) {
@@ -286,6 +287,7 @@ class ContentBlockModel {
       sensorDeviceId: json['sensorDeviceId'] as String? ?? '',
       sensorMetric: json['sensorMetric'] as String? ?? '',
       timeRange: json['timeRange'] as String? ?? '',
+      materialId: json['materialId'] as String? ?? '',
     );
   }
 
@@ -298,6 +300,12 @@ class ContentBlockModel {
   String sensorMetric;
   String timeRange;
 
+  /// id ของ `lesson_materials` ที่บล็อก รูป/วิดีโอ/ไฟล์ อ้างถึง — ไฟล์จริง
+  /// อยู่ใน Storage แบบ private เปิดได้ผ่าน signed URL เท่านั้น จึงเก็บ id
+  /// ไม่ใช่ URL (URL ที่เซฟไว้จะหมดอายุ) บล็อก externalLink ใช้ [mediaUrl]
+  /// เก็บ URL ที่ครูวางแทน
+  String materialId;
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'type': type.name,
@@ -307,6 +315,7 @@ class ContentBlockModel {
     'sensorDeviceId': sensorDeviceId,
     'sensorMetric': sensorMetric,
     'timeRange': timeRange,
+    'materialId': materialId,
   };
 }
 

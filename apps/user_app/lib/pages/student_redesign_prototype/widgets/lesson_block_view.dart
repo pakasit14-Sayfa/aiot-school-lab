@@ -15,6 +15,10 @@ class LessonBlockView extends StatelessWidget {
     super.key,
     required this.blocks,
     required this.fallbackBody,
+    this.materials = const [],
+    this.resolveMaterialUrl,
+    this.onOpenMaterial,
+    this.onOpenLink,
   });
 
   /// บล็อกจาก `content['blocks']`
@@ -23,13 +27,23 @@ class LessonBlockView extends StatelessWidget {
   /// `content['body']` — ใช้เมื่อบทเรียนถูกสร้างก่อนมีตัวแก้ไขแบบบล็อก
   final String fallbackBody;
 
-  /// ชนิดที่โครงสร้างรองรับแต่ยังวาดไม่ได้ในรอบนี้ — แสดงเป็นแถวจาง ๆ
-  /// บอกตรง ๆ ดีกว่าเงียบหายไปจนนักเรียนงงว่าเนื้อหาขาด
-  static const _unsupported = {
-    ContentBlockType.image: 'รูปภาพ',
-    ContentBlockType.video: 'วิดีโอ',
-    ContentBlockType.fileDownload: 'ไฟล์ดาวน์โหลด',
-    ContentBlockType.externalLink: 'ลิงก์ภายนอก',
+  /// สื่อแนบของบทเรียน — บล็อก รูป/วิดีโอ/ไฟล์ อ้างถึงด้วย `materialId`
+  final List<LessonMaterial> materials;
+
+  /// แลก material id เป็น signed URL อายุสั้น (ไฟล์อยู่ใน bucket แบบ private)
+  /// ไม่ส่งมา = แสดงการ์ดสื่อโดยไม่โหลดรูป
+  final Future<String> Function(String materialId)? resolveMaterialUrl;
+
+  /// เปิดสื่อที่อัปโหลดไว้ / เปิดลิงก์ภายนอก — ไม่ส่งมา (เช่นหน้าดูตัวอย่าง
+  /// ของครู) ปุ่มจะแสดงแต่กดไม่ได้ ตรงกับที่พรีวิวไม่ควรพาออกจากหน้า
+  final void Function(LessonMaterial material)? onOpenMaterial;
+  final void Function(String url)? onOpenLink;
+
+  static const _mediaTypes = {
+    ContentBlockType.image,
+    ContentBlockType.video,
+    ContentBlockType.fileDownload,
+    ContentBlockType.externalLink,
   };
 
   @override
@@ -38,7 +52,7 @@ class LessonBlockView extends StatelessWidget {
         .where(
           (b) =>
               b.type == ContentBlockType.sensorChart ||
-              _unsupported.containsKey(b.type) ||
+              _mediaTypes.contains(b.type) ||
               b.text.trim().isNotEmpty,
         )
         .toList();
@@ -71,6 +85,20 @@ class LessonBlockView extends StatelessWidget {
     );
   }
 
+  String _captionOf(ContentBlockModel block) =>
+      block.caption.trim().isEmpty ? block.text.trim() : block.caption.trim();
+
+  /// สื่อที่บล็อกอ้างถึง — คืน null เมื่อครูยังไม่ได้เลือก หรือเลือกไว้แล้ว
+  /// แต่สื่อชิ้นนั้นถูกลบออกจากบทเรียนไปแล้ว ทั้งสองกรณีต้องบอกนักเรียน
+  /// ตรง ๆ ไม่ใช่โชว์กรอบว่าง
+  LessonMaterial? _materialOf(ContentBlockModel block) {
+    if (block.materialId.trim().isEmpty) return null;
+    for (final m in materials) {
+      if (m.id == block.materialId.trim()) return m;
+    }
+    return null;
+  }
+
   Widget _block(ContentBlockModel block) {
     switch (block.type) {
       case ContentBlockType.heading:
@@ -83,15 +111,21 @@ class LessonBlockView extends StatelessWidget {
         return _SummaryBox(block.text);
       case ContentBlockType.sensorChart:
         return _SensorNote(block);
+      case ContentBlockType.externalLink:
+        return _LinkBlock(
+          url: block.mediaUrl.trim(),
+          label: _captionOf(block),
+          onOpen: onOpenLink,
+        );
       case ContentBlockType.image:
       case ContentBlockType.video:
       case ContentBlockType.fileDownload:
-      case ContentBlockType.externalLink:
-        return _Unsupported(
-          label: _unsupported[block.type]!,
-          caption: block.caption.trim().isEmpty
-              ? block.text.trim()
-              : block.caption.trim(),
+        return _MediaBlock(
+          type: block.type,
+          material: _materialOf(block),
+          caption: _captionOf(block),
+          resolveUrl: resolveMaterialUrl,
+          onOpen: onOpenMaterial,
         );
       case ContentBlockType.text:
         return _Body(block.text);
@@ -342,10 +376,284 @@ class _SensorNote extends StatelessWidget {
   }
 }
 
-class _Unsupported extends StatelessWidget {
-  const _Unsupported({required this.label, required this.caption});
-  final String label;
+/// รูป/วิดีโอ/ไฟล์ที่ครูอัปโหลดไว้เป็นสื่อแนบของบทเรียน
+///
+/// รูปโหลดมาแสดงในหน้าเลย ส่วนวิดีโอกับไฟล์เป็นการ์ดพร้อมปุ่มเปิด เพราะแอป
+/// ยังไม่มีตัวเล่นวิดีโอในตัว — เขียนให้ตรงกับที่ทำได้จริง ดีกว่าโชว์กรอบ
+/// วิดีโอที่กดแล้วไม่มีอะไรเกิดขึ้น
+class _MediaBlock extends StatelessWidget {
+  const _MediaBlock({
+    required this.type,
+    required this.material,
+    required this.caption,
+    required this.resolveUrl,
+    required this.onOpen,
+  });
+
+  final ContentBlockType type;
+  final LessonMaterial? material;
   final String caption;
+  final Future<String> Function(String materialId)? resolveUrl;
+  final void Function(LessonMaterial material)? onOpen;
+
+  String get _label => switch (type) {
+    ContentBlockType.image => 'รูปภาพ',
+    ContentBlockType.video => 'วิดีโอ',
+    _ => 'ไฟล์',
+  };
+
+  IconData get _icon => switch (type) {
+    ContentBlockType.image => Icons.image_outlined,
+    ContentBlockType.video => Icons.play_circle_outline_rounded,
+    _ => Icons.insert_drive_file_outlined,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final mat = material;
+    if (mat == null) {
+      return _MissingMedia('$_label — ยังไม่ได้เลือกไฟล์');
+    }
+
+    if (type == ContentBlockType.image) {
+      return _ImageBlock(
+        material: mat,
+        caption: caption,
+        resolveUrl: resolveUrl,
+      );
+    }
+
+    return _ActionCard(
+      icon: _icon,
+      title: caption.isEmpty ? (mat.title ?? _label) : caption,
+      subtitle: _label,
+      action: type == ContentBlockType.video ? 'เปิดวิดีโอ' : 'เปิดไฟล์',
+      onTap: onOpen == null ? null : () => onOpen!(mat),
+    );
+  }
+}
+
+class _ImageBlock extends StatelessWidget {
+  const _ImageBlock({
+    required this.material,
+    required this.caption,
+    required this.resolveUrl,
+  });
+
+  final LessonMaterial material;
+  final String caption;
+  final Future<String> Function(String materialId)? resolveUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: resolveUrl == null
+              ? _ImageFrame(child: _ImageHint(material.title ?? 'รูปภาพ'))
+              : FutureBuilder<String>(
+                  future: resolveUrl!(material.id),
+                  builder: (context, snap) {
+                    if (snap.connectionState == ConnectionState.waiting) {
+                      return const _ImageFrame(
+                        child: SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            color: SchoolPalette.deepGreen,
+                          ),
+                        ),
+                      );
+                    }
+                    if (snap.hasError || snap.data == null) {
+                      return const _ImageFrame(
+                        child: _ImageHint('เปิดรูปไม่สำเร็จ ลองใหม่อีกครั้ง'),
+                      );
+                    }
+                    return Image.network(
+                      snap.data!,
+                      fit: BoxFit.fitWidth,
+                      width: double.infinity,
+                      errorBuilder: (_, _, _) => const _ImageFrame(
+                        child: _ImageHint('เปิดรูปไม่สำเร็จ ลองใหม่อีกครั้ง'),
+                      ),
+                    );
+                  },
+                ),
+        ),
+        if (caption.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              caption,
+              style: const TextStyle(
+                fontSize: 12.5,
+                height: 1.5,
+                color: SchoolPalette.muted,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ImageFrame extends StatelessWidget {
+  const _ImageFrame({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    height: 160,
+    width: double.infinity,
+    alignment: Alignment.center,
+    color: SchoolPalette.softGreenBg,
+    child: child,
+  );
+}
+
+class _ImageHint extends StatelessWidget {
+  const _ImageHint(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: Text(
+      text,
+      textAlign: TextAlign.center,
+      style: const TextStyle(
+        fontSize: 12.5,
+        height: 1.5,
+        color: SchoolPalette.muted,
+      ),
+    ),
+  );
+}
+
+/// ลิงก์ภายนอกที่ครูวางไว้ — ไม่ใช่ไฟล์ใน Storage จึงเปิดตรงได้เลย
+class _LinkBlock extends StatelessWidget {
+  const _LinkBlock({
+    required this.url,
+    required this.label,
+    required this.onOpen,
+  });
+
+  final String url;
+  final String label;
+  final void Function(String url)? onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    if (url.isEmpty) {
+      return const _MissingMedia('ลิงก์ภายนอก — ยังไม่ได้ใส่ URL');
+    }
+    return _ActionCard(
+      icon: Icons.link_rounded,
+      title: label.isEmpty ? url : label,
+      subtitle: url,
+      action: 'เปิดลิงก์',
+      onTap: onOpen == null ? null : () => onOpen!(url),
+    );
+  }
+}
+
+class _ActionCard extends StatelessWidget {
+  const _ActionCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.action,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String action;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final card = Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: SchoolPalette.softGreenBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: SchoolPalette.glassBorder),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 21, color: SchoolPalette.deepGreen),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    height: 1.45,
+                    fontWeight: FontWeight.w800,
+                    color: SchoolPalette.ink,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: SchoolPalette.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: SchoolPalette.glassBorder, width: 1.2),
+            ),
+            child: Text(
+              action,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: SchoolPalette.deepGreen,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (onTap == null) return card;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: card,
+      ),
+    );
+  }
+}
+
+class _MissingMedia extends StatelessWidget {
+  const _MissingMedia(this.text);
+  final String text;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -362,16 +670,14 @@ class _Unsupported extends StatelessWidget {
         const Padding(
           padding: EdgeInsets.only(right: 11, top: 1),
           child: Icon(
-            Icons.hourglass_empty_rounded,
+            Icons.help_outline_rounded,
             size: 17,
             color: SchoolPalette.muted,
           ),
         ),
         Expanded(
           child: Text(
-            caption.isEmpty
-                ? '$label — ยังไม่รองรับการแสดงผล'
-                : '$label — ยังไม่รองรับการแสดงผล ($caption)',
+            text,
             style: const TextStyle(
               fontSize: 12.5,
               height: 1.5,

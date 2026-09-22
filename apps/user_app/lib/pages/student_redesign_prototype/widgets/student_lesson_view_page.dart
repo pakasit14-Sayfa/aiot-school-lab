@@ -187,6 +187,28 @@ class _StudentLessonViewPageState extends State<StudentLessonViewPage> {
     }
   }
 
+  /// ลิงก์ภายนอกจากบล็อก `externalLink` — เป็น URL จริงอยู่แล้ว ไม่ต้องแลก
+  /// signed URL เหมือนไฟล์ที่อัปโหลด
+  Future<void> _openLink(String url) async {
+    try {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(uri);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('เปิดลิงก์นี้ไม่ได้ กรุณาแจ้งครูผู้สอน'),
+          backgroundColor: Color(0xFFEF4444),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   Future<void> _openMaterial(LessonMaterial mat) async {
     try {
       // Uploaded files (image/video/file) store a Storage path, not a
@@ -411,7 +433,16 @@ class _StudentLessonViewPageState extends State<StudentLessonViewPage> {
             const SizedBox(height: 10),
             SoftCard(
               padding: const EdgeInsets.all(20),
-              child: LessonBlockView(blocks: blocks, fallbackBody: bodyText),
+              child: LessonBlockView(
+                blocks: blocks,
+                fallbackBody: bodyText,
+                materials: lesson.materials,
+                resolveMaterialUrl:
+                    widget.getMaterialDownloadUrl ??
+                    LessonService.getMaterialDownloadUrl,
+                onOpenMaterial: _openMaterial,
+                onOpenLink: _openLink,
+              ),
             ),
             const SizedBox(height: 24),
 

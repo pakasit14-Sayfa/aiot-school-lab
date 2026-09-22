@@ -21,6 +21,23 @@ const _course = CourseDetail(
   teacherNames: 'ครูสมชาย',
 );
 
+const _materials = [
+  LessonMaterial(
+    id: 'mat-img',
+    type: 'image',
+    title: 'ผังการต่อสาย.png',
+    url: 'lessons/1/wiring.png',
+    sortOrder: 0,
+  ),
+  LessonMaterial(
+    id: 'mat-file',
+    type: 'file',
+    title: 'ใบงาน.pdf',
+    url: 'lessons/1/sheet.pdf',
+    sortOrder: 1,
+  ),
+];
+
 LessonDetail _lesson(Map<String, dynamic>? content) => LessonDetail(
   id: 'lesson-1',
   courseId: 'course-1',
@@ -28,7 +45,7 @@ LessonDetail _lesson(Map<String, dynamic>? content) => LessonDetail(
   content: content,
   status: 'published',
   publishedAt: DateTime(2026, 9, 20),
-  materials: const [],
+  materials: _materials,
   sensorLinks: const [],
   progressPct: 10,
   completed: false,
@@ -111,18 +128,62 @@ void main() {
       expect(find.text('ข้อสาม'), findsOneWidget);
     });
 
-    testWidgets('ชนิดที่ยังไม่รองรับต้องบอกตรง ๆ ไม่ใช่เงียบหาย', (
+    testWidgets('บล็อกไฟล์แสดงชื่อไฟล์จริงพร้อมปุ่มเปิด', (tester) async {
+      await _pump(
+        tester,
+        _blocks([
+          {'type': 'fileDownload', 'text': '', 'materialId': 'mat-file'},
+        ]),
+      );
+
+      // ชื่อไฟล์โผล่สองที่ตามที่ควรเป็น: ในบล็อก และในหัวข้อ 'เอกสารและไฟล์'
+      // ของหน้า — ปุ่ม 'เปิดไฟล์' เป็นของบล็อกอย่างเดียว
+      expect(find.text('ใบงาน.pdf'), findsNWidgets(2));
+      expect(find.text('เปิดไฟล์'), findsOneWidget);
+    });
+
+    testWidgets('บล็อกลิงก์แสดง URL พร้อมปุ่มเปิดลิงก์', (tester) async {
+      await _pump(
+        tester,
+        _blocks([
+          {
+            'type': 'externalLink',
+            'text': '',
+            'mediaUrl': 'https://example.org/aiot',
+            'caption': 'อ่านเพิ่มเติม',
+          },
+        ]),
+      );
+
+      expect(find.text('อ่านเพิ่มเติม'), findsOneWidget);
+      expect(find.text('https://example.org/aiot'), findsOneWidget);
+      expect(find.text('เปิดลิงก์'), findsOneWidget);
+    });
+
+    testWidgets('บล็อกสื่อที่ยังไม่ได้เลือกไฟล์ต้องบอก ไม่ใช่กรอบว่าง', (
       tester,
     ) async {
       await _pump(
         tester,
         _blocks([
-          {'type': 'image', 'text': '', 'caption': 'ผังการต่อสาย'},
+          {'type': 'image', 'text': '', 'materialId': ''},
         ]),
       );
 
-      expect(find.textContaining('ยังไม่รองรับ'), findsOneWidget);
-      expect(find.textContaining('ผังการต่อสาย'), findsOneWidget);
+      expect(find.textContaining('ยังไม่ได้เลือกไฟล์'), findsOneWidget);
+    });
+
+    testWidgets('บล็อกสื่อที่ชี้ไปไฟล์ที่ถูกลบแล้วต้องบอก ไม่ใช่เงียบ', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        _blocks([
+          {'type': 'fileDownload', 'text': '', 'materialId': 'ไฟล์ที่ถูกลบไป'},
+        ]),
+      );
+
+      expect(find.textContaining('ยังไม่ได้เลือกไฟล์'), findsOneWidget);
     });
 
     testWidgets('บล็อกกราฟชี้ไปหัวข้อเซนเซอร์ ไม่วาดกราฟซ้ำ', (tester) async {
@@ -176,7 +237,11 @@ void main() {
           type: ContentBlockType.heading,
           text: 'หัวข้อ',
         ),
-        ContentBlockModel(id: 'b', type: ContentBlockType.text, text: 'เนื้อหา'),
+        ContentBlockModel(
+          id: 'b',
+          type: ContentBlockType.text,
+          text: 'เนื้อหา',
+        ),
         ContentBlockModel(
           id: 'c',
           type: ContentBlockType.text,
@@ -206,6 +271,17 @@ void main() {
       expect(restored.caption, 'คำบรรยาย');
       expect(restored.sensorMetric, 'pm25');
     });
+
+    test('materialId เดินทางไป-กลับผ่าน jsonb ได้', () {
+      final blocks = lessonBlocksFromContent(const {
+        'blocks': [
+          {'id': 'a', 'type': 'image', 'materialId': 'mat-img'},
+        ],
+      });
+
+      expect(blocks.single.materialId, 'mat-img');
+      expect(blocks.single.toJson()['materialId'], 'mat-img');
+    });
   });
 
   testWidgets('LessonBlockView เดี่ยว ๆ ไม่ล้นที่ความกว้างมือถือแคบสุด', (
@@ -225,7 +301,8 @@ void main() {
             padding: EdgeInsets.all(20),
             child: LessonBlockView(
               blocks: [],
-              fallbackBody: 'ข้อความยาวพอที่จะต้องตัดบรรทัดบนจอแคบที่สุด '
+              fallbackBody:
+                  'ข้อความยาวพอที่จะต้องตัดบรรทัดบนจอแคบที่สุด '
                   'ที่เรารองรับ คือ 360 จุดตามที่ probe ของเลนครูใช้',
             ),
           ),
