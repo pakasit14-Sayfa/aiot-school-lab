@@ -306,10 +306,14 @@ class _TeacherMockPageShellState extends State<TeacherMockPageShell> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, screenConstraints) {
-        // จอกว้าง (>=900px) ปักหมุด sidebar ไว้ค้างข้างซ้ายเหมือนหน้า
-        // แดชบอร์ด แทนที่จะต้องกดแฮมเบอร์เกอร์เปิด Drawer ทุกครั้ง —
-        // จอแคบยังใช้ Drawer เดิมเพราะพื้นที่ไม่พอวาง sidebar ค้าง
-        final isWideDesktop = screenConstraints.maxWidth >= 900;
+        // จอกว้าง ปักหมุด sidebar ไว้ค้างข้างซ้ายเหมือนหน้าแดชบอร์ด แทนที่
+        // จะต้องกดแฮมเบอร์เกอร์เปิด Drawer ทุกครั้ง — จอแคบยังใช้ Drawer เดิม
+        // เพราะพื้นที่ไม่พอวาง sidebar ค้าง
+        //
+        // เกณฑ์ 820 ไม่ใช่ 900: iPad แนวตั้งกว้าง 834pt ซึ่งพอวาง sidebar
+        // ได้สบาย แต่เกณฑ์เดิมตกไป 66pt ครูที่ถือ iPad แนวตั้งจึงได้
+        // เลย์เอาต์มือถือทั้งที่จอกว้างเกือบเท่าจอโน้ตบุ๊กครึ่งจอ
+        final isWideDesktop = screenConstraints.maxWidth >= 820;
         final sidebarCompact = _manualCompact ?? false;
         // จอกว้างมาก (เช่นจอคอมทั่วไป ≥1600px รวม sidebar แล้ว) ให้ขยาย
         // พื้นที่เนื้อหาตามไปด้วย แทนที่จะตรึงไว้แค่ 1080 เท่ากับ tablet —

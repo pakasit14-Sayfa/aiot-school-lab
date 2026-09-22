@@ -4952,41 +4952,51 @@ class _CourseGradebookTabWidgetState extends State<_CourseGradebookTabWidget> {
                 ],
               );
             }
-            return GridView.count(
-              crossAxisCount: 3,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 2.4,
-              children: [
-                _buildSummaryCard(
-                  title: 'คะแนนเฉลี่ยรวมรายวิชา',
-                  value: avgLabel,
-                  subtitle: 'คำนวณจากคะแนนที่บันทึกจริงในระบบ',
-                  icon: Icons.grade_rounded,
-                  color: const Color(0xFF059669),
-                  bgColor: const Color(0xFFECFDF5),
-                ),
-                _buildSummaryCard(
-                  title: 'จำนวนรายการคะแนนที่บันทึกแล้ว',
-                  value: '$entryCount รายการ',
-                  subtitle: 'รวมทุกรายการคะแนนที่ครูบันทึกในวิชานี้',
-                  icon: Icons.assignment_turned_in_rounded,
-                  color: TeacherPalette.primary,
-                  bgColor: TeacherPalette.primary.withValues(alpha: 0.08),
-                ),
-                _buildSummaryCard(
-                  title: 'นักเรียนที่มีคะแนนแล้ว',
-                  value: '$studentsWithGrades/${_students.length} คน',
-                  subtitle: _students.isEmpty
-                      ? '-'
-                      : '${(studentsWithGrades / _students.length * 100).round()}% ของทั้งห้องเรียน',
-                  icon: Icons.people_alt_rounded,
-                  color: const Color(0xFF2563EB),
-                  bgColor: const Color(0xFFEFF6FF),
-                ),
-              ],
+            // Row + Expanded ไม่ใช่ GridView — กริดต้องรู้ความสูงช่องล่วงหน้า
+            // จาก childAspectRatio ซึ่งผูกความสูงไว้กับความกว้าง พอ sidebar
+            // กินพื้นที่ไป (iPad แนวตั้ง 834pt) ช่องแคบลง คำอธิบายตัดเป็น
+            // หลายบรรทัด แล้วล้นขอบล่าง 58-67px — แถวธรรมดาสูงตามการ์ดที่
+            // สูงที่สุดเอง ล้นไม่ได้
+            return IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _buildSummaryCard(
+                      title: 'คะแนนเฉลี่ยรวมรายวิชา',
+                      value: avgLabel,
+                      subtitle: 'คำนวณจากคะแนนที่บันทึกจริงในระบบ',
+                      icon: Icons.grade_rounded,
+                      color: const Color(0xFF059669),
+                      bgColor: const Color(0xFFECFDF5),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildSummaryCard(
+                      title: 'จำนวนรายการคะแนนที่บันทึกแล้ว',
+                      value: '$entryCount รายการ',
+                      subtitle: 'รวมทุกรายการคะแนนที่ครูบันทึกในวิชานี้',
+                      icon: Icons.assignment_turned_in_rounded,
+                      color: TeacherPalette.primary,
+                      bgColor: TeacherPalette.primary.withValues(alpha: 0.08),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildSummaryCard(
+                      title: 'นักเรียนที่มีคะแนนแล้ว',
+                      value: '$studentsWithGrades/${_students.length} คน',
+                      subtitle: _students.isEmpty
+                          ? '-'
+                          : '${(studentsWithGrades / _students.length * 100).round()}% ของทั้งห้องเรียน',
+                      icon: Icons.people_alt_rounded,
+                      color: const Color(0xFF2563EB),
+                      bgColor: const Color(0xFFEFF6FF),
+                    ),
+                  ),
+                ],
+              ),
             );
           },
         ),

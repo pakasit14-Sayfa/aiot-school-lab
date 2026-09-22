@@ -1,4 +1,5 @@
-// Phone-width guard for the teacher lane (S3, 2026-09-21): pumps the courses
+// Width guard for the teacher lane (S3, 2026-09-21 · ขยายครอบจอกว้าง
+// 2026-09-22): pumps the courses
 // list and every course-detail tab at 360/375/390/402 and fails on any
 // RenderFlex overflow. Started life as a probe that found 7 sites.
 import 'package:flutter/material.dart';
@@ -12,7 +13,17 @@ import 'package:my_first_app/pages/teacher_redesign_prototype/teacher_grading_pa
 import 'package:my_first_app/pages/teacher_redesign_prototype/teacher_lesson_editor_page.dart';
 import 'package:shared_core/shared_core.dart';
 
-const _sizes = [Size(360, 640), Size(375, 667), Size(390, 844), Size(402, 874)];
+/// ความกว้างที่ต้องผ่านทั้งหมด — มือถือ 4 ขนาด บวก iPad แนวตั้ง (834)
+/// และจอคอม (1440) ที่เพิ่มเมื่อ 2026-09-22 หลังพบว่าเราออกแบบจากภาพ
+/// มือถือล้วนและ probe ก็วัดแต่จอแคบ จอกว้างจึงเป็นจุดบอดมาตลอด
+const _sizes = [
+  Size(360, 640),
+  Size(375, 667),
+  Size(390, 844),
+  Size(402, 874),
+  Size(834, 1112),
+  Size(1440, 900),
+];
 
 const _course = TeacherCourseModel(
   id: 'fcf029bf',
@@ -66,26 +77,27 @@ Future<void> _probe(
 }
 
 void main() {
-  testWidgets('teacher courses list has no overflow at phone widths', (
-    tester,
-  ) async {
-    await _probe(
-      tester,
-      'courses',
-      TeacherCoursesPage(
-        loadCourses: () async => const [
-          CourseSummary(
-            id: 'fcf029bf',
-            subjectName: 'คณิตศาสตร์',
-            gradeLevel: 'ม.1',
-            room: 'ม.1/1',
-            status: 'published',
-            termId: 't',
-          ),
-        ],
-      ),
-    );
-  });
+  testWidgets(
+    'teacher courses list has no overflow at phone·tablet·desktop widths',
+    (tester) async {
+      await _probe(
+        tester,
+        'courses',
+        TeacherCoursesPage(
+          loadCourses: () async => const [
+            CourseSummary(
+              id: 'fcf029bf',
+              subjectName: 'คณิตศาสตร์',
+              gradeLevel: 'ม.1',
+              room: 'ม.1/1',
+              status: 'published',
+              termId: 't',
+            ),
+          ],
+        ),
+      );
+    },
+  );
 
   for (final tab in [
     'นักเรียน',
@@ -95,28 +107,29 @@ void main() {
     'กลุ่ม',
     'คะแนน',
   ]) {
-    testWidgets('course detail tab $tab has no overflow at phone widths', (
-      tester,
-    ) async {
-      await _probe(
-        tester,
-        'detail/$tab',
-        TeacherCourseDetailPage(
-          course: _course,
-          initialTab: tab,
-          loadCourseStudents: (_) async => [
-            CourseStudent(
-              studentId: 's1',
-              firstName: 'Dashboard',
-              lastName: 'Viewer',
-              email: 'dashboard-viewer@aiot-school-lab.local',
-              enrolledAt: DateTime(2026, 9, 1),
-            ),
-          ],
-          loadCourseGrades: (_) async => const [],
-        ),
-      );
-    });
+    testWidgets(
+      'course detail tab $tab has no overflow at phone·tablet·desktop widths',
+      (tester) async {
+        await _probe(
+          tester,
+          'detail/$tab',
+          TeacherCourseDetailPage(
+            course: _course,
+            initialTab: tab,
+            loadCourseStudents: (_) async => [
+              CourseStudent(
+                studentId: 's1',
+                firstName: 'Dashboard',
+                lastName: 'Viewer',
+                email: 'dashboard-viewer@aiot-school-lab.local',
+                enrolledAt: DateTime(2026, 9, 1),
+              ),
+            ],
+            loadCourseGrades: (_) async => const [],
+          ),
+        );
+      },
+    );
   }
 
   // Grading-flow redesign (2026-09-21): list → assignment page → form.
@@ -171,7 +184,9 @@ void main() {
     termId: 't',
   );
 
-  testWidgets('grading list has no overflow at phone widths', (tester) async {
+  testWidgets('grading list has no overflow at phone·tablet·desktop widths', (
+    tester,
+  ) async {
     await _probe(
       tester,
       'grading',
@@ -187,58 +202,62 @@ void main() {
     );
   });
 
-  testWidgets('assignment page has no overflow at phone widths', (
-    tester,
-  ) async {
-    await _probe(
-      tester,
-      'assignment',
-      TeacherAssignmentDetailPage(
-        assignment: asg,
-        courseId: 'c1',
-        courseName: 'คณิตศาสตร์',
-        loadStudents: (_) async => students,
-        loadSubmissions: (_) async => const [],
-        loadDetail: (_) async => detail,
-      ),
-    );
-  });
+  testWidgets(
+    'assignment page has no overflow at phone·tablet·desktop widths',
+    (tester) async {
+      await _probe(
+        tester,
+        'assignment',
+        TeacherAssignmentDetailPage(
+          assignment: asg,
+          courseId: 'c1',
+          courseName: 'คณิตศาสตร์',
+          loadStudents: (_) async => students,
+          loadSubmissions: (_) async => const [],
+          loadDetail: (_) async => detail,
+        ),
+      );
+    },
+  );
 
-  testWidgets('assignment form has no overflow at phone widths', (
-    tester,
-  ) async {
-    await _probe(
-      tester,
-      'form',
-      TeacherAssignmentFormPage(
-        courseId: 'c1',
-        courseName: 'คณิตศาสตร์',
-        existing: asg,
-        listMyRubrics: () async => [
-          RubricModel(
-            id: 'r1',
-            title: 'เกณฑ์การให้คะแนนชิ้นงานทดลองวิทยาศาสตร์',
-            criteriaCount: 4,
-          ),
-        ],
-        loadAssignmentDetail: (_) async => detail,
-        listDevices: () async => const [
-          DeviceOption(
-            id: 'dev1',
-            name: 'เซนเซอร์คุณภาพอากาศห้อง ม.1/1',
-            type: 'air_quality_sensor',
-            location: 'อาคาร 2 ชั้น 3',
-            status: 'online',
-          ),
-        ],
-      ),
-    );
-  });
+  testWidgets(
+    'assignment form has no overflow at phone·tablet·desktop widths',
+    (tester) async {
+      await _probe(
+        tester,
+        'form',
+        TeacherAssignmentFormPage(
+          courseId: 'c1',
+          courseName: 'คณิตศาสตร์',
+          existing: asg,
+          listMyRubrics: () async => [
+            RubricModel(
+              id: 'r1',
+              title: 'เกณฑ์การให้คะแนนชิ้นงานทดลองวิทยาศาสตร์',
+              criteriaCount: 4,
+            ),
+          ],
+          loadAssignmentDetail: (_) async => detail,
+          listDevices: () async => const [
+            DeviceOption(
+              id: 'dev1',
+              name: 'เซนเซอร์คุณภาพอากาศห้อง ม.1/1',
+              type: 'air_quality_sensor',
+              location: 'อาคาร 2 ชั้น 3',
+              status: 'online',
+            ),
+          ],
+        ),
+      );
+    },
+  );
 
   // หน้านี้เคย overflow จริงที่แถบบน (เห็น "OVERFLOWED BY" บนเครื่อง
   // 2026-09-21): แถบบนใส่ปุ่มย้อนกลับ ไอคอน ช่องชื่อบทเรียน ป้ายสถานะบันทึก
   // และปุ่มอีกสองปุ่มไว้บรรทัดเดียว — กันไม่ให้กลับมาอีก
-  testWidgets('lesson editor has no overflow at phone widths', (tester) async {
+  testWidgets('lesson editor has no overflow at phone·tablet·desktop widths', (
+    tester,
+  ) async {
     await _probe(
       tester,
       'lesson editor',
@@ -281,7 +300,9 @@ void main() {
 
   // หน้าดูตัวอย่างเคยล้นขอบขวาจริง (เห็น RIGHT OVERFLOWED บนเครื่อง
   // 2026-09-22): แถบแจ้งเตือนจัดข้อความกึ่งกลางในแถวที่ไม่ยอมตัดบรรทัด
-  testWidgets('lesson preview has no overflow at phone widths', (tester) async {
+  testWidgets('lesson preview has no overflow at phone·tablet·desktop widths', (
+    tester,
+  ) async {
     await _probe(
       tester,
       'lesson preview',
@@ -344,28 +365,31 @@ void main() {
   });
   // 2026-09-22: เห็น RIGHT OVERFLOWED BY 77 PIXELS ที่แถวชิปสถานะ และ
   // BY 38 PIXELS ที่แถวล่างของการ์ด (ส่งแล้ว x คน / % / ปุ่มแก้ไข+ตรวจงาน)
-  testWidgets('assignment editor has no overflow at phone widths', (
+  testWidgets(
+    'assignment editor has no overflow at phone·tablet·desktop widths',
+    (tester) async {
+      await _probe(
+        tester,
+        'assignment editor',
+        TeacherAssignmentEditorPage(
+          loadCourses: () async => const [course],
+          loadAssignmentsForCourse: (_) async => [
+            asg.copyWith(status: 'draft'),
+            asg,
+          ],
+          loadCourseStudents: (_) async => students,
+          loadSubmissions: (_) async => const [],
+          listMyRubrics: () async => const <RubricModel>[],
+          listDevices: () async => const <DeviceOption>[],
+          loadAssignmentDetail: (_) async => detail,
+        ),
+      );
+    },
+  );
+
+  testWidgets('exam builder has no overflow at phone·tablet·desktop widths', (
     tester,
   ) async {
-    await _probe(
-      tester,
-      'assignment editor',
-      TeacherAssignmentEditorPage(
-        loadCourses: () async => const [course],
-        loadAssignmentsForCourse: (_) async => [
-          asg.copyWith(status: 'draft'),
-          asg,
-        ],
-        loadCourseStudents: (_) async => students,
-        loadSubmissions: (_) async => const [],
-        listMyRubrics: () async => const <RubricModel>[],
-        listDevices: () async => const <DeviceOption>[],
-        loadAssignmentDetail: (_) async => detail,
-      ),
-    );
-  });
-
-  testWidgets('exam builder has no overflow at phone widths', (tester) async {
     await _probe(
       tester,
       'exam builder',

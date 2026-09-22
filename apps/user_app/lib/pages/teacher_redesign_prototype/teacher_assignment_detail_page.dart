@@ -269,60 +269,62 @@ class _TeacherAssignmentDetailPageState
       ),
       bottomNavigationBar: _loading || _error != null
           ? null
-          : _actionBar(color),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+          : AiryContentWidth(shrinkHeight: true, child: _actionBar(color)),
+      body: AiryContentWidth(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(_error!, textAlign: TextAlign.center),
+                      const SizedBox(height: 12),
+                      OutlinedButton(
+                        onPressed: _load,
+                        child: const Text('ลองใหม่'),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            : RefreshIndicator(
+                onRefresh: _load,
+                child: ListView(
+                  padding: EdgeInsets.zero,
                   children: [
-                    Text(_error!, textAlign: TextAlign.center),
-                    const SizedBox(height: 12),
-                    OutlinedButton(
-                      onPressed: _load,
-                      child: const Text('ลองใหม่'),
+                    _header(color),
+                    Transform.translate(
+                      offset: const Offset(0, -26),
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFF7F7FA),
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(26),
+                          ),
+                        ),
+                        padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _progressCard(),
+                            if ((_a.instructions ?? '').trim().isNotEmpty ||
+                                (_detail?.sensorDatasets.isNotEmpty ??
+                                    false)) ...[
+                              const AirySection('โจทย์'),
+                              _briefCard(color),
+                            ],
+                            ..._rosterSection(),
+                          ],
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
-            )
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  _header(color),
-                  Transform.translate(
-                    offset: const Offset(0, -26),
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF7F7FA),
-                        borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(26),
-                        ),
-                      ),
-                      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _progressCard(),
-                          if ((_a.instructions ?? '').trim().isNotEmpty ||
-                              (_detail?.sensorDatasets.isNotEmpty ??
-                                  false)) ...[
-                            const AirySection('โจทย์'),
-                            _briefCard(color),
-                          ],
-                          ..._rosterSection(),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+      ),
     );
   }
 

@@ -491,9 +491,14 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
       child: Scaffold(
         backgroundColor: const Color(0xFFF7F7FA),
         extendBodyBehindAppBar: true,
-        bottomNavigationBar: _saveBar(color),
+        // จำกัดความกว้างทั้งเนื้อหาและแถบล่าง ไม่งั้นบนจอคอมแถวป้าย-ค่า
+        // จะยืดเกิน 1,900px จนอ่านเป็นคู่กันไม่ได้
+        bottomNavigationBar: AiryContentWidth(
+          shrinkHeight: true,
+          child: _saveBar(color),
+        ),
         appBar: _editAppBar(),
-        body: _editBody(color, rubricTitle),
+        body: AiryContentWidth(child: _editBody(color, rubricTitle)),
       ),
     );
   }

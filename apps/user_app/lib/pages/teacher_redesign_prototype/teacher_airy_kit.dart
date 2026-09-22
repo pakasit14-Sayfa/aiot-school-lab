@@ -46,6 +46,44 @@ String _fmtThaiShort(DateTime d) {
 ///
 /// ใช้ค่าจากที่นี่เสมอ อย่าพิมพ์ตัวเลขดิบ — `teacher_type_scale_test.dart`
 /// จะ fail ถ้ามีขนาดนอกสเกลโผล่มา
+/// จำกัดความกว้างเนื้อหาแล้วจัดกึ่งกลาง สำหรับหน้าที่เปิดเต็มจอโดยไม่ผ่าน
+/// [TeacherMockPageShell] (ฟอร์มใบงาน · รายละเอียดใบงาน · ออกข้อสอบ ·
+/// ดูตัวอย่างบทเรียน)
+///
+/// หน้าพวกนี้เดิมยืดเต็มจอคอม แถวข้อมูลกว้างเกิน 1,900px ป้ายอยู่ริมซ้าย
+/// ค่าอยู่ริมขวา สายตาต้องกวาดข้ามจอทั้งจอเพื่ออ่านค่าเดียว — จอกว้างขึ้น
+/// ไม่ได้แปลว่าบรรทัดควรยาวขึ้น
+class AiryContentWidth extends StatelessWidget {
+  const AiryContentWidth({
+    super.key,
+    required this.child,
+    this.maxWidth = 760,
+    this.shrinkHeight = false,
+  });
+
+  final Widget child;
+
+  /// true = สูงเท่าลูกเท่านั้น สำหรับ `bottomNavigationBar` ซึ่งได้ความสูง
+  /// แบบไม่จำกัด — ถ้าไม่ตั้ง Align จะกินความสูงทั้งจอแล้วเบียดเนื้อหาหาย
+  /// false = สูงเต็มพื้นที่ สำหรับ body ที่มี ListView ข้างใน (ListView
+  /// ต้องการความสูงที่มีขอบเขต)
+  final bool shrinkHeight;
+
+  /// 760 มาจากความกว้างที่แถวป้าย-ค่ายังอ่านเป็นคู่กันได้โดยไม่ต้องกวาดตา
+  /// หน้าที่มีสองคอลัมน์จริง ๆ ค่อยส่งค่ามากกว่านี้
+  final double maxWidth;
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.topCenter,
+    heightFactor: shrinkHeight ? 1.0 : null,
+    child: ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: child,
+    ),
+  );
+}
+
 abstract final class TeacherType {
   /// ชื่อหน้า · ชื่อบทเรียนบนหัวสีประจำวิชา
   static const double hero = 22;
