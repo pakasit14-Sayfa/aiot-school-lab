@@ -505,4 +505,30 @@ void main() {
       expect(find.text('โรงเรียน เอ็นเตอร์ไพรส์'), findsOneWidget);
     },
   );
+
+  testWidgets('ชื่อแพ็กเกจมีช่องว่างหัวท้าย เลือกกรองแล้วต้องยังเห็นโรงเรียน', (t) async {
+    await _pump(t, loadSchools: () async => [
+      _school(id: 's1', name: 'โรงเรียนเว้นวรรค', packageName: ' Pro Package '),
+      _school(id: 's2', name: 'โรงเรียนเบสิก', packageName: 'Basic'),
+    ]);
+    await t.pumpAndSettle();
+
+    await t.tap(find.byType(DropdownButton<String>).last);
+    await t.pumpAndSettle();
+    await t.tap(find.text('Pro Package').last);
+    await t.pumpAndSettle();
+
+    expect(find.text('โรงเรียนเว้นวรรค'), findsWidgets,
+        reason: 'เลือกตัวเลือกที่สร้างจากโรงเรียนใบนี้เอง แต่กลับกรองมันทิ้ง');
+  });
+
+  testWidgets('แพ็กเกจชื่อ "ทุกแพ็กเกจ" ต้องไม่ทำให้ Dropdown assert', (t) async {
+    await _pump(t, loadSchools: () async => [
+      _school(id: 's1', name: 'โรงเรียนชนชื่อ', packageName: 'ทุกแพ็กเกจ'),
+      _school(id: 's2', name: 'โรงเรียนเบสิก', packageName: 'Basic'),
+    ]);
+    await t.pumpAndSettle();
+    expect(t.takeException(), isNull,
+        reason: 'ชื่อแพ็กเกจซ้ำกับ sentinel ทำให้ DropdownButton assert');
+  });
 }

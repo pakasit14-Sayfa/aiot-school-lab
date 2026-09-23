@@ -50,13 +50,17 @@ class SuperAdminSchoolsPage extends StatefulWidget {
 
 typedef SchoolsPage = SuperAdminSchoolsPage;
 
+/// Sentinel value for "all packages" filter. Using a space prefix ensures it
+/// never collides with actual package names from the database.
+const String _allPackagesValue = ' all';
+
 class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
   final TextEditingController _searchController = TextEditingController();
 
   final SchoolAdminPlatformService _service = SchoolAdminPlatformService();
 
   String _statusFilter = 'ทั้งหมด';
-  String _packageFilter = 'ทุกแพ็กเกจ';
+  String _packageFilter = _allPackagesValue;
 
   final List<_SchoolData> _schools = <_SchoolData>[];
 
@@ -104,9 +108,9 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
             .where((p) => p.isNotEmpty)
             .toSet();
 
-        if (_packageFilter != 'ทุกแพ็กเกจ' &&
+        if (_packageFilter != _allPackagesValue &&
             !availablePackages.contains(_packageFilter)) {
-          _packageFilter = 'ทุกแพ็กเกจ';
+          _packageFilter = _allPackagesValue;
         }
 
         _isLoading = false;
@@ -145,7 +149,7 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
         .where((p) => p.isNotEmpty)
         .toSet();
     final List<String> sorted = packages.toList()..sort();
-    return <String>['ทุกแพ็กเกจ', ...sorted];
+    return <String>[_allPackagesValue, ...sorted];
   }
 
   List<_SchoolData> get _filteredSchools {
@@ -160,9 +164,9 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
           school.adminEmail.toLowerCase().contains(query);
 
       final bool matchesPackage =
-          _packageFilter == 'ทุกแพ็กเกจ' ||
+          _packageFilter == _allPackagesValue ||
           !_packageFilterOptions.contains(_packageFilter) ||
-          school.packageName == _packageFilter;
+          school.packageName.trim() == _packageFilter;
 
       bool matchesStatus = true;
 
@@ -1088,7 +1092,7 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
               final String effectiveFilter =
                   filterOptions.contains(_packageFilter)
                       ? _packageFilter
-                      : 'ทุกแพ็กเกจ';
+                      : _allPackagesValue;
 
               if (_packageFilter != effectiveFilter) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1143,6 +1147,10 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
   }) {
     final String effectiveValue =
         items.contains(value) ? value : (items.isNotEmpty ? items.first : value);
+
+    String _getDisplayText(String val) =>
+        val == _allPackagesValue ? 'ทุกแพ็กเกจ' : val;
+
     return InputDecorator(
       decoration: InputDecoration(
         labelText: label,
@@ -1162,7 +1170,7 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
                   .map(
                     (item) => DropdownMenuItem<String>(
                       value: item,
-                      child: Text(item),
+                      child: Text(_getDisplayText(item)),
                     ),
                   )
                   .toList(),
@@ -1181,7 +1189,7 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
 
     setState(() {
       _statusFilter = 'ทั้งหมด';
-      _packageFilter = 'ทุกแพ็กเกจ';
+      _packageFilter = _allPackagesValue;
     });
   }
 
