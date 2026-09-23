@@ -9,6 +9,69 @@ import 'teacher_question_bank_page.dart';
 
 enum _ExamKind { preTest, postTest, quiz }
 
+/// แปล error จาก RPC เป็นข้อความที่ครูอ่านแล้วรู้ว่าต้องทำอะไรต่อ
+///
+/// เดิมทุก error ถูกกลืนแล้วขึ้นข้อความเดียวว่า "บันทึกข้อสอบไม่สำเร็จ"
+/// สาเหตุจริงถูกทิ้งลง `debugPrint` ซึ่งบนเครื่องจริงไม่มีใครเห็น —
+/// เจ้าของงานเจออาการ "กดบันทึกแล้วไม่สำเร็จ" บนมือถือแล้วไล่สาเหตุไม่ได้เลย
+/// ต้องมานั่งเดาว่าติดสิทธิ์ ติดเซสชัน หรือข้อมูลไม่ครบ
+///
+/// โค้ดที่ RPC โยนมาดูได้จาก supabase/migrations/20260818000000_quiz_rpcs.sql
+/// และ 20260923020000_quiz_question_type_integrity.sql
+String examSaveErrorMessage(Object error) {
+  final raw = error.toString();
+  bool has(String code) => raw.contains(code);
+
+  if (has('not_signed_in') || has('invalid_session')) {
+    return 'เซสชันหมดอายุแล้ว กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่';
+  }
+  if (has('forbidden')) {
+    return 'ไม่มีสิทธิ์บันทึกข้อสอบในวิชานี้ — ต้องเป็นครูผู้สอนของวิชานี้ '
+        'และเข้าสู่ระบบด้วยบทบาทครู (ถ้าบัญชีมีหลายบทบาท ให้เลือกบทบาทครูตอนเข้าสู่ระบบ)';
+  }
+  if (has('course_not_found')) {
+    return 'ไม่พบรายวิชานี้ในระบบแล้ว อาจถูกลบไปหลังจากเปิดหน้านี้';
+  }
+  if (has('quiz_already_published')) {
+    return 'ข้อสอบชุดนี้เผยแพร่ไปแล้ว แก้ไขเพิ่มไม่ได้ — สร้างชุดใหม่แทน';
+  }
+  if (has('quiz_not_found')) {
+    return 'ไม่พบชุดข้อสอบที่กำลังบันทึก';
+  }
+  if (has('title_required')) {
+    return 'ยังไม่ได้ตั้งชื่อชุดข้อสอบ';
+  }
+  if (has('question_required')) {
+    return 'มีข้อที่ยังไม่ได้พิมพ์โจทย์';
+  }
+  if (has('short_answer_takes_no_choices')) {
+    return 'ข้อแบบอัตนัยมีตัวเลือกติดมาด้วย — ลบตัวเลือกออก หรือเปลี่ยนชนิดเป็นปรนัย';
+  }
+  if (has('true_false_needs_exactly_two_choices')) {
+    return 'ข้อแบบถูก/ผิด ต้องมี 2 ตัวเลือกพอดี';
+  }
+  if (has('exactly_one_correct_choice_required')) {
+    return 'มีข้อที่เลือกเฉลยไว้มากกว่าหนึ่ง หรือยังไม่ได้เลือกเฉลย';
+  }
+  if (has('choice_text_required')) {
+    return 'มีตัวเลือกที่ยังเว้นว่างอยู่';
+  }
+  if (has('choices_required')) {
+    return 'มีข้อปรนัยที่ยังไม่มีตัวเลือก — ต้องมีอย่างน้อย 2 ตัวเลือก';
+  }
+  if (has('SocketException') ||
+      has('Failed host lookup') ||
+      has('ClientException') ||
+      has('TimeoutException')) {
+    return 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่';
+  }
+
+  // ไม่รู้จัก — ต้องโชว์ของจริงออกมา ไม่ใช่กลืนทิ้งเหมือนเดิม
+  final trimmed = raw.replaceAll(RegExp(r'\s+'), ' ').trim();
+  final short = trimmed.length > 160 ? '${trimmed.substring(0, 160)}…' : trimmed;
+  return 'บันทึกข้อสอบไม่สำเร็จ — $short';
+}
+
 /// ตรงกับ `question_type` ฝั่ง DB — ถูก/ผิด เคยหายไปจาก enum นี้ ทำให้
 /// คำถามถูก/ผิดที่ดึงจากคลังถูกบันทึกกลับเป็นปรนัย เสียชนิดเดิมไปเงียบ ๆ
 enum _QuestionType { multipleChoice, trueFalse, essay }
@@ -476,9 +539,10 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
       debugPrint('Error saving exam: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('บันทึกข้อสอบไม่สำเร็จ'),
-            backgroundColor: Color(0xFFEF4444),
+          SnackBar(
+            content: Text(examSaveErrorMessage(e)),
+            backgroundColor: const Color(0xFFEF4444),
+            duration: const Duration(seconds: 10),
           ),
         );
       }
