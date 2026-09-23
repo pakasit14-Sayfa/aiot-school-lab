@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Apply 20260923020000 (list_course_files + used_by_assignments) to production.
+# Apply 20260923030000 (list_course_files + used_by_assignments) to production.
 #
 # Run from the repo root:  bash scripts/prod_apply_2026-09-23c.sh
 #
@@ -8,12 +8,17 @@
 # delete_course_file — นับที่ฐานข้อมูล ไม่ใช่ให้แอปไล่ดึงไฟล์แนบของทุกใบงาน
 # มานับเอง (N round trip ต่อการเปิดหน้าหนึ่งครั้ง และนับผิดถ้าครูสอนหลายวิชา)
 #
+# ชื่อเดิมคือ 20260923020000 / prod_apply_2026-09-23c.sh — เปลี่ยนเลขเพราะไป
+# ชนกับ 20260923020000_quiz_question_type_integrity ของอีกเซสชันที่ทำงานบน
+# checkout เดียวกัน (และ prod รันตัวนั้นไปแล้ว) สองไฟล์เลขเดียวกันจะทำให้
+# ลำดับการรันกำกวมตอน db reset
+#
 # เปลี่ยนรูปร่างคอลัมน์ที่ list_course_files คืน จึงต้อง drop ก่อน create —
 # migration ทำให้แล้ว แต่แปลว่าระหว่างรันมีช่วงสั้น ๆ ที่หน้าคลังความรู้บน
 # เครื่องจริงเรียกไม่ได้ ควรรันตอนคนน้อย
 set -euo pipefail
 cd "$(dirname "$0")/.."
-m=20260923020000_course_files_usage_count
+m=20260923030000_course_files_usage_count
 v=${m%%_*}; n=${m#*_}
 
 echo "== applying $m"
