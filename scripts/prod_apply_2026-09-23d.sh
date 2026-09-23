@@ -27,7 +27,7 @@ echo "== 0) ด่านตรวจก่อนแตะอะไร — ไล
 echo "      (หยุดทันทีถ้าบัญชีซ้ำถูกอ้างถึงในตารางที่ FK เป็น CASCADE/SET NULL"
 echo "       เพราะการลบจะลากข้อมูลนั้นหายไปด้วยโดยไม่มีคำเตือน)"
 npx supabase db query --linked "
-  do $$
+  do \$\$
   declare
     dup_id uuid := (select id from users where email = '$DUP');
     r record; n bigint;
@@ -52,7 +52,7 @@ npx supabase db query --linked "
         and tc.table_schema = 'public'
         and ccu.table_name = 'users' and ccu.column_name = 'id'
     loop
-      execute format('select count(*) from public.%I where %I = $1',
+      execute format('select count(*) from public.%I where %I = \$1',
                      r.table_name, r.column_name)
         into n using dup_id;
       if n > 0 then
@@ -77,7 +77,7 @@ npx supabase db query --linked "
     end if;
 
     raise notice 'ตรวจผ่าน';
-  end $$;
+  end \$\$;
 " < /dev/null
 
 echo
@@ -112,7 +112,7 @@ npx supabase db query --linked "
 echo
 echo "== 2.5) ด่านตรวจซ้ำก่อนลบจริง — ต้องไม่เหลืออ้างอิงใดเลย"
 npx supabase db query --linked "
-  do $$
+  do \$\$
   declare
     dup_id uuid := (select id from users where email = '$DUP');
     r record; n bigint;
@@ -137,7 +137,7 @@ npx supabase db query --linked "
         and tc.table_schema = 'public'
         and ccu.table_name = 'users' and ccu.column_name = 'id'
     loop
-      execute format('select count(*) from public.%I where %I = $1',
+      execute format('select count(*) from public.%I where %I = \$1',
                      r.table_name, r.column_name)
         into n using dup_id;
       if n > 0 then
@@ -162,7 +162,7 @@ npx supabase db query --linked "
     end if;
 
     raise notice 'ตรวจผ่าน';
-  end $$;
+  end \$\$;
 " < /dev/null
 
 echo
