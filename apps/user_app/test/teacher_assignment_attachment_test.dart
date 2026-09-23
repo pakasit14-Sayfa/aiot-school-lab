@@ -26,6 +26,7 @@ void main() {
     List<String> links,
     List<String> attached,
     List<String> detached,
+    List<String> reordered,
     List<String> createdTitles,
   })
   recorder() => (
@@ -33,6 +34,7 @@ void main() {
     links: <String>[],
     attached: <String>[],
     detached: <String>[],
+    reordered: <String>[],
     createdTitles: <String>[],
   );
 
@@ -43,6 +45,7 @@ void main() {
     List<PlatformFile>? picked,
     List<AssignmentAttachment> loaded = const [],
     bool attachThrows = false,
+    bool reorderThrows = false,
   }) async {
     tester.view.physicalSize = const Size(402, 1400);
     tester.view.devicePixelRatio = 1;
@@ -138,6 +141,11 @@ void main() {
                 return 'att-$courseFileId';
               },
           detachFile: (id) async => rec.detached.add(id),
+          reorderAttachment:
+              ({required attachmentId, required sortOrder}) async {
+                if (reorderThrows) throw StateError('boom');
+                rec.reordered.add('$attachmentId:$sortOrder');
+              },
           getFileDownloadUrl: (_) async => 'https://example.org/x.png',
         ),
       ),
@@ -166,7 +174,9 @@ void main() {
     await pump(
       tester,
       rec: rec,
-      picked: [PlatformFile(name: 'ใบความรู้.pdf', size: 1024, bytes: bytes(1024))],
+      picked: [
+        PlatformFile(name: 'ใบความรู้.pdf', size: 1024, bytes: bytes(1024)),
+      ],
     );
 
     expect(find.text('ไฟล์แนบ'), findsOneWidget);
@@ -348,5 +358,121 @@ void main() {
 
     expect(find.textContaining('โหลดไฟล์แนบไม่สำเร็จ'), findsOneWidget);
     expect(find.text('ลองอีกครั้ง'), findsOneWidget);
+  });
+
+  // ── สลับลำดับไฟล์แนบ (2026-09-23) ─────────────────────────────────────
+  // ลำดับเป็นของความสัมพันธ์ระหว่างไฟล์กับใบงาน ไม่ใช่ของตัวไฟล์ — เก็บใน
+  // assignment_attachments.sort_order และเขียนกลับตอนกดบันทึกเท่านั้น
+
+  const a1 = AssignmentAttachment(
+    id: 'att-1',
+    courseFileId: 'f-1',
+    kind: CourseFileKind.file,
+    fileName: 'หนึ่ง.pdf',
+    sortOrder: 0,
+  );
+  const a2 = AssignmentAttachment(
+    id: 'att-2',
+    courseFileId: 'f-2',
+    kind: CourseFileKind.file,
+    fileName: 'สอง.pdf',
+    sortOrder: 1,
+  );
+
+  Future<void> longPressSecond(WidgetTester t) async {
+    await t.longPress(find.text('สอง.pdf'));
+    await t.pumpAndSettle();
+  }
+
+  testWidgets('ตั้งเป็นอันแรกแล้วบันทึก ต้องเขียนลำดับใหม่กลับหลังบ้าน', (
+    tester,
+  ) async {
+    final rec = recorder();
+    await pump(
+      tester,
+      rec: rec,
+      existing: const AssignmentSummary(
+        id: 'a9',
+        type: 'worksheet',
+        title: 'ใบงานเดิม',
+        dueAt: null,
+        status: 'draft',
+      ),
+      loaded: const [a1, a2],
+    );
+
+    await longPressSecond(tester);
+    await tester.tap(find.text('ตั้งเป็นอันแรก'));
+    await tester.pumpAndSettle();
+    await saveDraft(tester);
+
+    // สองย้ายมาที่ 0 หนึ่งเลื่อนไป 1 — ต้องเขียนทั้งคู่ ไม่ใช่แค่ตัวที่ลาก
+    expect(rec.reordered, ['att-2:0', 'att-1:1']);
+  });
+
+  testWidgets('ไม่ได้สลับอะไร ต้องไม่ยิง reorder เลย', (tester) async {
+    final rec = recorder();
+    await pump(
+      tester,
+      rec: rec,
+      existing: const AssignmentSummary(
+        id: 'a9',
+        type: 'worksheet',
+        title: 'ใบงานเดิม',
+        dueAt: null,
+        status: 'draft',
+      ),
+      loaded: const [a1, a2],
+    );
+    await saveDraft(tester);
+    expect(rec.reordered, isEmpty);
+  });
+
+  testWidgets('การ์ดแรกต้องไม่มีตัวเลือกย้ายไปข้างหน้า', (tester) async {
+    final rec = recorder();
+    await pump(
+      tester,
+      rec: rec,
+      existing: const AssignmentSummary(
+        id: 'a9',
+        type: 'worksheet',
+        title: 'ใบงานเดิม',
+        dueAt: null,
+        status: 'draft',
+      ),
+      loaded: const [a1, a2],
+    );
+    await tester.longPress(find.text('หนึ่ง.pdf'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ย้ายไปข้างหน้า'), findsNothing);
+    expect(find.text('ตั้งเป็นอันแรก'), findsNothing);
+    expect(find.text('ย้ายไปข้างหลัง'), findsOneWidget);
+  });
+
+  testWidgets('reorder พัง ต้องไม่ปิดหน้าไปพร้อมบอกว่าเรียบร้อย', (
+    tester,
+  ) async {
+    final rec = recorder();
+    await pump(
+      tester,
+      rec: rec,
+      existing: const AssignmentSummary(
+        id: 'a9',
+        type: 'worksheet',
+        title: 'ใบงานเดิม',
+        dueAt: null,
+        status: 'draft',
+      ),
+      loaded: const [a1, a2],
+      reorderThrows: true,
+    );
+    await longPressSecond(tester);
+    await tester.tap(find.text('ตั้งเป็นอันแรก'));
+    await tester.pumpAndSettle();
+    await saveDraft(tester);
+
+    expect(find.textContaining('ยังไม่สำเร็จ'), findsOneWidget);
+    expect(find.text('ไฟล์แนบ'), findsOneWidget);
   });
 }

@@ -44,6 +44,7 @@ class TeacherAssignmentFormPage extends StatefulWidget {
     this.addCourseLink,
     this.attachFile,
     this.detachFile,
+    this.reorderAttachment,
     this.getFileDownloadUrl,
   });
 
@@ -107,6 +108,11 @@ class TeacherAssignmentFormPage extends StatefulWidget {
   })?
   attachFile;
   final Future<void> Function(String attachmentId)? detachFile;
+  final Future<void> Function({
+    required String attachmentId,
+    required int sortOrder,
+  })?
+  reorderAttachment;
   final Future<String> Function(String fileId)? getFileDownloadUrl;
 
   final Future<List<DeviceOption>> Function()? listDevices;
@@ -385,6 +391,17 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
     });
   }
 
+  /// สลับลำดับในเครื่องเท่านั้น — ขึ้นหลังบ้านตอนกดบันทึกเหมือนทุกอย่างในหน้านี้
+  void _moveAttachment(int from, int to) {
+    if (from == to || from < 0 || to < 0) return;
+    if (from >= _attachments.length || to >= _attachments.length) return;
+    setState(() {
+      final a = _attachments.removeAt(from);
+      _attachments.insert(to, a);
+      _dirty = true;
+    });
+  }
+
   /// เขียนไฟล์แนบลงหลังบ้านหลังใบงานมี id แล้ว — คืนจำนวนที่ทำไม่สำเร็จ
   ///
   /// ของที่อัปขึ้นถังไปแล้วแต่ผูกไม่สำเร็จจะค้างอยู่ในคลังความรู้ ไม่ได้ลบทิ้ง
@@ -434,6 +451,23 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
         _attachments[i] = _attachments[i].withSavedId(attachmentId);
       } catch (e) {
         debugPrint('แนบไฟล์ไม่สำเร็จ — $e');
+        failed++;
+      }
+    }
+
+    // ลำดับของที่อยู่บนหลังบ้านอยู่แล้ว — ลูปข้างบน continue ข้ามไป ถ้าไม่เขียน
+    // กลับตรงนี้ การสลับลำดับจะหายไปตอนโหลดใหม่ · ยิงเฉพาะตัวที่เปลี่ยนจริง
+    // ไม่ใช่ทุกตัวทุกครั้งที่กดบันทึก
+    final reorder = widget.reorderAttachment ?? CourseFileService.reorder;
+    for (var i = 0; i < _attachments.length; i++) {
+      final a = _attachments[i];
+      final id = a.savedId;
+      if (id == null || a.savedSortOrder == i) continue;
+      try {
+        await reorder(attachmentId: id, sortOrder: i);
+        _attachments[i] = a.withSortOrder(i);
+      } catch (e) {
+        debugPrint('สลับลำดับไฟล์แนบไม่สำเร็จ — $e');
         failed++;
       }
     }
@@ -878,6 +912,7 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
         onAddFile: _addFiles,
         onAddLink: _addLink,
         onRemove: _removeAttachment,
+        onReorder: _moveAttachment,
         onRetryLoad: _loadAttachments,
       ),
       const AirySection('ชุดข้อมูลเซนเซอร์'),
@@ -1901,6 +1936,7 @@ class _Attachment {
     this.title,
     this.bytes,
     this.sizeBytes,
+    this.savedSortOrder,
   });
 
   /// ของที่อยู่บนหลังบ้านแล้ว
@@ -1911,6 +1947,7 @@ class _Attachment {
     courseFileId: a.courseFileId,
     url: a.url,
     sizeBytes: a.sizeBytes,
+    savedSortOrder: a.sortOrder,
   );
 
   factory _Attachment.pendingFile({
@@ -1944,10 +1981,19 @@ class _Attachment {
   final Uint8List? bytes;
   final int? sizeBytes;
 
+  /// ลำดับที่หลังบ้านเก็บไว้ตอนโหลดมา — เทียบกับตำแหน่งปัจจุบันเพื่อรู้ว่า
+  /// ต้องเรียก reorder หรือไม่ null = ของใหม่ที่ยังไม่เคยขึ้นหลังบ้าน
+  final int? savedSortOrder;
+
   _Attachment withCourseFileId(String id) => _copy(courseFileId: id);
   _Attachment withSavedId(String id) => _copy(savedId: id);
+  _Attachment withSortOrder(int order) => _copy(savedSortOrder: order);
 
-  _Attachment _copy({String? savedId, String? courseFileId}) => _Attachment(
+  _Attachment _copy({
+    String? savedId,
+    String? courseFileId,
+    int? savedSortOrder,
+  }) => _Attachment(
     name: name,
     isLink: isLink,
     savedId: savedId ?? this.savedId,
@@ -1956,6 +2002,7 @@ class _Attachment {
     title: title,
     bytes: bytes,
     sizeBytes: sizeBytes,
+    savedSortOrder: savedSortOrder ?? this.savedSortOrder,
   );
 
   bool get isImage {
@@ -2009,6 +2056,7 @@ class _AttachmentGrid extends StatelessWidget {
     required this.onAddFile,
     required this.onAddLink,
     required this.onRemove,
+    required this.onReorder,
     required this.onRetryLoad,
   });
 
@@ -2021,6 +2069,7 @@ class _AttachmentGrid extends StatelessWidget {
   final VoidCallback onAddFile;
   final VoidCallback onAddLink;
   final void Function(_Attachment) onRemove;
+  final void Function(int from, int to) onReorder;
   final VoidCallback onRetryLoad;
 
   @override
@@ -2057,13 +2106,16 @@ class _AttachmentGrid extends StatelessWidget {
               spacing: 10,
               runSpacing: 10,
               children: [
-                for (final a in items)
+                for (var i = 0; i < items.length; i++)
                   SizedBox(
                     width: w,
                     child: _AttachmentTile(
-                      item: a,
+                      item: items[i],
+                      index: i,
+                      total: items.length,
                       resolveUrl: resolveUrl,
-                      onRemove: enabled ? () => onRemove(a) : null,
+                      onRemove: enabled ? () => onRemove(items[i]) : null,
+                      onReorder: enabled ? onReorder : null,
                     ),
                   ),
                 SizedBox(
@@ -2108,96 +2160,185 @@ class _AttachmentGrid extends StatelessWidget {
 class _AttachmentTile extends StatelessWidget {
   const _AttachmentTile({
     required this.item,
+    required this.index,
+    required this.total,
     required this.resolveUrl,
     required this.onRemove,
+    required this.onReorder,
   });
 
   final _Attachment item;
+  final int index;
+  final int total;
   final Future<String> Function(String fileId) resolveUrl;
   final VoidCallback? onRemove;
+  final void Function(int from, int to)? onReorder;
+
+  /// แตะค้างแล้วขึ้นเมนูจัดลำดับ — เลือกแทนการลาก เพราะกริดเป็น Wrap
+  /// การลากต้องเขียน Draggable/DragTarget เอง ทดสอบยาก และชนกับการเลื่อนหน้า
+  Future<void> _menu(BuildContext context) async {
+    final move = onReorder;
+    if (move == null && onRemove == null) return;
+    final v = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 16, 18, 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  item.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: TeacherType.cardTitle,
+                    color: AirySpec.ink,
+                  ),
+                ),
+              ),
+            ),
+            // ซ่อนตัวเลือกที่ไม่มีความหมาย แทนที่จะโชว์แบบกดไม่ได้
+            if (move != null && index > 0)
+              ListTile(
+                leading: const Icon(Icons.arrow_upward_rounded),
+                title: const Text('ย้ายไปข้างหน้า'),
+                onTap: () => Navigator.pop(ctx, 'up'),
+              ),
+            if (move != null && index < total - 1)
+              ListTile(
+                leading: const Icon(Icons.arrow_downward_rounded),
+                title: const Text('ย้ายไปข้างหลัง'),
+                onTap: () => Navigator.pop(ctx, 'down'),
+              ),
+            if (move != null && index > 0)
+              ListTile(
+                leading: const Icon(Icons.vertical_align_top_rounded),
+                title: const Text('ตั้งเป็นอันแรก'),
+                onTap: () => Navigator.pop(ctx, 'first'),
+              ),
+            if (onRemove != null)
+              ListTile(
+                leading: const Icon(
+                  Icons.close_rounded,
+                  color: Color(0xFFB91C1C),
+                ),
+                title: const Text(
+                  'เอาออกจากใบงาน',
+                  style: TextStyle(color: Color(0xFFB91C1C)),
+                ),
+                subtitle: const Text('ไฟล์ยังอยู่ในคลังความรู้'),
+                onTap: () => Navigator.pop(ctx, 'remove'),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    switch (v) {
+      case 'up':
+        move?.call(index, index - 1);
+      case 'down':
+        move?.call(index, index + 1);
+      case 'first':
+        move?.call(index, 0);
+      case 'remove':
+        onRemove?.call();
+    }
+  }
 
   static const _h = 74.0;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(11),
+    return GestureDetector(
+      onLongPress: () => _menu(context),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(11),
+                  ),
+                  child: SizedBox(height: _h, child: _preview()),
                 ),
-                child: SizedBox(height: _h, child: _preview()),
-              ),
-              if (onRemove != null)
-                Positioned(
-                  top: 5,
-                  right: 5,
-                  child: Material(
-                    color: Colors.white.withValues(alpha: 0.94),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(7),
-                      side: const BorderSide(color: Color(0xFFE5E7EB)),
-                    ),
-                    child: InkWell(
-                      onTap: onRemove,
-                      borderRadius: BorderRadius.circular(7),
-                      child: const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: Icon(
-                          Icons.close_rounded,
-                          size: 14,
-                          color: TeacherPalette.muted,
+                if (onRemove != null)
+                  Positioned(
+                    top: 5,
+                    right: 5,
+                    child: Material(
+                      color: Colors.white.withValues(alpha: 0.94),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(7),
+                        side: const BorderSide(color: Color(0xFFE5E7EB)),
+                      ),
+                      child: InkWell(
+                        onTap: onRemove,
+                        borderRadius: BorderRadius.circular(7),
+                        child: const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: Icon(
+                            Icons.close_rounded,
+                            size: 14,
+                            color: TeacherPalette.muted,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(9, 8, 9, 9),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  item.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: TeacherType.label,
-                    fontWeight: FontWeight.w800,
-                    height: 1.35,
-                    color: AirySpec.ink,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  item.savedId == null && !item.isLink
-                      ? '${item.subtitle} · รออัปโหลด'
-                      : item.subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: TeacherType.caption,
-                    color: AirySpec.label,
-                  ),
-                ),
               ],
             ),
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.fromLTRB(9, 8, 9, 9),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    item.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: TeacherType.label,
+                      fontWeight: FontWeight.w800,
+                      height: 1.35,
+                      color: AirySpec.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    item.savedId == null && !item.isLink
+                        ? '${item.subtitle} · รออัปโหลด'
+                        : item.subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: TeacherType.caption,
+                      color: AirySpec.label,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

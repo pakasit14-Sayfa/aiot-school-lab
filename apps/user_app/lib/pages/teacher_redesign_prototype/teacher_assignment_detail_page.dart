@@ -25,6 +25,7 @@ class TeacherAssignmentDetailPage extends StatefulWidget {
     this.unpublish,
     this.publish,
     this.extendDue,
+    this.deleteAssignment,
   });
 
   final AssignmentSummary assignment;
@@ -39,6 +40,10 @@ class TeacherAssignmentDetailPage extends StatefulWidget {
   final Future<void> Function(String assignmentId)? unpublish;
   final Future<void> Function(String assignmentId)? publish;
   final Future<void> Function(String assignmentId, DateTime dueAt)? extendDue;
+
+  /// ลบใบงานถาวร (2026-09-23) — ระบบนี้ลบใบงานไม่ได้เลยมาตลอด สร้างผิดแล้ว
+  /// ค้างถาวร ใบที่มีนักเรียนส่งงานแล้วหลังบ้านจะปฏิเสธ
+  final Future<void> Function(String assignmentId)? deleteAssignment;
 
   @override
   State<TeacherAssignmentDetailPage> createState() =>
@@ -136,6 +141,30 @@ class _TeacherAssignmentDetailPageState
                 title: const Text('เผยแพร่ใบงาน'),
                 onTap: () => Navigator.of(context).pop('publish'),
               ),
+            const Divider(height: 1),
+            // ลบอยู่ล่างสุดคั่นด้วยเส้น เพราะเป็นอย่างเดียวในเมนูที่ย้อนกลับ
+            // ไม่ได้ — ที่เหลือสลับไปมาได้หมด
+            ListTile(
+              leading: Icon(
+                Icons.delete_outline_rounded,
+                color: _submitted > 0
+                    ? TeacherPalette.muted
+                    : const Color(0xFFB91C1C),
+              ),
+              title: Text(
+                'ลบใบงาน',
+                style: TextStyle(
+                  color: _submitted > 0
+                      ? TeacherPalette.muted
+                      : const Color(0xFFB91C1C),
+                ),
+              ),
+              subtitle: _submitted > 0
+                  ? Text('มีนักเรียนส่งแล้ว $_submitted คน — ใช้ปิดรับงานแทน')
+                  : null,
+              enabled: _submitted == 0,
+              onTap: () => Navigator.of(context).pop('delete'),
+            ),
             const SizedBox(height: 8),
           ],
         ),
@@ -156,10 +185,61 @@ class _TeacherAssignmentDetailPageState
           await (widget.publish ?? AssignmentService.publishAssignment)(_a.id);
           setState(() => _a = _a.copyWith(status: 'published'));
           _snack('เผยแพร่แล้ว');
+        case 'delete':
+          await _delete();
       }
     } catch (e) {
       debugPrint('assignment detail action failed: $e');
       _snack('ทำรายการไม่สำเร็จ กรุณาลองใหม่', error: true);
+    }
+  }
+
+  Future<void> _delete() async {
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: const Text('ลบใบงานนี้?'),
+        content: Text(
+          '"${_a.title}" จะถูกลบถาวร พร้อมกับการผูกไฟล์แนบของใบงานนี้\n'
+          'ไฟล์ยังอยู่ในคลังความรู้ของวิชา',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('ยกเลิก'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'ลบใบงาน',
+              style: TextStyle(color: Color(0xFFB91C1C)),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (go != true || !mounted) return;
+
+    try {
+      await (widget.deleteAssignment ?? AssignmentService.deleteAssignment)(
+        _a.id,
+      );
+      if (!mounted) return;
+      // หน้ารายการรีเฟรชตัวเองหลังหน้านี้ปิด (_openDetail → _loadRealAssignments)
+      Navigator.pop(context, true);
+    } catch (e) {
+      debugPrint('ลบใบงานไม่สำเร็จ — $e');
+      if (!mounted) return;
+      // ปุ่มถูกปิดไว้แล้วเมื่อมีคนส่ง แต่จำนวนอาจเปลี่ยนระหว่างเปิดหน้าค้างไว้
+      // หลังบ้านจึงเป็นด่านจริง และต้องแปลงข้อความให้บอกทางออก
+      final m = RegExp(r'assignment_has_(\d+)').firstMatch('$e');
+      _snack(
+        m != null
+            ? 'ลบไม่ได้ — มีนักเรียนส่งแล้ว ${m.group(1)} คน ใช้ปิดรับงานแทน'
+            : 'ลบใบงานไม่สำเร็จ กรุณาลองใหม่',
+        error: true,
+      );
     }
   }
 
