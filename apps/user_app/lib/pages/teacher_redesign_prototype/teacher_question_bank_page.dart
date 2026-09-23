@@ -3,12 +3,38 @@ import 'package:shared_core/shared_core.dart';
 import 'teacher_redesign_prototype_page.dart';
 import 'teacher_shared_widgets.dart';
 
-enum BankQuestionType { multipleChoice, essay }
+/// ตรงกับ enum `question_type` ในฐานข้อมูลแบบ 1:1 —
+/// `multiple_choice` / `true_false` / `short_answer`
+///
+/// เดิมมีแค่ `{ multipleChoice, essay }` และโค้ดโหลดคลังเทียบ
+/// `question.type == 'essay'` ซึ่งเป็นค่าที่ไม่มีอยู่ใน enum ฝั่ง DB เลย
+/// เงื่อนไขจึงเป็นเท็จทุกครั้ง และคำถาม **ทุกข้อ** ที่โหลดจากหลังบ้าน
+/// กลายเป็นปรนัย — ข้ออัตนัยถูกดึงเข้า Exam Builder เป็นปรนัยที่ไม่มี
+/// ตัวเลือกและมีเฉลยชี้ไปที่ตัวเลือกที่ไม่มีอยู่ โดยไม่มี error ที่ใดเลย
+enum BankQuestionType { multipleChoice, trueFalse, shortAnswer }
 
-Color bankTypeAccent(BankQuestionType type) =>
-    type == BankQuestionType.multipleChoice
-    ? TeacherPalette.primary
-    : TeacherPalette.orange;
+/// อัตนัยไม่มีตัวเลือกให้เลือก ที่เหลือมี — ใช้ตัวนี้ตัดสินใจว่าจะแสดง/
+/// บันทึกตัวเลือกไหม อย่าเทียบ `== multipleChoice` เพราะถูก/ผิดก็มีตัวเลือก
+bool bankTypeHasChoices(BankQuestionType type) =>
+    type != BankQuestionType.shortAnswer;
+
+String bankTypeLabel(BankQuestionType type) => switch (type) {
+  BankQuestionType.multipleChoice => 'ปรนัย',
+  BankQuestionType.trueFalse => 'ถูก / ผิด',
+  BankQuestionType.shortAnswer => 'อัตนัย',
+};
+
+BankQuestionType bankTypeFromDb(String dbType) => switch (dbType) {
+  'true_false' => BankQuestionType.trueFalse,
+  'short_answer' => BankQuestionType.shortAnswer,
+  _ => BankQuestionType.multipleChoice,
+};
+
+Color bankTypeAccent(BankQuestionType type) => switch (type) {
+  BankQuestionType.multipleChoice => TeacherPalette.primary,
+  BankQuestionType.trueFalse => TeacherPalette.sky,
+  BankQuestionType.shortAnswer => TeacherPalette.orange,
+};
 
 /// A single reusable question in the shared question bank — public so other
 /// pages (e.g. the exam builder) can accept a selection back via
@@ -19,7 +45,7 @@ class BankQuestion {
     required this.subject,
     required this.type,
     this.options = const [],
-    this.correctIndex = 0,
+    this.correctIndex,
     this.explanation = '',
     this.score = 2,
     this.difficulty = 'ปานกลาง',
@@ -29,7 +55,7 @@ class BankQuestion {
   final String subject;
   final BankQuestionType type;
   final List<String> options;
-  final int correctIndex;
+  final int? correctIndex;
   final String explanation;
   final int score;
   final String difficulty;
@@ -138,11 +164,11 @@ class _TeacherQuestionBankPageState extends State<TeacherQuestionBankPage> {
               return BankQuestion(
                 questionText: question.question,
                 subject: course.subjectName,
-                type: question.type == 'essay'
-                    ? BankQuestionType.essay
-                    : BankQuestionType.multipleChoice,
+                type: bankTypeFromDb(question.type),
                 options: question.choices.map((c) => c.text).toList(),
-                correctIndex: correctIdx >= 0 ? correctIdx : 0,
+                // ไม่มีตัวเลือกถูก = ไม่มีเฉลย ต้องเป็น null
+                // เดิมบังคับเป็น 0 ซึ่งทำให้ข้ออัตนัยดูเหมือนมีเฉลยอยู่ที่ข้อแรก
+                correctIndex: correctIdx >= 0 ? correctIdx : null,
                 score: question.points.round(),
               );
           }).toList();
@@ -536,9 +562,7 @@ class _BankQuestionDetailPageState extends State<BankQuestionDetailPage> {
                     children: [
                       _Tag(text: q.subject, color: TeacherPalette.primary),
                       _Tag(
-                        text: q.type == BankQuestionType.multipleChoice
-                            ? 'ปรนัย'
-                            : 'อัตนัย',
+                        text: bankTypeLabel(q.type),
                         color: accent,
                       ),
                       _Tag(text: q.difficulty, color: TeacherPalette.muted),
@@ -558,7 +582,7 @@ class _BankQuestionDetailPageState extends State<BankQuestionDetailPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  if (q.type == BankQuestionType.multipleChoice) ...[
+                  if (bankTypeHasChoices(q.type)) ...[
                     const Text(
                       'ตัวเลือกคำตอบ',
                       style: TextStyle(
@@ -662,7 +686,7 @@ class _BankQuestionDetailPageState extends State<BankQuestionDetailPage> {
                   if (q.explanation.trim().isNotEmpty) ...[
                     const SizedBox(height: 16),
                     Text(
-                      q.type == BankQuestionType.multipleChoice
+                      bankTypeHasChoices(q.type)
                           ? 'คำอธิบายเฉลย'
                           : 'แนวคำตอบ/เกณฑ์ให้คะแนน',
                       style: const TextStyle(
@@ -847,9 +871,7 @@ class _BankQuestionSetDetailPageState
                             ),
                             const SizedBox(width: 6),
                             _Tag(
-                              text: q.type == BankQuestionType.multipleChoice
-                                  ? 'ปรนัย'
-                                  : 'อัตนัย',
+                              text: bankTypeLabel(q.type),
                               color: accent,
                             ),
                             const Spacer(),
@@ -868,7 +890,7 @@ class _BankQuestionSetDetailPageState
                             fontSize: 13.5,
                           ),
                         ),
-                        if (q.type == BankQuestionType.multipleChoice) ...[
+                        if (bankTypeHasChoices(q.type)) ...[
                           const SizedBox(height: 8),
                           for (int j = 0; j < q.options.length; j++)
                             Padding(

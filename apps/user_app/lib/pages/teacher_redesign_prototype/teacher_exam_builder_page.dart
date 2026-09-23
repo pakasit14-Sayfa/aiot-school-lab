@@ -9,16 +9,23 @@ import 'teacher_question_bank_page.dart';
 
 enum _ExamKind { preTest, postTest, quiz }
 
-enum _QuestionType { multipleChoice, essay }
+/// ตรงกับ `question_type` ฝั่ง DB — ถูก/ผิด เคยหายไปจาก enum นี้ ทำให้
+/// คำถามถูก/ผิดที่ดึงจากคลังถูกบันทึกกลับเป็นปรนัย เสียชนิดเดิมไปเงียบ ๆ
+enum _QuestionType { multipleChoice, trueFalse, essay }
+
+/// อัตนัยไม่มีตัวเลือก ที่เหลือมี
+bool _typeHasChoices(_QuestionType type) => type != _QuestionType.essay;
 
 enum _ExamDisplayMode { onePerScreen, allAtOnce }
 
 /// Accent color per question type — purple reads as "structured/pick one"
 /// (Forms), orange reads as "free write" so the two are scannable at a
 /// glance without reading the toggle label.
-Color _typeAccent(_QuestionType type) => type == _QuestionType.multipleChoice
-    ? TeacherPalette.primary
-    : TeacherPalette.orange;
+Color _typeAccent(_QuestionType type) => switch (type) {
+  _QuestionType.multipleChoice => TeacherPalette.primary,
+  _QuestionType.trueFalse => TeacherPalette.sky,
+  _QuestionType.essay => TeacherPalette.orange,
+};
 
 class _ExamQuestionMock {
   _ExamQuestionMock({
@@ -160,22 +167,21 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
     if (chosen == null || chosen.isEmpty || !mounted) return;
     setState(() {
       for (final bq in chosen) {
+        // รักษาชนิดเดิมของคำถามไว้ 1:1 — เดิมยัดทุกอย่างเป็นปรนัย และถ้า
+        // ไม่ใช่ปรนัยก็ใส่ตัวเลือกปลอม 'ตัวเลือก ก/ข/ค/ง' ให้ ทั้งที่
+        // ครูไม่ได้เขียนไว้
+        final type = switch (bq.type) {
+          BankQuestionType.multipleChoice => _QuestionType.multipleChoice,
+          BankQuestionType.trueFalse => _QuestionType.trueFalse,
+          BankQuestionType.shortAnswer => _QuestionType.essay,
+        };
         _questions.add(
           _ExamQuestionMock(
             questionText: bq.questionText,
-            options: bq.type == BankQuestionType.multipleChoice
-                ? List.from(bq.options)
-                : const [
-                    'ตัวเลือก ก',
-                    'ตัวเลือก ข',
-                    'ตัวเลือก ค',
-                    'ตัวเลือก ง',
-                  ],
+            options: _typeHasChoices(type) ? List.from(bq.options) : const [],
             correctIndex: bq.correctIndex,
             explanation: bq.explanation,
-            type: bq.type == BankQuestionType.multipleChoice
-                ? _QuestionType.multipleChoice
-                : _QuestionType.essay,
+            type: type,
             score: bq.score,
           ),
         );
@@ -327,12 +333,35 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
     }
     // ASM-1 Exception Flow: ห้ามเผยแพร่ถ้าคำถามแบบเลือกตอบข้อใดยังไม่มีเฉลย
     if (isPublished) {
-      final missingAnswerKey = <int>[
-        for (var i = 0; i < _questions.length; i++)
-          if (_questions[i].type == _QuestionType.multipleChoice &&
-              _questions[i].correctIndex == null)
-            i + 1,
-      ];
+      // ข้อที่มีตัวเลือกต้องมีตัวเลือกให้เลือกจริง ๆ และต้องมีเฉลย
+      // เดิมเช็คแค่ `correctIndex == null` ของปรนัย ซึ่งปล่อยให้เผยแพร่
+      // ปรนัยที่ไม่มีตัวเลือกเลยได้ (เฉลยเป็น 0 ไม่ใช่ null จึงผ่านด่าน)
+      // แล้วนักเรียนเจอคำถามที่ตอบไม่ได้
+      final noChoices = <int>[];
+      final missingAnswerKey = <int>[];
+      for (var i = 0; i < _questions.length; i++) {
+        final q = _questions[i];
+        if (!_typeHasChoices(q.type)) continue;
+        final filled = q.options.where((o) => o.trim().isNotEmpty).length;
+        if (filled < 2) {
+          noChoices.add(i + 1);
+        } else if (q.correctIndex == null) {
+          missingAnswerKey.add(i + 1);
+        }
+      }
+      if (noChoices.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'ข้อที่ ${noChoices.join(", ")} ยังไม่มีตัวเลือกให้เลือก '
+              '— ต้องมีอย่างน้อย 2 ตัวเลือกก่อนเผยแพร่ '
+              '(ถ้าเป็นคำถามให้เขียนตอบ ให้เปลี่ยนชนิดเป็นอัตนัย)',
+            ),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+        return;
+      }
       if (missingAnswerKey.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -383,10 +412,12 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
       );
 
       for (final q in _questions) {
-        final qTypeStr = q.type == _QuestionType.multipleChoice
-            ? 'multiple_choice'
-            : 'short_answer';
-        final choicesPayload = q.type == _QuestionType.multipleChoice
+        final qTypeStr = switch (q.type) {
+          _QuestionType.multipleChoice => 'multiple_choice',
+          _QuestionType.trueFalse => 'true_false',
+          _QuestionType.essay => 'short_answer',
+        };
+        final choicesPayload = _typeHasChoices(q.type)
             ? q.options
                   .asMap()
                   .entries
@@ -1383,6 +1414,11 @@ class _QuestionBuilderCard extends StatelessWidget {
                                 icon: Icons.list_alt_rounded,
                               ),
                               (
+                                value: _QuestionType.trueFalse,
+                                label: 'ถูก/ผิด',
+                                icon: Icons.rule_rounded,
+                              ),
+                              (
                                 value: _QuestionType.essay,
                                 label: 'อัตนัย',
                                 icon: Icons.edit_note_rounded,
@@ -1390,6 +1426,21 @@ class _QuestionBuilderCard extends StatelessWidget {
                             ],
                             onChanged: (t) {
                               question.type = t;
+                              // จัดข้อมูลให้เข้ากับชนิดใหม่ทันที ไม่ทิ้ง
+                              // ตัวเลือกหรือเฉลยที่ขัดกับชนิดไว้ให้ไหลไป
+                              // ถึงตอนบันทึก
+                              switch (t) {
+                                case _QuestionType.trueFalse:
+                                  question.options = ['จริง', 'เท็จ'];
+                                  if ((question.correctIndex ?? 0) > 1) {
+                                    question.correctIndex = null;
+                                  }
+                                case _QuestionType.essay:
+                                  question.options = [];
+                                  question.correctIndex = null;
+                                case _QuestionType.multipleChoice:
+                                  break;
+                              }
                               onChanged();
                             },
                           ),
@@ -1547,7 +1598,7 @@ class _QuestionBuilderCard extends StatelessWidget {
                       ],
                       const SizedBox(height: 14),
 
-                      if (question.type == _QuestionType.multipleChoice) ...[
+                      if (_typeHasChoices(question.type)) ...[
                         for (
                           int optIdx = 0;
                           optIdx < question.options.length;
@@ -1604,7 +1655,7 @@ class _QuestionBuilderCard extends StatelessWidget {
                         ),
                         decoration: InputDecoration(
                           labelText:
-                              question.type == _QuestionType.multipleChoice
+                              _typeHasChoices(question.type)
                               ? 'คำอธิบายเฉลยเพิ่มเติม (แสดงหลังนักเรียนส่งข้อสอบ)'
                               : 'แนวคำตอบ/เกณฑ์ให้คะแนน (สำหรับครูใช้ตรวจ)',
                           labelStyle: const TextStyle(
@@ -1956,7 +2007,7 @@ class _StudentExamPreviewPageState extends State<_StudentExamPreviewPage> {
                       ),
                       const SizedBox(height: 12),
                       _buildAttachments(q),
-                      if (q.type == _QuestionType.multipleChoice)
+                      if (_typeHasChoices(q.type))
                         for (int i = 0; i < q.options.length; i++)
                           RadioListTile<int>(
                             dense: true,
