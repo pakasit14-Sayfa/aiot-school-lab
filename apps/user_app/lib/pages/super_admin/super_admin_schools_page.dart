@@ -70,6 +70,14 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
     _loadSchools();
   }
 
+  @override
+  void didUpdateWidget(SuperAdminSchoolsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.loadSchools != oldWidget.loadSchools) {
+      _loadSchools();
+    }
+  }
+
   Future<void> _loadSchools({bool showLoading = true}) async {
     if (showLoading && mounted) {
       setState(() {
@@ -90,6 +98,16 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
         _schools
           ..clear()
           ..addAll(records.map(_SchoolData.fromRecord));
+
+        final Set<String> availablePackages = _schools
+            .map((s) => s.packageName.trim())
+            .where((p) => p.isNotEmpty)
+            .toSet();
+
+        if (_packageFilter != 'ทุกแพ็กเกจ' &&
+            !availablePackages.contains(_packageFilter)) {
+          _packageFilter = 'ทุกแพ็กเกจ';
+        }
 
         _isLoading = false;
         _loadError = null;
@@ -121,6 +139,15 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
     super.dispose();
   }
 
+  List<String> get _packageFilterOptions {
+    final Set<String> packages = _schools
+        .map((s) => s.packageName.trim())
+        .where((p) => p.isNotEmpty)
+        .toSet();
+    final List<String> sorted = packages.toList()..sort();
+    return <String>['ทุกแพ็กเกจ', ...sorted];
+  }
+
   List<_SchoolData> get _filteredSchools {
     final String query = _searchController.text.trim().toLowerCase();
 
@@ -134,6 +161,7 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
 
       final bool matchesPackage =
           _packageFilter == 'ทุกแพ็กเกจ' ||
+          !_packageFilterOptions.contains(_packageFilter) ||
           school.packageName == _packageFilter;
 
       bool matchesStatus = true;
@@ -1056,10 +1084,26 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
                 },
               );
 
+              final List<String> filterOptions = _packageFilterOptions;
+              final String effectiveFilter =
+                  filterOptions.contains(_packageFilter)
+                      ? _packageFilter
+                      : 'ทุกแพ็กเกจ';
+
+              if (_packageFilter != effectiveFilter) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted && _packageFilter != effectiveFilter) {
+                    setState(() {
+                      _packageFilter = effectiveFilter;
+                    });
+                  }
+                });
+              }
+
               final Widget packageFilter = _filterDropdown(
                 label: 'แพ็กเกจ',
-                value: _packageFilter,
-                items: const ['ทุกแพ็กเกจ', 'Basic', 'Pro', 'Enterprise'],
+                value: effectiveFilter,
+                items: filterOptions,
                 onChanged: (value) {
                   setState(() {
                     _packageFilter = value;
@@ -1097,6 +1141,8 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
     required List<String> items,
     required ValueChanged<String> onChanged,
   }) {
+    final String effectiveValue =
+        items.contains(value) ? value : (items.isNotEmpty ? items.first : value);
     return InputDecorator(
       decoration: InputDecoration(
         labelText: label,
@@ -1108,7 +1154,7 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
-          value: value,
+          value: effectiveValue,
           isDense: true,
           isExpanded: true,
           items:
@@ -1479,10 +1525,21 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
 
   Widget _buildPackageAndCapacitySection() {
     final Map<String, int> packageCounts = {
-      'Basic': _schools.where((school) => school.packageName == 'Basic').length,
-      'Pro': _schools.where((school) => school.packageName == 'Pro').length,
-      'Enterprise':
-          _schools.where((school) => school.packageName == 'Enterprise').length,
+      'Basic': _schools
+          .where((school) =>
+              school.packageName == 'Basic' ||
+              school.packageName.toLowerCase() == 'basic package')
+          .length,
+      'Pro': _schools
+          .where((school) =>
+              school.packageName == 'Pro' ||
+              school.packageName.toLowerCase() == 'pro package')
+          .length,
+      'Enterprise': _schools
+          .where((school) =>
+              school.packageName == 'Enterprise' ||
+              school.packageName.toLowerCase() == 'enterprise package')
+          .length,
     };
 
     return ResponsiveWrap(
@@ -1660,7 +1717,20 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
       text: '${school?.licenseDaysLeft ?? 365}',
     );
 
-    String selectedPackage = school?.packageName ?? 'Basic';
+    final String originalPackage = school?.packageName ?? 'Basic';
+    String selectedPackage = originalPackage;
+
+    const List<String> canonicalPackages = <String>[
+      'Basic',
+      'Pro',
+      'Enterprise',
+    ];
+
+    final List<String> packageOptions = <String>[
+      ...canonicalPackages,
+      if (school != null && !canonicalPackages.contains(originalPackage))
+        originalPackage,
+    ];
 
     final navigator = Navigator.of(context, rootNavigator: true);
     final route = DialogRoute<_SchoolFormResult>(
@@ -1740,22 +1810,23 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
-                        value: selectedPackage,
+                        value: packageOptions.contains(selectedPackage)
+                            ? selectedPackage
+                            : packageOptions.first,
                         decoration: const InputDecoration(
                           labelText: 'แพ็กเกจ',
                           prefixIcon: Icon(Icons.workspace_premium_rounded),
                         ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'Basic',
-                            child: Text('Basic'),
-                          ),
-                          DropdownMenuItem(value: 'Pro', child: Text('Pro')),
-                          DropdownMenuItem(
-                            value: 'Enterprise',
-                            child: Text('Enterprise'),
-                          ),
-                        ],
+                        items: packageOptions
+                            .map(
+                              (pkg) => DropdownMenuItem<String>(
+                                value: pkg,
+                                child: Text(
+                                  pkg.isEmpty ? 'ไม่ระบุแพ็กเกจ' : pkg,
+                                ),
+                              ),
+                            )
+                            .toList(),
                         onChanged: (value) {
                           if (value != null) {
                             setDialogState(() {

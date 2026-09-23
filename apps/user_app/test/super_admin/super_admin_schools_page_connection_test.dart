@@ -14,24 +14,29 @@ import 'package:shared_core/shared_core.dart';
 SchoolPlatformRecord _school({
   String id = 'school-1',
   String name = 'โรงเรียนทดสอบ',
+  String packageName = 'Pro',
   String status = 'active',
+  int devicesTotal = 5,
+  int devicesOnline = 4,
+  DateTime? licenseExpiresAt,
 }) => SchoolPlatformRecord(
   id: id,
   schoolCode: 'TEST-1',
   name: name,
   province: 'กรุงเทพมหานคร',
   adminEmail: 'admin@school.test',
-  packageName: 'Pro',
+  packageName: packageName,
   status: status,
   maxUsers: 100,
   maxDevices: 50,
   usersCount: 10,
-  devicesTotal: 5,
-  devicesOnline: 4,
+  devicesTotal: devicesTotal,
+  devicesOnline: devicesOnline,
   buildingsCount: 2,
   roomsCount: 8,
   alertsCount: 0,
-  licenseExpiresAt: DateTime.now().add(const Duration(days: 300)),
+  licenseExpiresAt:
+      licenseExpiresAt ?? DateTime.now().add(const Duration(days: 300)),
 );
 
 Future<void> _pump(
@@ -47,6 +52,17 @@ Future<void> _pump(
     DateTime? licenseExpiresAt,
   })?
   createSchool,
+  Future<bool> Function({
+    required String schoolId,
+    required String name,
+    String? province,
+    String? adminEmail,
+    String? packageName,
+    int? maxUsers,
+    int? maxDevices,
+    DateTime? licenseExpiresAt,
+  })?
+  updateSchool,
   Future<bool> Function({required String schoolId, required String status})?
   setSchoolStatus,
 }) async {
@@ -61,6 +77,7 @@ Future<void> _pump(
       home: SuperAdminSchoolsPage(
         loadSchools: loadSchools ?? () async => <SchoolPlatformRecord>[],
         createSchool: createSchool,
+        updateSchool: updateSchool,
         setSchoolStatus: setSchoolStatus,
       ),
     ),
@@ -242,6 +259,250 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('ใน Supabase แล้ว'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'editing a school with legacy package name "Pro Package" from priority list does not crash with dropdown assertion',
+    (tester) async {
+      final school = _school(
+        id: 'school-pro-pkg',
+        name: 'โรงเรียนDilion',
+        packageName: 'Pro Package',
+        devicesOnline: 0,
+        devicesTotal: 5,
+      );
+      await _pump(
+        tester,
+        loadSchools: () async => [school],
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('รายการที่ควรจัดการก่อน'), findsOneWidget);
+      expect(find.text('โรงเรียนDilion'), findsWidgets);
+
+      await tester.tap(find.text('โรงเรียนDilion').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('แก้ไขข้อมูล'), findsOneWidget);
+      await tester.tap(find.text('แก้ไขข้อมูล'));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('แก้ไขข้อมูลโรงเรียน'), findsOneWidget);
+      expect(find.text('Pro Package'), findsWidgets);
+    },
+  );
+
+  testWidgets(
+    'editing school with unknown package or empty package does not crash and preserves package options',
+    (tester) async {
+      final schoolUnknown = _school(
+        id: 'school-unknown',
+        name: 'โรงเรียนคัสตอม',
+        packageName: 'Custom Tier XYZ',
+        devicesOnline: 0,
+      );
+      final schoolEmpty = _school(
+        id: 'school-empty',
+        name: 'โรงเรียนไม่ระบุ',
+        packageName: '',
+        devicesOnline: 0,
+      );
+      await _pump(
+        tester,
+        loadSchools: () async => [schoolUnknown, schoolEmpty],
+      );
+      await tester.pumpAndSettle();
+
+      // Open school with unknown package
+      await tester.tap(find.text('โรงเรียนคัสตอม').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('แก้ไขข้อมูล'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text('Custom Tier XYZ'), findsWidgets);
+      await tester.tap(find.text('ยกเลิก').last);
+      await tester.pumpAndSettle();
+
+      // Open school with empty package
+      await tester.tap(find.text('โรงเรียนไม่ระบุ').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('แก้ไขข้อมูล'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text('ไม่ระบุแพ็กเกจ'), findsOneWidget);
+      await tester.tap(find.text('ยกเลิก').last);
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets(
+    'editing school name only preserves original package value when saving',
+    (tester) async {
+      String? savedPackage;
+      String? savedName;
+      final school = _school(
+        id: 'school-preserve',
+        name: 'โรงเรียนเดิม',
+        packageName: 'Pro Package',
+        devicesOnline: 0,
+      );
+      await _pump(
+        tester,
+        loadSchools: () async => [school],
+        updateSchool: ({
+          required schoolId,
+          required name,
+          province,
+          adminEmail,
+          packageName,
+          maxUsers,
+          maxDevices,
+          licenseExpiresAt,
+        }) async {
+          savedName = name;
+          savedPackage = packageName;
+          return true;
+        },
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('โรงเรียนเดิม').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('แก้ไขข้อมูล'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'ชื่อโรงเรียน'),
+        'โรงเรียนชื่อใหม่',
+      );
+      await tester.tap(find.text('บันทึกการแก้ไข').last);
+      await tester.pumpAndSettle();
+
+      expect(savedName, 'โรงเรียนชื่อใหม่');
+      // Crucial requirement 4: package must NOT be changed to 'Pro'
+      expect(savedPackage, 'Pro Package');
+    },
+  );
+
+  testWidgets(
+    'editing form lifecycle: save, cancel, and close X do not dispose controller prematurely',
+    (tester) async {
+      final school = _school(
+        id: 'school-lifecycle',
+        name: 'โรงเรียนทดสอบ lifecycle',
+        packageName: 'Basic',
+      );
+      await _pump(
+        tester,
+        loadSchools: () async => [school],
+        updateSchool: ({
+          required schoolId,
+          required name,
+          province,
+          adminEmail,
+          packageName,
+          maxUsers,
+          maxDevices,
+          licenseExpiresAt,
+        }) async => true,
+      );
+      await tester.pumpAndSettle();
+
+      // Case 1: Cancel while focused
+      await tester.tap(find.text('ดูรายละเอียด').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('แก้ไขข้อมูล'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'ชื่อโรงเรียน'),
+        'Edited Cancel',
+      );
+      await tester.tap(find.text('ยกเลิก').last);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.takeException(), isNull);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+
+      // Case 2: Close with X while focused
+      await tester.tap(find.text('ดูรายละเอียด').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('แก้ไขข้อมูล'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'ชื่อโรงเรียน'),
+        'Edited Close X',
+      );
+      await tester.tap(find.byTooltip('ปิด').last);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.takeException(), isNull);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+
+      // Case 3: Save while focused
+      await tester.tap(find.text('ดูรายละเอียด').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('แก้ไขข้อมูล'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'ชื่อโรงเรียน'),
+        'Edited Saved',
+      );
+      await tester.tap(find.text('บันทึกการแก้ไข').last);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.takeException(), isNull);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'package filter syncs with dynamic data and resets if selected package disappears',
+    (tester) async {
+      List<SchoolPlatformRecord> currentRecords = [
+        _school(id: 's-1', name: 'โรงเรียน โปรพิเศษ', packageName: 'Pro Package'),
+        _school(id: 's-2', name: 'โรงเรียน เบสิก', packageName: 'Basic'),
+      ];
+
+      await _pump(
+        tester,
+        loadSchools: () async => currentRecords,
+      );
+      await tester.pumpAndSettle();
+
+      // Tap package filter dropdown (the second DropdownButton on the page)
+      await tester.tap(find.byType(DropdownButton<String>).last);
+      await tester.pumpAndSettle();
+
+      // Select 'Pro Package'
+      await tester.tap(find.text('Pro Package').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('โรงเรียน โปรพิเศษ'), findsOneWidget);
+      expect(find.text('โรงเรียน เบสิก'), findsNothing);
+
+      // Change data where 'Pro Package' is no longer present
+      currentRecords = [
+        _school(id: 's-2', name: 'โรงเรียน เบสิก', packageName: 'Basic'),
+        _school(id: 's-3', name: 'โรงเรียน เอ็นเตอร์ไพรส์', packageName: 'Enterprise'),
+      ];
+
+      // Re-pump with updated data source
+      await _pump(
+        tester,
+        loadSchools: () async => currentRecords,
+      );
+      await tester.pumpAndSettle();
+
+      // Filter must reset to 'ทุกแพ็กเกจ'
+      expect(find.text('ทุกแพ็กเกจ'), findsWidgets);
+      // Both schools are visible now, not stuck filtering with old 'Pro Package'
+      expect(find.text('โรงเรียน เบสิก'), findsOneWidget);
+      expect(find.text('โรงเรียน เอ็นเตอร์ไพรส์'), findsOneWidget);
     },
   );
 }
