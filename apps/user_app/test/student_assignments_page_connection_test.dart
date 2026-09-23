@@ -67,6 +67,9 @@ Future<void> _pump(
     required Uint8List bytes,
   })?
   uploadAttachment,
+  Future<List<AssignmentAttachment>> Function(String assignmentId)?
+  loadTeacherAttachments,
+  Future<String> Function(String fileId)? getTeacherFileUrl,
 }) async {
   tester.view.physicalSize = const Size(1000, 1800);
   tester.view.devicePixelRatio = 1;
@@ -88,6 +91,9 @@ Future<void> _pump(
         loadMyCharts: loadMyCharts,
         getSensorHistory: getSensorHistory,
         uploadAttachment: uploadAttachment,
+        loadTeacherAttachments:
+            loadTeacherAttachments ?? (_) async => const [],
+        getTeacherFileUrl: getTeacherFileUrl,
       ),
     ),
   );
@@ -95,6 +101,8 @@ Future<void> _pump(
 }
 
 void main() {
+  _teacherAttachments();
+
   testWidgets(
     'upload retry keeps the submitted version and skips confirmed files',
     (tester) async {
@@ -488,5 +496,86 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('ยังไม่มีข้อมูลเซนเซอร์ให้แนบ'), findsOneWidget);
     expect(find.byType(Chip), findsNothing);
+  });
+}
+
+/// ไฟล์แนบของครู (2026-09-23)
+///
+/// ครูแนบไฟล์/รูป/ลิงก์เข้าใบงานได้ตั้งแต่ acf1895 แต่ฝั่งนักเรียนไม่แสดง
+/// อะไรเลย — ฟีเจอร์จึงยังไม่มีประโยชน์จริงจนกว่าจะมีบล็อกนี้ เทสต์ชุดนี้
+/// ตรึงว่านักเรียนเห็นของที่ครูแนบ และแยก "โหลดไม่สำเร็จ" ออกจาก
+/// "ครูไม่ได้แนบอะไร" ได้จริง
+void _teacherAttachments() {
+  const pdf = AssignmentAttachment(
+    id: 'att-1',
+    courseFileId: 'f-1',
+    kind: CourseFileKind.file,
+    fileName: 'ใบความรู้บทที่ 3.pdf',
+    sizeBytes: 1024 * 512,
+    sortOrder: 0,
+  );
+  const link = AssignmentAttachment(
+    id: 'att-2',
+    courseFileId: 'f-2',
+    kind: CourseFileKind.link,
+    fileName: 'วิดีโอสาธิต',
+    url: 'https://example.org/clip',
+    sortOrder: 1,
+  );
+
+  testWidgets('นักเรียนเห็นเอกสารที่ครูแนบมา ทั้งไฟล์และลิงก์', (tester) async {
+    await _pump(tester, loadTeacherAttachments: (_) async => const [pdf, link]);
+    await tester.tap(find.byType(AssignmentCard));
+    await tester.pumpAndSettle();
+
+    expect(find.text('เอกสารจากครู 2 รายการ'), findsOneWidget);
+    expect(find.text('ใบความรู้บทที่ 3.pdf'), findsOneWidget);
+    expect(find.text('วิดีโอสาธิต'), findsOneWidget);
+    // ลิงก์บอกปลายทาง ไฟล์บอกชนิดกับขนาด
+    expect(find.text('example.org'), findsOneWidget);
+    expect(find.text('PDF · 512.0 KB'), findsOneWidget);
+  });
+
+  testWidgets('ครูไม่ได้แนบอะไร ต้องไม่ขึ้นหัวข้อเปล่า', (tester) async {
+    await _pump(tester, loadTeacherAttachments: (_) async => const []);
+    await tester.tap(find.byType(AssignmentCard));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('เอกสารจากครู'), findsNothing);
+    expect(find.textContaining('โหลดไฟล์แนบ'), findsNothing);
+  });
+
+  testWidgets('โหลดไม่สำเร็จ ต้องบอกตรง ๆ ไม่ใช่เงียบเหมือนไม่มีเอกสาร', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      loadTeacherAttachments: (_) async => throw StateError('offline'),
+    );
+    await tester.tap(find.byType(AssignmentCard));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('โหลดไฟล์แนบของครูไม่สำเร็จ'), findsOneWidget);
+  });
+
+  testWidgets('แตะไฟล์ต้องขอ signed URL ด้วย courseFileId ไม่ใช่ id ของการผูก', (
+    tester,
+  ) async {
+    String? asked;
+    await _pump(
+      tester,
+      loadTeacherAttachments: (_) async => const [pdf],
+      getTeacherFileUrl: (id) async {
+        asked = id;
+        return 'https://example.org/signed';
+      },
+    );
+    await tester.tap(find.byType(AssignmentCard));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ใบความรู้บทที่ 3.pdf'));
+    await tester.pumpAndSettle();
+
+    // ผูกคือ att-1 แต่ไฟล์จริงในคลังคือ f-1 — ส่งผิดตัวคือโหลดไฟล์ไม่ได้
+    expect(asked, 'f-1');
   });
 }

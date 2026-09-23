@@ -3,7 +3,9 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
+
 import '../../assignments/assignment_submission_controller.dart';
+
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../utils/sensor_csv.dart';
@@ -31,6 +33,8 @@ class StudentAssignmentsPage extends StatefulWidget {
     this.loadAssignmentsForCourse,
     this.loadSubmissionVersions,
     this.getAssignmentDetail,
+    this.loadTeacherAttachments,
+    this.getTeacherFileUrl,
     this.getAttachmentDownloadUrl,
     this.pickFiles,
     this.loadMyCharts,
@@ -50,6 +54,11 @@ class StudentAssignmentsPage extends StatefulWidget {
   loadSubmissionVersions;
   final Future<AssignmentDetail> Function(String assignmentId)?
   getAssignmentDetail;
+
+  /// ไฟล์/รูป/ลิงก์ที่ครูแนบมากับใบงาน (2026-09-23) — ส่งต่อลงไปถึงชีตส่งงาน
+  final Future<List<AssignmentAttachment>> Function(String assignmentId)?
+  loadTeacherAttachments;
+  final Future<String> Function(String fileId)? getTeacherFileUrl;
   final Future<String> Function(String attachmentId)? getAttachmentDownloadUrl;
   final Future<List<PlatformFile>?> Function()? pickFiles;
 
@@ -479,6 +488,8 @@ class _StudentAssignmentsPageState extends State<StudentAssignmentsPage> {
             item: item,
             onSubmitted: _load,
             getAssignmentDetail: widget.getAssignmentDetail,
+            loadTeacherAttachments: widget.loadTeacherAttachments,
+            getTeacherFileUrl: widget.getTeacherFileUrl,
             loadPreviousVersions: widget.loadSubmissionVersions,
             getAttachmentDownloadUrl: widget.getAttachmentDownloadUrl,
             pickFiles: widget.pickFiles,
@@ -569,10 +580,19 @@ class _AssignmentSubmitSheet extends StatefulWidget {
     this.getSensorHistory,
     this.submitAssignment,
     this.uploadAttachment,
+    this.loadTeacherAttachments,
+    this.getTeacherFileUrl,
   });
 
   final _AssignmentWithCourse item;
   final VoidCallback onSubmitted;
+
+  /// ไฟล์/รูป/ลิงก์ที่ครูแนบมากับใบงาน (2026-09-23) — ครูแนบได้ตั้งแต่
+  /// commit acf1895 แต่ฝั่งนักเรียนยังไม่แสดงอะไรเลย ฟีเจอร์จึงยังไม่มี
+  /// ประโยชน์จริงจนกว่าจะมีบล็อกนี้
+  final Future<List<AssignmentAttachment>> Function(String assignmentId)?
+  loadTeacherAttachments;
+  final Future<String> Function(String fileId)? getTeacherFileUrl;
 
   /// Read/write seams threaded to the corresponding AssignmentService
   /// static calls (and file_picker) in production — widget tests supply
@@ -622,6 +642,12 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
   bool _attachingEvidence = false;
   List<SubmissionAttachment> _previousAttachments = const [];
 
+  /// ของที่ครูแนบมา — แยกจาก _pickedFiles/_previousAttachments ซึ่งเป็น
+  /// งานที่นักเรียนส่ง คนละทิศทางกัน
+  List<AssignmentAttachment> _teacherFiles = const [];
+  bool _teacherFilesLoading = true;
+  bool _teacherFilesFailed = false;
+
   bool get _isEdit => widget.item.submitted;
 
   @override
@@ -638,6 +664,7 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
           AssignmentService.listMySubmissionVersions,
     );
     _loadDetail();
+    _loadTeacherFiles();
     if (_isEdit) _loadPreviousSubmission();
   }
 
@@ -651,6 +678,28 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _detailError = 'โหลดรายละเอียดไม่สำเร็จ');
+    }
+  }
+
+  Future<void> _loadTeacherFiles() async {
+    try {
+      final load =
+          widget.loadTeacherAttachments ?? CourseFileService.listAttachments;
+      final rows = await load(widget.item.assignment.id);
+      if (!mounted) return;
+      setState(() {
+        _teacherFiles = rows;
+        _teacherFilesLoading = false;
+      });
+    } catch (e) {
+      debugPrint('โหลดไฟล์แนบของครูไม่สำเร็จ — $e');
+      if (!mounted) return;
+      // ต้องแยกจาก "ครูไม่ได้แนบอะไร" ให้ได้ ไม่งั้นนักเรียนจะเข้าใจว่าไม่มี
+      // เอกสารประกอบ แล้วทำงานส่งโดยขาดสิ่งที่ครูให้มา
+      setState(() {
+        _teacherFilesLoading = false;
+        _teacherFilesFailed = true;
+      });
     }
   }
 
@@ -695,6 +744,32 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('เปิดไฟล์แนบไม่สำเร็จ')));
+    }
+  }
+
+  Future<void> _openTeacherFile(AssignmentAttachment a) async {
+    try {
+      // ลิงก์เปิดตรงได้เลย ส่วนไฟล์ต้องขอ signed URL จาก Edge Function ก่อน
+      // เพราะถังเก็บเป็น private
+      final url = a.isLink
+          ? a.url
+          : await (widget.getTeacherFileUrl ??
+                CourseFileService.getDownloadUrl)(a.courseFileId);
+      if (url == null || url.isEmpty) throw StateError('no_url');
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(uri);
+      }
+    } catch (e) {
+      debugPrint('เปิดไฟล์แนบของครูไม่สำเร็จ — $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(a.isLink ? 'เปิดลิงก์ไม่สำเร็จ' : 'เปิดไฟล์ไม่สำเร็จ'),
+        ),
+      );
     }
   }
 
@@ -983,6 +1058,51 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
                   height: 1.4,
                 ),
               ),
+            // ไฟล์แนบของครู (2026-09-23) — วางไว้เหนือชุดข้อมูลเซนเซอร์
+            // เพราะเป็นเอกสารที่ต้องอ่านก่อนลงมือทำ
+            if (_teacherFilesFailed) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.error_outline_rounded,
+                    size: 14,
+                    color: Color(0xFFB45309),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'โหลดไฟล์แนบของครูไม่สำเร็จ — ยังบอกไม่ได้ว่ามีเอกสารประกอบหรือไม่',
+                      style: const TextStyle(
+                        color: Color(0xFFB45309),
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ] else if (!_teacherFilesLoading && _teacherFiles.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                'เอกสารจากครู ${_teacherFiles.length} รายการ',
+                style: const TextStyle(
+                  color: SchoolPalette.ink,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 6),
+              for (final a in _teacherFiles)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: _TeacherFileTile(
+                    attachment: a,
+                    onTap: () => _openTeacherFile(a),
+                  ),
+                ),
+            ],
             // PBL-6: datasets the teacher pinned to this assignment. The
             // backend has returned them in get_assignment since 2026-07-31;
             // the redesigned student UI never showed them until 2026-09-18.
@@ -1223,6 +1343,8 @@ class AssignmentCard extends StatelessWidget {
     required this.item,
     required this.onSubmitted,
     this.getAssignmentDetail,
+    this.loadTeacherAttachments,
+    this.getTeacherFileUrl,
     this.loadPreviousVersions,
     this.getAttachmentDownloadUrl,
     this.pickFiles,
@@ -1239,6 +1361,11 @@ class AssignmentCard extends StatelessWidget {
   /// _AssignmentSubmitSheet for what each one replaces in production.
   final Future<AssignmentDetail> Function(String assignmentId)?
   getAssignmentDetail;
+
+  /// ไฟล์/รูป/ลิงก์ที่ครูแนบมากับใบงาน (2026-09-23) — ส่งต่อลงไปถึงชีตส่งงาน
+  final Future<List<AssignmentAttachment>> Function(String assignmentId)?
+  loadTeacherAttachments;
+  final Future<String> Function(String fileId)? getTeacherFileUrl;
   final Future<List<SubmissionVersion>> Function(String assignmentId)?
   loadPreviousVersions;
   final Future<String> Function(String attachmentId)? getAttachmentDownloadUrl;
@@ -1325,6 +1452,8 @@ class AssignmentCard extends StatelessWidget {
         item: item,
         onSubmitted: onSubmitted,
         getAssignmentDetail: getAssignmentDetail,
+        loadTeacherAttachments: loadTeacherAttachments,
+        getTeacherFileUrl: getTeacherFileUrl,
         loadPreviousVersions: loadPreviousVersions,
         getAttachmentDownloadUrl: getAttachmentDownloadUrl,
         pickFiles: pickFiles,
@@ -1804,6 +1933,107 @@ class _EvidencePicker extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// เอกสารหนึ่งชิ้นที่ครูแนบมากับใบงาน — ไฟล์หรือลิงก์
+///
+/// แตะแล้วเปิดออกไปข้างนอก: ลิงก์เปิดตรง ส่วนไฟล์ขอ signed URL ก่อนเพราะ
+/// ถังเก็บเป็น private (นักเรียนเข้าถึงไม่ได้ตรง ๆ ตามกติกาข้อ 3 ของโปรเจกต์)
+class _TeacherFileTile extends StatelessWidget {
+  const _TeacherFileTile({required this.attachment, required this.onTap});
+
+  final AssignmentAttachment attachment;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isLink = attachment.isLink;
+    final (bg, fg, icon) = isLink
+        ? (const Color(0xFFF3EDFA), const Color(0xFF6B21A8), Icons.link_rounded)
+        : attachment.isImage
+        ? (
+            const Color(0xFFE8F1E9),
+            const Color(0xFF2F6B34),
+            Icons.image_outlined,
+          )
+        : (
+            const Color(0xFFFDECEA),
+            const Color(0xFFC0392B),
+            Icons.description_outlined,
+          );
+
+    final subtitle = isLink
+        ? (Uri.tryParse(attachment.url ?? '')?.host ?? 'ลิงก์')
+        : [
+            attachment.typeLabel,
+            attachment.sizeLabel,
+          ].where((s) => s.isNotEmpty).join(' · ');
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: bg,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(icon, size: 16, color: fg),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      attachment.fileName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: SchoolPalette.ink,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                        height: 1.3,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: SchoolPalette.muted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                isLink ? Icons.open_in_new_rounded : Icons.download_rounded,
+                size: 16,
+                color: SchoolPalette.muted,
+              ),
+            ],
           ),
         ),
       ),
