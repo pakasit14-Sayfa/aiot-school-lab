@@ -22,14 +22,17 @@
 -- 1. course_files: รับลิงก์ และมีหมวด
 -- ─────────────────────────────────────────────────────────────────────
 
-do $$ begin
-  create type course_file_kind as enum ('file', 'link');
-exception when duplicate_object then null; end $$;
-
+-- ใช้ text + CHECK ไม่ใช่ enum โดยตั้งใจ: `do $$ ... create type ... $$`
+-- ไม่ทำงานผ่าน `supabase db query --file` (psql ในเครื่องรับได้ แต่ CLI ไม่)
+-- ทำให้ตอนรันขึ้น prod 2026-09-23 พังที่ฟังก์ชันตัวแรกที่อ้างถึง type นั้น
 alter table public.course_files
-  add column if not exists kind public.course_file_kind not null default 'file',
+  add column if not exists kind text not null default 'file',
   add column if not exists url text,
   add column if not exists category text;
+
+alter table public.course_files drop constraint if exists course_files_kind_enum;
+alter table public.course_files
+  add constraint course_files_kind_enum check (kind in ('file', 'link'));
 
 -- ลิงก์ไม่มีไฟล์จริงในถัง จึงไม่มี storage_path และไม่มีขนาด
 alter table public.course_files alter column storage_path drop not null;
@@ -165,7 +168,7 @@ language plpgsql security definer set search_path = public, extensions
 as $$
 declare
   v_course_id uuid;
-  v_kind public.course_file_kind;
+  v_kind text;
 begin
   select course_id, kind into v_course_id, v_kind from course_files where id = p_file_id;
   if not found then raise exception 'file_not_found'; end if;
@@ -252,7 +255,7 @@ begin
   ) then raise exception 'forbidden'; end if;
 
   return query
-  select f.id, f.kind::text, f.storage_path, f.url, f.file_name, f.category,
+  select f.id, f.kind, f.storage_path, f.url, f.file_name, f.category,
          f.size_bytes, f.uploaded_by, u.first_name, u.last_name, f.created_at
   from course_files f
   join users u on u.id = f.uploaded_by
@@ -387,7 +390,7 @@ begin
   end if;
 
   return query
-  select at.id, f.id, f.kind::text, f.file_name, f.url, f.category,
+  select at.id, f.id, f.kind, f.file_name, f.url, f.category,
          f.size_bytes, at.sort_order
   from assignment_attachments at
   join course_files f on f.id = at.course_file_id

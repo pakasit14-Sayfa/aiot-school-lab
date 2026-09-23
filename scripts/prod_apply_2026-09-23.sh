@@ -13,6 +13,11 @@
 #
 # list_course_files เปลี่ยนรูปร่างคอลัมน์ที่คืน จึงต้อง drop ก่อน create —
 # migration ทำให้แล้ว แต่แปลว่าช่วงระหว่างรันแอปจะเรียกไม่ได้ชั่วขณะ
+#
+# รอบแรก (2026-09-23) รันแล้วพังที่ `type "public.course_file_kind" does not
+# exist` เพราะ `do $$ ... create type ... $$` ไม่ทำงานผ่าน supabase db query
+# migration จึงเปลี่ยนมาใช้ text + CHECK แทน enum — รันซ้ำได้ปลอดภัย ทุก
+# statement เป็น idempotent และรอบที่พังยังไม่ได้บันทึกเวอร์ชันลงตาราง
 set -euo pipefail
 cd "$(dirname "$0")/.."
 m=20260923000000_assignment_attachments
@@ -35,6 +40,10 @@ echo "== verify 2 (expect table assignment_attachments)"
 npx supabase db query --linked "
   select table_name from information_schema.tables
   where table_schema='public' and table_name='assignment_attachments'" < /dev/null
+
+echo "== verify 2b (expect course_files_kind_enum check constraint)"
+npx supabase db query --linked "
+  select conname from pg_constraint where conname='course_files_kind_enum'" < /dev/null
 
 echo "== verify 3 (expect columns kind, url, category on course_files)"
 npx supabase db query --linked "
