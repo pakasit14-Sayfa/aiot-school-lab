@@ -3,6 +3,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
+import 'teacher_airy_kit.dart' show TeacherType;
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart';
 
@@ -14,6 +15,9 @@ class TeacherLibraryFile {
     required this.sizeLabel,
     required this.color,
     required this.category,
+    this.isLink = false,
+    this.url,
+    this.usedByAssignments = 0,
     this.uploaderName,
     this.createdAt,
   });
@@ -24,6 +28,15 @@ class TeacherLibraryFile {
   final String sizeLabel;
   final Color color;
   String category;
+
+  /// ลิงก์ไม่มีไฟล์จริงในถัง เปิดตรงจาก [url] ไม่ต้องขอ signed URL
+  final bool isLink;
+  final String? url;
+
+  /// นับมาจากฐานข้อมูล — มากกว่า 0 คือลบไม่ได้ (FK on delete restrict)
+  int usedByAssignments;
+  bool get inUse => usedByAssignments > 0;
+
   final String? uploaderName;
   final DateTime? createdAt;
 }
@@ -80,6 +93,9 @@ class TeacherKnowledgeLibraryPage extends StatefulWidget {
     this.listFiles,
     this.uploadFile,
     this.getDownloadUrl,
+    this.addLink,
+    this.updateFile,
+    this.deleteFile,
     this.hasSessionOverride,
   });
 
@@ -91,9 +107,28 @@ class TeacherKnowledgeLibraryPage extends StatefulWidget {
     required String courseId,
     required String fileName,
     required Uint8List bytes,
+    String? category,
   })?
   uploadFile;
   final Future<String> Function(String fileId)? getDownloadUrl;
+
+  /// 2026-09-23 — คลังรับลิงก์ได้ และแก้/ลบของในคลังได้แล้ว ก่อนหน้านี้
+  /// register/list/download เท่านั้น ลบอะไรไม่ได้เลยทั้งระบบ
+  final Future<String> Function({
+    required String courseId,
+    required String url,
+    String? title,
+    String? category,
+  })?
+  addLink;
+  final Future<void> Function({
+    required String fileId,
+    String? fileName,
+    String? category,
+    String? url,
+  })?
+  updateFile;
+  final Future<void> Function(String fileId)? deleteFile;
 
   /// Overrides AuthService.sessionToken != null for tests, since that's a
   /// static field the seams above can't otherwise replace.
@@ -116,8 +151,8 @@ class _TeacherKnowledgeLibraryPageState
 
   TeacherLibrarySubject? get _selectedSubject =>
       _subjects.isNotEmpty && _selectedIndex < _subjects.length
-          ? _subjects[_selectedIndex]
-          : null;
+      ? _subjects[_selectedIndex]
+      : null;
 
   @override
   void initState() {
@@ -184,16 +219,25 @@ class _TeacherKnowledgeLibraryPageState
           final filesLoadFailed = filesPerCourse[i].failed;
 
           final mappedFiles = files.map((f) {
-            final ext = f.fileName.contains('.')
-                ? f.fileName.split('.').last.toUpperCase()
-                : 'FILE';
+            // หมวดเคย hardcode เป็น 'เอกสารประกอบการเรียน' ทุกไฟล์ ทั้งที่
+            // ชีตอัปโหลดมีช่องให้ครูกรอก — ค่าที่กรอกไม่เคยถูกแสดงเลย
+            final ext = f.isLink
+                ? 'ลิงก์'
+                : (f.fileName.contains('.')
+                      ? f.fileName.split('.').last.toUpperCase()
+                      : 'FILE');
             return TeacherLibraryFile(
               id: f.id,
               name: f.fileName,
               typeLabel: ext,
-              sizeLabel: f.formattedSize,
-              color: _colorForExtension(ext),
-              category: 'เอกสารประกอบการเรียน',
+              sizeLabel: f.isLink
+                  ? (Uri.tryParse(f.url ?? '')?.host ?? 'ลิงก์')
+                  : f.formattedSize,
+              color: f.isLink ? TeacherPalette.violet : _colorForExtension(ext),
+              category: f.category ?? 'ยังไม่ระบุหมวด',
+              isLink: f.isLink,
+              url: f.url,
+              usedByAssignments: f.usedByAssignments,
               uploaderName: f.uploaderFullName,
               createdAt: f.createdAt,
             );
@@ -237,6 +281,91 @@ class _TeacherKnowledgeLibraryPageState
     }
   }
 
+  /// เพิ่มลิงก์เข้าคลัง — คลังเก็บได้แต่ไฟล์ที่อัปขึ้นถังมาตลอด ลิงก์เก็บไม่ได้
+  Future<void> _addLink() async {
+    if (_subjects.isEmpty) return;
+    final subject = _subjects[_selectedIndex];
+
+    final url = TextEditingController();
+    final title = TextEditingController();
+    final category = TextEditingController();
+    String? error;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          backgroundColor: Colors.white,
+          title: Text('ใส่ลิงก์ใน ${subject.name}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: url,
+                autofocus: true,
+                keyboardType: TextInputType.url,
+                decoration: InputDecoration(
+                  labelText: 'ลิงก์',
+                  hintText: 'https://…',
+                  errorText: error,
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: title,
+                decoration: const InputDecoration(
+                  labelText: 'ชื่อที่จะแสดง (ไม่บังคับ)',
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: category,
+                decoration: const InputDecoration(
+                  labelText: 'หมวด / บทเรียน (ไม่บังคับ)',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('ยกเลิก'),
+            ),
+            TextButton(
+              onPressed: () {
+                // ตรวจตั้งแต่หน้าจอ หลังบ้านตรวจซ้ำอีกชั้น (register_course_link
+                // โยน invalid_url) — ครูจะได้รู้ทันทีไม่ใช่หลังกดบันทึก
+                if (!RegExp(r'^https?://\S+$').hasMatch(url.text.trim())) {
+                  setLocal(
+                    () => error = 'ต้องขึ้นต้นด้วย http:// หรือ https://',
+                  );
+                  return;
+                }
+                Navigator.pop(ctx, true);
+              },
+              child: const Text('เพิ่ม'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    try {
+      await (widget.addLink ?? CourseFileService.addLink)(
+        courseId: subject.id,
+        url: url.text.trim(),
+        title: title.text.trim().isEmpty ? null : title.text.trim(),
+        category: category.text.trim().isEmpty ? null : category.text.trim(),
+      );
+      await _loadLibraryData();
+      _snack('เพิ่มลิงก์เข้าคลังแล้ว');
+    } catch (e) {
+      debugPrint('เพิ่มลิงก์ไม่สำเร็จ — $e');
+      _snack('เพิ่มลิงก์ไม่สำเร็จ ลองใหม่อีกครั้ง', error: true);
+    }
+  }
+
   Future<void> _openUploadSheet() async {
     if (_subjects.isEmpty) return;
 
@@ -273,6 +402,9 @@ class _TeacherKnowledgeLibraryPageState
             courseId: targetSubject.id,
             fileName: result.fileName,
             bytes: result.bytes!,
+            category: result.category.trim().isEmpty
+                ? null
+                : result.category.trim(),
           );
         }
 
@@ -307,7 +439,8 @@ class _TeacherKnowledgeLibraryPageState
             id: 'f_${DateTime.now().millisecondsSinceEpoch}',
             name: result.fileName,
             typeLabel: result.typeLabel,
-            sizeLabel: '${result.sizeValue.toStringAsFixed(1)} ${result.sizeUnit}',
+            sizeLabel:
+                '${result.sizeValue.toStringAsFixed(1)} ${result.sizeUnit}',
             color: _colorForExtension(result.typeLabel),
             category: result.category.trim().isEmpty
                 ? 'ไม่ระบุหมวด'
@@ -334,8 +467,13 @@ class _TeacherKnowledgeLibraryPageState
   // จะถูกเข้าใจผิดว่าเป็นไฟล์ mock)
   Future<void> _downloadFile(TeacherLibraryFile file) async {
     try {
-      final getUrl = widget.getDownloadUrl ?? CourseFileService.getDownloadUrl;
-      final url = await getUrl(file.id);
+      // ลิงก์เปิดตรงจาก url ที่เก็บไว้ ไม่มีไฟล์ในถังให้ขอ signed URL
+      final url = file.isLink
+          ? (file.url ?? '')
+          : await (widget.getDownloadUrl ?? CourseFileService.getDownloadUrl)(
+              file.id,
+            );
+      if (url.isEmpty) throw StateError('no_url');
       final uri = Uri.parse(url);
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -343,23 +481,262 @@ class _TeacherKnowledgeLibraryPageState
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('เปิดลิงก์ดาวน์โหลด: "${file.name}"'),
+              content: Text('เปิด "${file.name}"'),
               backgroundColor: const Color(0xFF10B981),
               behavior: SnackBarBehavior.floating,
             ),
           );
         }
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('เปิดของในคลังไม่สำเร็จ — $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('ไม่สามารถดาวน์โหลดไฟล์ได้'),
-            backgroundColor: Color(0xFFEF4444),
+          SnackBar(
+            content: Text(
+              file.isLink ? 'เปิดลิงก์ไม่สำเร็จ' : 'ไม่สามารถดาวน์โหลดไฟล์ได้',
+            ),
+            backgroundColor: const Color(0xFFEF4444),
             behavior: SnackBarBehavior.floating,
           ),
         );
       }
+    }
+  }
+
+  void _snack(String m, {bool error = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(m),
+        backgroundColor: error ? const Color(0xFFEF4444) : null,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  /// เมนู ⋯ ของของหนึ่งชิ้นในคลัง
+  ///
+  /// ชื่อกับหมวดเป็นของตัวไฟล์ แก้ที่นี่ทีเดียวเปลี่ยนทุกใบงานที่อ้างถึง —
+  /// ตั้งใจให้เป็นแบบนั้น จึงเขียนกำกับไว้ในเมนูให้ครูรู้ก่อนกด
+  Future<void> _openFileMenu(TeacherLibraryFile file) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 16, 18, 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  file.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 15,
+                    color: TeacherPalette.ink,
+                  ),
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.drive_file_rename_outline_rounded),
+              title: const Text('เปลี่ยนชื่อ'),
+              subtitle: const Text('เปลี่ยนทุกใบงานที่ใช้ไฟล์นี้'),
+              onTap: () => Navigator.pop(ctx, 'rename'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.folder_outlined),
+              title: const Text('เปลี่ยนหมวด'),
+              subtitle: const Text('ใช้จัดกลุ่มในคลังความรู้'),
+              onTap: () => Navigator.pop(ctx, 'category'),
+            ),
+            if (file.isLink)
+              ListTile(
+                leading: const Icon(Icons.link_rounded),
+                title: const Text('แก้ลิงก์ปลายทาง'),
+                subtitle: Text(file.url ?? ''),
+                onTap: () => Navigator.pop(ctx, 'url'),
+              ),
+            ListTile(
+              leading: Icon(
+                Icons.delete_outline_rounded,
+                color: file.inUse ? TeacherPalette.muted : TeacherPalette.red,
+              ),
+              title: Text(
+                'ลบออกจากคลัง',
+                style: TextStyle(
+                  color: file.inUse ? TeacherPalette.muted : TeacherPalette.red,
+                ),
+              ),
+              subtitle: file.inUse
+                  ? Text(
+                      'ใช้อยู่ใน ${file.usedByAssignments} ใบงาน — เอาออกจากใบงานก่อน',
+                    )
+                  : null,
+              enabled: !file.inUse,
+              onTap: () => Navigator.pop(ctx, 'delete'),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (action == null || !mounted) return;
+
+    switch (action) {
+      case 'rename':
+        await _editField(
+          file,
+          title: 'เปลี่ยนชื่อ',
+          label: 'ชื่อที่จะแสดง',
+          initial: file.name,
+          apply: (v) => (fileName: v, category: null, url: null),
+        );
+      case 'category':
+        await _editField(
+          file,
+          title: 'เปลี่ยนหมวด',
+          label: 'หมวด / บทเรียน',
+          initial: file.category == 'ยังไม่ระบุหมวด' ? '' : file.category,
+          allowEmpty: true,
+          apply: (v) => (fileName: null, category: v, url: null),
+        );
+      case 'url':
+        await _editField(
+          file,
+          title: 'แก้ลิงก์ปลายทาง',
+          label: 'ลิงก์',
+          initial: file.url ?? '',
+          validate: (v) => RegExp(r'^https?://\S+$').hasMatch(v)
+              ? null
+              : 'ต้องขึ้นต้นด้วย http:// หรือ https://',
+          apply: (v) => (fileName: null, category: null, url: v),
+        );
+      case 'delete':
+        await _deleteFile(file);
+    }
+  }
+
+  Future<void> _editField(
+    TeacherLibraryFile file, {
+    required String title,
+    required String label,
+    required String initial,
+    required ({String? fileName, String? category, String? url}) Function(
+      String,
+    )
+    apply,
+    String? Function(String)? validate,
+    bool allowEmpty = false,
+  }) async {
+    final controller = TextEditingController(text: initial);
+    String? error;
+    final value = await showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          backgroundColor: Colors.white,
+          title: Text(title),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: InputDecoration(labelText: label, errorText: error),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('ยกเลิก'),
+            ),
+            TextButton(
+              onPressed: () {
+                final v = controller.text.trim();
+                if (!allowEmpty && v.isEmpty) {
+                  setLocal(() => error = 'กรอกค่าก่อน');
+                  return;
+                }
+                final err = validate?.call(v);
+                if (err != null) {
+                  setLocal(() => error = err);
+                  return;
+                }
+                Navigator.pop(ctx, v);
+              },
+              child: const Text('บันทึก'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (value == null || !mounted) return;
+
+    final patch = apply(value);
+    try {
+      await (widget.updateFile ?? CourseFileService.updateFile)(
+        fileId: file.id,
+        fileName: patch.fileName,
+        category: patch.category,
+        url: patch.url,
+      );
+      // โหลดใหม่ทั้งชุดแทนการแก้ในเครื่อง — ค่าที่แสดงต้องมาจากหลังบ้านจริง
+      await _loadLibraryData();
+      _snack('บันทึกแล้ว');
+    } catch (e) {
+      debugPrint('แก้ของในคลังไม่สำเร็จ — $e');
+      _snack('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง', error: true);
+    }
+  }
+
+  Future<void> _deleteFile(TeacherLibraryFile file) async {
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: const Text('ลบออกจากคลัง?'),
+        content: Text(
+          file.isLink
+              ? 'ลบลิงก์ "${file.name}" ออกจากคลังความรู้ถาวร'
+              : 'ลบ "${file.name}" ออกจากคลังความรู้ถาวร ไฟล์จะหายไปเลย',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('ยกเลิก'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'ลบ',
+              style: TextStyle(color: TeacherPalette.red),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (go != true || !mounted) return;
+
+    try {
+      await (widget.deleteFile ?? CourseFileService.deleteFile)(file.id);
+      await _loadLibraryData();
+      _snack('ลบออกจากคลังแล้ว');
+    } catch (e) {
+      debugPrint('ลบของในคลังไม่สำเร็จ — $e');
+      // หลังบ้านโยน 'file_in_use_by_N assignments' ถ้ามีใบงานอ้างอยู่ —
+      // แปลงเป็นข้อความที่บอกทางออก ไม่ใช่โยน error ดิบใส่หน้าครู
+      final inUse = RegExp(r'file_in_use_by_(\d+)').firstMatch('$e');
+      _snack(
+        inUse != null
+            ? 'ลบไม่ได้ — ใช้อยู่ใน ${inUse.group(1)} ใบงาน เอาออกจากใบงานก่อน'
+            : 'ลบไม่สำเร็จ ลองใหม่อีกครั้ง',
+        error: true,
+      );
     }
   }
 
@@ -385,6 +762,23 @@ class _TeacherKnowledgeLibraryPageState
       title: 'คลังความรู้',
       activeMenuLabel: 'คลังความรู้',
       actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: OutlinedButton.icon(
+            onPressed: _subjects.isEmpty ? null : _addLink,
+            icon: const Icon(Icons.link_rounded, size: 17),
+            label: const Text('ใส่ลิงก์'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: TeacherPalette.primary,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              shape: const StadiumBorder(),
+              textStyle: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.only(right: 12),
           child: FilledButton.icon(
@@ -597,6 +991,7 @@ class _TeacherKnowledgeLibraryPageState
                 _LibraryFileCard(
                   file: file,
                   onDownload: () => _downloadFile(file),
+                  onMenu: () => _openFileMenu(file),
                 ),
                 const SizedBox(height: 10),
               ],
@@ -682,10 +1077,12 @@ class _LibraryFileCard extends StatelessWidget {
   const _LibraryFileCard({
     required this.file,
     required this.onDownload,
+    required this.onMenu,
   });
 
   final TeacherLibraryFile file;
   final VoidCallback onDownload;
+  final VoidCallback onMenu;
 
   @override
   Widget build(BuildContext context) {
@@ -737,22 +1134,64 @@ class _LibraryFileCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 3),
-                  Text(
-                    '${file.category} · ${file.sizeLabel}',
-                    style: const TextStyle(
-                      color: TeacherPalette.muted,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 11,
-                    ),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          '${file.category} · ${file.sizeLabel}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: TeacherPalette.muted,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                      // บอกตั้งแต่ก่อนกดว่าลบไม่ได้ ดีกว่าให้กดแล้วเด้ง error
+                      // จาก delete_course_file
+                      if (file.inUse) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFDF3E3),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            '${file.usedByAssignments} ใบงาน',
+                            style: const TextStyle(
+                              color: Color(0xFFB4650F),
+                              fontWeight: FontWeight.w800,
+                              fontSize: TeacherType.caption,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),
             ),
             IconButton(
               onPressed: onDownload,
-              icon: const Icon(Icons.download_rounded, size: 20),
+              icon: Icon(
+                file.isLink
+                    ? Icons.open_in_new_rounded
+                    : Icons.download_rounded,
+                size: 20,
+              ),
               color: TeacherPalette.primary,
-              tooltip: 'ดาวน์โหลดไฟล์',
+              tooltip: file.isLink ? 'เปิดลิงก์' : 'ดาวน์โหลดไฟล์',
+            ),
+            IconButton(
+              onPressed: onMenu,
+              icon: const Icon(Icons.more_horiz_rounded, size: 20),
+              color: TeacherPalette.muted,
+              tooltip: 'ตัวเลือก',
             ),
           ],
         ),

@@ -22,6 +22,11 @@ class CourseFile {
   final String? category;
 
   final int? sizeBytes;
+
+  /// จำนวนใบงานที่อ้างถึงของชิ้นนี้อยู่ — นับมาจากฐานข้อมูล ไม่ใช่นับในเครื่อง
+  /// มากกว่า 0 แปลว่าลบออกจากคลังไม่ได้จนกว่าจะเอาออกจากใบงานเหล่านั้นก่อน
+  final int usedByAssignments;
+
   final String uploadedBy;
   final String uploaderFirstName;
   final String uploaderLastName;
@@ -41,6 +46,7 @@ class CourseFile {
     this.url,
     this.category,
     this.sizeBytes,
+    this.usedByAssignments = 0,
   });
 
   factory CourseFile.fromRow(Map<String, dynamic> row) {
@@ -57,6 +63,7 @@ class CourseFile {
           ? null
           : (row['category'] as String).trim(),
       sizeBytes: size?.toInt(),
+      usedByAssignments: (row['used_by_assignments'] as num?)?.toInt() ?? 0,
       uploadedBy: row['uploaded_by'] as String,
       uploaderFirstName: row['uploader_first_name'] as String,
       uploaderLastName: row['uploader_last_name'] as String,
@@ -65,6 +72,9 @@ class CourseFile {
   }
 
   bool get isLink => kind == CourseFileKind.link;
+
+  /// ลบออกจากคลังไม่ได้ เพราะยังมีใบงานอ้างถึงอยู่ (FK เป็น on delete restrict)
+  bool get inUse => usedByAssignments > 0;
 
   String get uploaderFullName => '$uploaderFirstName $uploaderLastName';
 
