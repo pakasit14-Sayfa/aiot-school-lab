@@ -19,9 +19,8 @@ class StudentFollowupService {
             as List;
     return rows
         .map(
-          (r) => SchoolStudentOption.fromRow(
-            Map<String, dynamic>.from(r as Map),
-          ),
+          (r) =>
+              SchoolStudentOption.fromRow(Map<String, dynamic>.from(r as Map)),
         )
         .toList();
   }
@@ -54,9 +53,7 @@ class StudentFollowupService {
     return (rows.first as Map<String, dynamic>)['visit_id'] as String;
   }
 
-  static Future<List<HomeVisit>> listStudentHomeVisits(
-    String studentId,
-  ) async {
+  static Future<List<HomeVisit>> listStudentHomeVisits(String studentId) async {
     final token = AuthService.sessionToken;
     if (token == null) return const [];
     final rows =
@@ -115,8 +112,7 @@ class StudentFollowupService {
     final row = Map<String, dynamic>.from(rows.first as Map);
     return (
       assessmentId: row['assessment_id'] as String,
-      totalDifficultiesScore: (row['total_difficulties_score'] as num)
-          .toInt(),
+      totalDifficultiesScore: (row['total_difficulties_score'] as num).toInt(),
     );
   }
 
@@ -132,9 +128,7 @@ class StudentFollowupService {
             )
             as List;
     return rows
-        .map(
-          (r) => SdqAssessment.fromRow(Map<String, dynamic>.from(r as Map)),
-        )
+        .map((r) => SdqAssessment.fromRow(Map<String, dynamic>.from(r as Map)))
         .toList();
   }
 
@@ -151,9 +145,8 @@ class StudentFollowupService {
             as List;
     return rows
         .map(
-          (r) => SchoolSdqSummaryRow.fromRow(
-            Map<String, dynamic>.from(r as Map),
-          ),
+          (r) =>
+              SchoolSdqSummaryRow.fromRow(Map<String, dynamic>.from(r as Map)),
         )
         .toList();
   }
@@ -227,10 +220,7 @@ class StudentFollowupService {
     final token = AuthService.sessionToken;
     if (token == null) return const [];
     final rows =
-        await supabase.rpc(
-              'list_scholarships',
-              params: {'p_token': token},
-            )
+        await supabase.rpc('list_scholarships', params: {'p_token': token})
             as List;
     return rows
         .map((r) => Scholarship.fromRow(Map<String, dynamic>.from(r as Map)))
@@ -245,10 +235,7 @@ class StudentFollowupService {
     final rows =
         await supabase.rpc(
               'list_scholarship_awards',
-              params: {
-                'p_token': token,
-                'p_scholarship_id': scholarshipId,
-              },
+              params: {'p_token': token, 'p_scholarship_id': scholarshipId},
             )
             as List;
     return rows
@@ -315,10 +302,7 @@ class StudentFollowupService {
     final token = AuthService.sessionToken;
     if (token == null) return const [];
     final rows =
-        await supabase.rpc(
-              'list_my_directives',
-              params: {'p_token': token},
-            )
+        await supabase.rpc('list_my_directives', params: {'p_token': token})
             as List;
     return rows
         .map(

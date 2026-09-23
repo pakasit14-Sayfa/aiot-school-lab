@@ -25,13 +25,20 @@ class BulkImportResult {
       insertedCount: (json['inserted_count'] as num?)?.toInt() ?? 0,
       skipped: rawSkipped is List
           ? rawSkipped
-              .map((e) => SkippedRow.fromJson(Map<String, dynamic>.from(e as Map)))
-              .toList()
+                .map(
+                  (e) =>
+                      SkippedRow.fromJson(Map<String, dynamic>.from(e as Map)),
+                )
+                .toList()
           : const [],
       credentials: rawCredentials is List
           ? rawCredentials
-              .map((e) => ImportedCredential.fromJson(Map<String, dynamic>.from(e as Map)))
-              .toList()
+                .map(
+                  (e) => ImportedCredential.fromJson(
+                    Map<String, dynamic>.from(e as Map),
+                  ),
+                )
+                .toList()
           : const [],
     );
   }
@@ -68,22 +75,22 @@ class SkippedRow {
   const SkippedRow({required this.row, required this.reason});
 
   factory SkippedRow.fromJson(Map<String, dynamic> json) => SkippedRow(
-        row: (json['row'] as num?)?.toInt() ?? 0,
-        reason: json['reason']?.toString() ?? 'unknown',
-      );
+    row: (json['row'] as num?)?.toInt() ?? 0,
+    reason: json['reason']?.toString() ?? 'unknown',
+  );
 
   final int row;
   final String reason;
 
   static String reasonLabel(String reason) => switch (reason) {
-        'missing_required_field' => 'ข้อมูลที่จำเป็นไม่ครบ',
-        'duplicate_code' => 'รหัสซ้ำกับข้อมูลที่มีอยู่',
-        'duplicate_email' => 'อีเมลนี้มีบัญชีอยู่แล้ว',
-        'duplicate_serial_no' => 'หมายเลขซีเรียลซ้ำกับข้อมูลที่มีอยู่',
-        'building_not_found' => 'ไม่พบอาคารที่อ้างอิง',
-        'invalid_device_type' => 'ประเภทอุปกรณ์ไม่ถูกต้อง',
-        _ => reason,
-      };
+    'missing_required_field' => 'ข้อมูลที่จำเป็นไม่ครบ',
+    'duplicate_code' => 'รหัสซ้ำกับข้อมูลที่มีอยู่',
+    'duplicate_email' => 'อีเมลนี้มีบัญชีอยู่แล้ว',
+    'duplicate_serial_no' => 'หมายเลขซีเรียลซ้ำกับข้อมูลที่มีอยู่',
+    'building_not_found' => 'ไม่พบอาคารที่อ้างอิง',
+    'invalid_device_type' => 'ประเภทอุปกรณ์ไม่ถูกต้อง',
+    _ => reason,
+  };
 }
 
 enum ImportRowStatus { ready, needsFix, warning }
@@ -139,8 +146,10 @@ class SchoolImportService {
   }
 
   static List<Map<String, String>> _parseCsv(String content) {
-    final rows = const CsvToListConverter(eol: '\n', shouldParseNumbers: false)
-        .convert(content, eol: '\n');
+    final rows = const CsvToListConverter(
+      eol: '\n',
+      shouldParseNumbers: false,
+    ).convert(content, eol: '\n');
     return _rowsToMaps(rows);
   }
 
@@ -174,14 +183,18 @@ class SchoolImportService {
   /// Fetch a Google Sheets "Publish to web → CSV" export link and parse it
   /// the same way as an uploaded .csv file. Only public published links are
   /// supported — no OAuth/private-sheet access.
-  static Future<List<Map<String, String>>> fetchGoogleSheetCsv(String publishedUrl) async {
+  static Future<List<Map<String, String>>> fetchGoogleSheetCsv(
+    String publishedUrl,
+  ) async {
     final uri = Uri.tryParse(publishedUrl.trim());
     if (uri == null) {
       throw const FormatException('ลิงก์ Google Sheets ไม่ถูกต้อง');
     }
     final response = await http.get(uri);
     if (response.statusCode != 200) {
-      throw Exception('โหลดข้อมูลจาก Google Sheets ไม่สำเร็จ (HTTP ${response.statusCode})');
+      throw Exception(
+        'โหลดข้อมูลจาก Google Sheets ไม่สำเร็จ (HTTP ${response.statusCode})',
+      );
     }
     return _parseCsv(response.body);
   }
@@ -196,15 +209,19 @@ class SchoolImportService {
   }) {
     return switch (dataType) {
       'ครูและบุคลากร' => _validateUsers(rawRows, isTeacher: true),
-      'อาคารและห้อง' => _validateBuildingsAndRooms(rawRows, existingBuildingCodes),
+      'อาคารและห้อง' => _validateBuildingsAndRooms(
+        rawRows,
+        existingBuildingCodes,
+      ),
       'อุปกรณ์' => _validateDevices(rawRows, requireKitCode: false),
       'ชุดฝึก' => _validateDevices(rawRows, requireKitCode: true),
       _ => _validateUsers(rawRows, isTeacher: false),
     };
   }
 
-  static final RegExp _emailRegex =
-      RegExp(r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
+  static final RegExp _emailRegex = RegExp(
+    r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$',
+  );
 
   static List<ImportPreviewRow> _validateUsers(
     List<Map<String, String>> rawRows, {
@@ -250,21 +267,23 @@ class SchoolImportService {
         detail = 'ไม่มีอีเมล (ระบบจะสร้างให้อัตโนมัติ)';
       }
 
-      out.add(ImportPreviewRow(
-        rowNumber: i + 2,
-        code: code.isEmpty ? '-' : code,
-        name: name.isEmpty ? '(ไม่มีชื่อ)' : name,
-        detail: detail,
-        status: status,
-        payload: {
-          'name': name,
-          if (email.isNotEmpty) 'email': email,
-          'student_code': code,
-          'building': building,
-          if (!isTeacher) 'grade_level': grade,
-          if (!isTeacher) 'room': room,
-        },
-      ));
+      out.add(
+        ImportPreviewRow(
+          rowNumber: i + 2,
+          code: code.isEmpty ? '-' : code,
+          name: name.isEmpty ? '(ไม่มีชื่อ)' : name,
+          detail: detail,
+          status: status,
+          payload: {
+            'name': name,
+            if (email.isNotEmpty) 'email': email,
+            'student_code': code,
+            'building': building,
+            if (!isTeacher) 'grade_level': grade,
+            if (!isTeacher) 'room': room,
+          },
+        ),
+      );
     }
     return out;
   }
@@ -285,7 +304,9 @@ class SchoolImportService {
       final name = (r['ชื่อ'] ?? '').trim();
 
       if (type == 'อาคาร') {
-        final floors = int.tryParse((r['จำนวนชั้น(สำหรับอาคาร)'] ?? r['จำนวนชั้น'] ?? '').trim());
+        final floors = int.tryParse(
+          (r['จำนวนชั้น(สำหรับอาคาร)'] ?? r['จำนวนชั้น'] ?? '').trim(),
+        );
         ImportRowStatus status = ImportRowStatus.ready;
         String detail = '${floors ?? 1} ชั้น';
 
@@ -299,19 +320,24 @@ class SchoolImportService {
           newBuildingCodesInFile.add(code);
         }
 
-        out.add(ImportPreviewRow(
-          rowNumber: i + 2,
-          code: code.isEmpty ? '-' : code,
-          name: name.isEmpty ? '(ไม่มีชื่อ)' : name,
-          detail: detail,
-          status: status,
-          rowType: 'อาคาร',
-          payload: {'name': name, 'code': code, 'floors': floors ?? 1},
-        ));
+        out.add(
+          ImportPreviewRow(
+            rowNumber: i + 2,
+            code: code.isEmpty ? '-' : code,
+            name: name.isEmpty ? '(ไม่มีชื่อ)' : name,
+            detail: detail,
+            status: status,
+            rowType: 'อาคาร',
+            payload: {'name': name, 'code': code, 'floors': floors ?? 1},
+          ),
+        );
       } else if (type == 'ห้อง') {
-        final buildingCode = (r['รหัสอาคาร(สำหรับห้องเท่านั้น)'] ?? r['รหัสอาคาร'] ?? '').trim();
+        final buildingCode =
+            (r['รหัสอาคาร(สำหรับห้องเท่านั้น)'] ?? r['รหัสอาคาร'] ?? '').trim();
         final floor = (r['ชั้นที่ตั้ง(สำหรับห้อง)'] ?? r['ชั้น'] ?? '').trim();
-        final capacity = int.tryParse((r['ความจุ(สำหรับห้อง)'] ?? r['ความจุ'] ?? '').trim());
+        final capacity = int.tryParse(
+          (r['ความจุ(สำหรับห้อง)'] ?? r['ความจุ'] ?? '').trim(),
+        );
 
         ImportRowStatus status = ImportRowStatus.ready;
         String detail = 'อาคาร $buildingCode';
@@ -328,31 +354,35 @@ class SchoolImportService {
           detail = 'รหัสห้องซ้ำ';
         }
 
-        out.add(ImportPreviewRow(
-          rowNumber: i + 2,
-          code: code.isEmpty ? '-' : code,
-          name: name.isEmpty ? '(ไม่มีชื่อ)' : name,
-          detail: detail,
-          status: status,
-          rowType: 'ห้อง',
-          payload: {
-            'name': name,
-            'code': code,
-            'building_code': buildingCode,
-            'floor': floor,
-            'capacity': capacity ?? 30,
-          },
-        ));
+        out.add(
+          ImportPreviewRow(
+            rowNumber: i + 2,
+            code: code.isEmpty ? '-' : code,
+            name: name.isEmpty ? '(ไม่มีชื่อ)' : name,
+            detail: detail,
+            status: status,
+            rowType: 'ห้อง',
+            payload: {
+              'name': name,
+              'code': code,
+              'building_code': buildingCode,
+              'floor': floor,
+              'capacity': capacity ?? 30,
+            },
+          ),
+        );
       } else {
-        out.add(ImportPreviewRow(
-          rowNumber: i + 2,
-          code: code.isEmpty ? '-' : code,
-          name: name.isEmpty ? '(ไม่มีชื่อ)' : name,
-          detail: 'คอลัมน์ "ประเภท" ต้องเป็น "อาคาร" หรือ "ห้อง" เท่านั้น',
-          status: ImportRowStatus.needsFix,
-          rowType: null,
-          payload: const {},
-        ));
+        out.add(
+          ImportPreviewRow(
+            rowNumber: i + 2,
+            code: code.isEmpty ? '-' : code,
+            name: name.isEmpty ? '(ไม่มีชื่อ)' : name,
+            detail: 'คอลัมน์ "ประเภท" ต้องเป็น "อาคาร" หรือ "ห้อง" เท่านั้น',
+            status: ImportRowStatus.needsFix,
+            rowType: null,
+            payload: const {},
+          ),
+        );
       }
     }
     return out;
@@ -404,20 +434,22 @@ class SchoolImportService {
         detail = 'ไม่มีหมายเลขซีเรียล';
       }
 
-      out.add(ImportPreviewRow(
-        rowNumber: i + 2,
-        code: serialNo.isEmpty ? '-' : serialNo,
-        name: name.isEmpty ? '(ไม่มีชื่อ)' : name,
-        detail: detail,
-        status: status,
-        payload: {
-          'name': name,
-          'type': resolvedType,
-          if (location.isNotEmpty) 'location': location,
-          if (serialNo.isNotEmpty) 'serial_no': serialNo,
-          if (kitCode.isNotEmpty) 'kit_code': kitCode,
-        },
-      ));
+      out.add(
+        ImportPreviewRow(
+          rowNumber: i + 2,
+          code: serialNo.isEmpty ? '-' : serialNo,
+          name: name.isEmpty ? '(ไม่มีชื่อ)' : name,
+          detail: detail,
+          status: status,
+          payload: {
+            'name': name,
+            'type': resolvedType,
+            if (location.isNotEmpty) 'location': location,
+            if (serialNo.isNotEmpty) 'serial_no': serialNo,
+            if (kitCode.isNotEmpty) 'kit_code': kitCode,
+          },
+        ),
+      );
     }
     return out;
   }
@@ -427,34 +459,49 @@ class SchoolImportService {
   static Uint8List buildTemplateCsv(String dataType) {
     final List<List<String>> rows = switch (dataType) {
       'ครูและบุคลากร' => [
-          ['รหัสประจำตัว', 'ชื่อ-สกุล', 'อีเมล', 'ห้องเรียน'],
-          ['TC-2569-011', 'นางสาวสุดารัตน์ ใจดี', 'sudarat@school.ac.th', 'ฝ่ายวิชาการ'],
+        ['รหัสประจำตัว', 'ชื่อ-สกุล', 'อีเมล', 'ห้องเรียน'],
+        [
+          'TC-2569-011',
+          'นางสาวสุดารัตน์ ใจดี',
+          'sudarat@school.ac.th',
+          'ฝ่ายวิชาการ',
         ],
+      ],
       'อาคารและห้อง' => [
-          [
-            'ประเภท',
-            'รหัส',
-            'ชื่อ',
-            'รหัสอาคาร(สำหรับห้องเท่านั้น)',
-            'จำนวนชั้น(สำหรับอาคาร)',
-            'ชั้นที่ตั้ง(สำหรับห้อง)',
-            'ความจุ(สำหรับห้อง)',
-          ],
-          ['อาคาร', 'BLD-A', 'อาคารเรียน A', '', '3', '', ''],
-          ['ห้อง', 'ROOM-A101', 'ห้อง 101', 'BLD-A', '', '1', '30'],
+        [
+          'ประเภท',
+          'รหัส',
+          'ชื่อ',
+          'รหัสอาคาร(สำหรับห้องเท่านั้น)',
+          'จำนวนชั้น(สำหรับอาคาร)',
+          'ชั้นที่ตั้ง(สำหรับห้อง)',
+          'ความจุ(สำหรับห้อง)',
         ],
+        ['อาคาร', 'BLD-A', 'อาคารเรียน A', '', '3', '', ''],
+        ['ห้อง', 'ROOM-A101', 'ห้อง 101', 'BLD-A', '', '1', '30'],
+      ],
       'อุปกรณ์' => [
-          ['ชื่ออุปกรณ์', 'ประเภท', 'ตำแหน่งติดตั้ง', 'หมายเลขซีเรียล'],
-          ['เซนเซอร์ PM2.5 ห้อง 101', 'pm25_sensor', 'อาคาร A ห้อง 101', 'SN-0001'],
+        ['ชื่ออุปกรณ์', 'ประเภท', 'ตำแหน่งติดตั้ง', 'หมายเลขซีเรียล'],
+        [
+          'เซนเซอร์ PM2.5 ห้อง 101',
+          'pm25_sensor',
+          'อาคาร A ห้อง 101',
+          'SN-0001',
         ],
+      ],
       'ชุดฝึก' => [
-          ['ชื่อชุดฝึก', 'ประเภทอุปกรณ์หลัก', 'ตำแหน่งติดตั้ง', 'รหัสชุดฝึก'],
-          ['ชุดฝึก AIoT ห้อง 101', 'relay', 'Lab 3', 'KIT-001'],
-        ],
+        ['ชื่อชุดฝึก', 'ประเภทอุปกรณ์หลัก', 'ตำแหน่งติดตั้ง', 'รหัสชุดฝึก'],
+        ['ชุดฝึก AIoT ห้อง 101', 'relay', 'Lab 3', 'KIT-001'],
+      ],
       _ => [
-          ['รหัสนักเรียน', 'ชื่อ-สกุล', 'อีเมล', 'ห้องเรียน'],
-          ['ST-2569-0013', 'เด็กชายธีรภัทร ใจดี', 'theerapat@school.ac.th', 'ม.1/1'],
+        ['รหัสนักเรียน', 'ชื่อ-สกุล', 'อีเมล', 'ห้องเรียน'],
+        [
+          'ST-2569-0013',
+          'เด็กชายธีรภัทร ใจดี',
+          'theerapat@school.ac.th',
+          'ม.1/1',
         ],
+      ],
     };
     final csv = const ListToCsvConverter().convert(rows);
     return Uint8List.fromList([0xEF, 0xBB, 0xBF, ...utf8.encode(csv)]);

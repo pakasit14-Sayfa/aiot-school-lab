@@ -128,9 +128,7 @@ class WiringLabSummary {
 }
 
 class WiringGroupService {
-  static Future<List<WiringGroupItem>> listWiringGroups(
-    String courseId,
-  ) async {
+  static Future<List<WiringGroupItem>> listWiringGroups(String courseId) async {
     final rows =
         await supabase.rpc(
               'list_wiring_groups',

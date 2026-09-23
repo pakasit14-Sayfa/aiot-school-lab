@@ -34,21 +34,27 @@ class StudentGroupItem {
       id: json['id'] as String,
       courseId: json['course_id'] as String,
       name: json['name'] as String,
-      createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ?? DateTime.now(),
+      createdAt:
+          DateTime.tryParse(json['created_at'] as String? ?? '') ??
+          DateTime.now(),
       members: membersList,
     );
   }
 }
 
 class StudentGroupService {
-  static Future<List<StudentGroupItem>> listStudentGroups(String courseId) async {
-    final rows = await supabase.rpc(
-      'list_student_groups',
-      params: {
-        'p_token': AuthService.sessionToken,
-        'p_course_id': courseId,
-      },
-    ) as List;
+  static Future<List<StudentGroupItem>> listStudentGroups(
+    String courseId,
+  ) async {
+    final rows =
+        await supabase.rpc(
+              'list_student_groups',
+              params: {
+                'p_token': AuthService.sessionToken,
+                'p_course_id': courseId,
+              },
+            )
+            as List;
 
     return rows
         .map((row) => StudentGroupItem.fromJson(row as Map<String, dynamic>))
@@ -87,10 +93,7 @@ class StudentGroupService {
   static Future<void> deleteStudentGroup(String groupId) async {
     await supabase.rpc(
       'delete_student_group',
-      params: {
-        'p_token': AuthService.sessionToken,
-        'p_group_id': groupId,
-      },
+      params: {'p_token': AuthService.sessionToken, 'p_group_id': groupId},
     );
   }
 

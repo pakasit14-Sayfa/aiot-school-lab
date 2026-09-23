@@ -149,8 +149,10 @@ class AssignmentService {
     return AssignmentDetail.fromRow(rows.first as Map<String, dynamic>);
   }
 
-  static Future<({int version, String submissionVersionId})>
-  submitAssignment({required String assignmentId, required String content}) async {
+  static Future<({int version, String submissionVersionId})> submitAssignment({
+    required String assignmentId,
+    required String content,
+  }) async {
     final rows =
         await supabase.rpc(
               'submit_assignment',
@@ -220,10 +222,7 @@ class AssignmentService {
   ) async {
     final response = await supabase.functions.invoke(
       'submission-attachment-download',
-      body: {
-        'token': AuthService.sessionToken,
-        'attachment_id': attachmentId,
-      },
+      body: {'token': AuthService.sessionToken, 'attachment_id': attachmentId},
     );
     final data = response.data as Map<String, dynamic>?;
     final signedUrl = data?['signed_url'] as String?;
@@ -299,5 +298,20 @@ class AssignmentService {
     return rows
         .map((row) => AssignmentFeedback.fromRow(row as Map<String, dynamic>))
         .toList();
+  }
+
+  /// ลบใบงานถาวร — ใบงานที่มีนักเรียนส่งงานแล้วลบไม่ได้ จะโยน
+  /// `assignment_has_N submissions` ครูต้องใช้ [unpublishAssignment]
+  /// (ปิดรับงาน) แทน เพราะงานและคะแนนของเด็กจะหายไปด้วย
+  ///
+  /// ไฟล์แนบถูกถอดตามอัตโนมัติ แต่ตัวไฟล์ยังอยู่ในคลังความรู้ของวิชา
+  static Future<void> deleteAssignment(String assignmentId) async {
+    await supabase.rpc(
+      'delete_assignment',
+      params: {
+        'p_token': AuthService.sessionToken,
+        'p_assignment_id': assignmentId,
+      },
+    );
   }
 }

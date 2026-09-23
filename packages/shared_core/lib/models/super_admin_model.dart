@@ -159,9 +159,13 @@ class DeviceControlItemRecord {
   }
 
   bool get isPoweredOn {
-    final power = metadata['power'] ?? metadata['power_status'] ?? metadata['relay_state'];
+    final power =
+        metadata['power'] ??
+        metadata['power_status'] ??
+        metadata['relay_state'];
     if (power is bool) return power;
-    if (power is String) return power.toLowerCase() == 'on' || power.toLowerCase() == 'true';
+    if (power is String)
+      return power.toLowerCase() == 'on' || power.toLowerCase() == 'true';
     return false;
   }
 
@@ -344,22 +348,42 @@ class DeviceControlDataModel {
   factory DeviceControlDataModel.fromJson(Map<String, dynamic> json) {
     return DeviceControlDataModel(
       schools: (json['schools'] as List? ?? [])
-          .map((e) => DeviceControlSchoolRecord.fromJson(Map<String, dynamic>.from(e as Map)))
+          .map(
+            (e) => DeviceControlSchoolRecord.fromJson(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
           .toList(),
       devices: (json['devices'] as List? ?? [])
-          .map((e) => DeviceControlItemRecord.fromJson(Map<String, dynamic>.from(e as Map)))
+          .map(
+            (e) => DeviceControlItemRecord.fromJson(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
           .toList(),
       commands: (json['commands'] as List? ?? [])
           .map((e) => Map<String, dynamic>.from(e as Map))
           .toList(),
       approvals: (json['approvals'] as List? ?? [])
-          .map((e) => DeviceControlApprovalRecord.fromJson(Map<String, dynamic>.from(e as Map)))
+          .map(
+            (e) => DeviceControlApprovalRecord.fromJson(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
           .toList(),
       permissions: (json['permissions'] as List? ?? [])
-          .map((e) => DeviceControlPermissionRecord.fromJson(Map<String, dynamic>.from(e as Map)))
+          .map(
+            (e) => DeviceControlPermissionRecord.fromJson(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
           .toList(),
       logs: (json['logs'] as List? ?? [])
-          .map((e) => DeviceControlLogRecord.fromJson(Map<String, dynamic>.from(e as Map)))
+          .map(
+            (e) => DeviceControlLogRecord.fromJson(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
           .toList(),
       currentUserId: json['current_user_id']?.toString() ?? '',
       currentRole: json['current_role']?.toString() ?? 'super_admin',

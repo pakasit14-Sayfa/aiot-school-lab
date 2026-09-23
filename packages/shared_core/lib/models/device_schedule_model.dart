@@ -80,7 +80,9 @@ class DeviceSchedule {
     }
     final sorted = List<int>.from(daysOfWeek)..sort();
     return sorted
-        .map((d) => (d >= 0 && d < dayNames.length) ? dayNames[d] : d.toString())
+        .map(
+          (d) => (d >= 0 && d < dayNames.length) ? dayNames[d] : d.toString(),
+        )
         .join(', ');
   }
 }

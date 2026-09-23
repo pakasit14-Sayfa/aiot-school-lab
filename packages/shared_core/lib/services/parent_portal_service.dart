@@ -8,10 +8,12 @@ class ParentPortalService {
     final token = AuthService.sessionToken;
     if (token == null) return const [];
 
-    final rows = await supabase.rpc(
-      'list_my_linked_students',
-      params: {'p_token': token},
-    ) as List;
+    final rows =
+        await supabase.rpc(
+              'list_my_linked_students',
+              params: {'p_token': token},
+            )
+            as List;
 
     return rows
         .map((row) => LinkedStudentItem.fromRow(row as Map<String, dynamic>))
@@ -24,10 +26,12 @@ class ParentPortalService {
     final token = AuthService.sessionToken;
     if (token == null) return const [];
 
-    final rows = await supabase.rpc(
-      'list_my_student_grades',
-      params: {'p_token': token, 'p_student_id': studentId},
-    ) as List;
+    final rows =
+        await supabase.rpc(
+              'list_my_student_grades',
+              params: {'p_token': token, 'p_student_id': studentId},
+            )
+            as List;
 
     return rows
         .map((row) => StudentGradeItem.fromRow(row as Map<String, dynamic>))
@@ -40,10 +44,12 @@ class ParentPortalService {
     final token = AuthService.sessionToken;
     if (token == null) return const [];
 
-    final rows = await supabase.rpc(
-      'list_my_student_schedule',
-      params: {'p_token': token, 'p_student_id': studentId},
-    ) as List;
+    final rows =
+        await supabase.rpc(
+              'list_my_student_schedule',
+              params: {'p_token': token, 'p_student_id': studentId},
+            )
+            as List;
 
     return rows
         .map((row) => StudentScheduleItem.fromRow(row as Map<String, dynamic>))
@@ -71,8 +77,9 @@ class ParentPortalService {
           '${dateTo.year}-${dateTo.month.toString().padLeft(2, '0')}-${dateTo.day.toString().padLeft(2, '0')}';
     }
 
-    final rows = await supabase.rpc('list_my_student_attendance',
-        params: params) as List;
+    final rows =
+        await supabase.rpc('list_my_student_attendance', params: params)
+            as List;
 
     return rows
         .map(
@@ -87,10 +94,12 @@ class ParentPortalService {
     final token = AuthService.sessionToken;
     if (token == null) return const [];
 
-    final rows = await supabase.rpc(
-      'list_my_student_assignments',
-      params: {'p_token': token, 'p_student_id': studentId},
-    ) as List;
+    final rows =
+        await supabase.rpc(
+              'list_my_student_assignments',
+              params: {'p_token': token, 'p_student_id': studentId},
+            )
+            as List;
     return List<Map<String, dynamic>>.from(rows);
   }
 
@@ -102,27 +111,33 @@ class ParentPortalService {
   }
 
   static Future<List<SchoolEventItem>> listSchoolEvents(
-      String studentId) async {
+    String studentId,
+  ) async {
     final token = AuthService.sessionToken;
     if (token == null) return const [];
-    final rows = await supabase.rpc(
-      'list_school_events',
-      params: {'p_token': token, 'p_student_id': studentId},
-    ) as List;
+    final rows =
+        await supabase.rpc(
+              'list_school_events',
+              params: {'p_token': token, 'p_student_id': studentId},
+            )
+            as List;
     return rows
         .map((row) => SchoolEventItem.fromRow(row as Map<String, dynamic>))
         .toList();
   }
 
   static Future<List<CalendarEventItem>> listCalendarEvents(
-      String studentId) async {
+    String studentId,
+  ) async {
     final token = AuthService.sessionToken;
     if (token == null) return const [];
 
-    final rows = await supabase.rpc(
-      'list_calendar_events',
-      params: {'p_token': token, 'p_student_id': studentId},
-    ) as List;
+    final rows =
+        await supabase.rpc(
+              'list_calendar_events',
+              params: {'p_token': token, 'p_student_id': studentId},
+            )
+            as List;
     return rows
         .map((row) => CalendarEventItem.fromRow(row as Map<String, dynamic>))
         .toList();
@@ -135,7 +150,7 @@ class ParentPortalService {
     required DateTime endDate,
     required String reason,
     dynamic
-        attachmentFile, // Use dynamic to avoid importing dart:io in shared_core if it causes issues, but we can type check
+    attachmentFile, // Use dynamic to avoid importing dart:io in shared_core if it causes issues, but we can type check
   }) async {
     final token = AuthService.sessionToken;
     if (token == null) throw Exception('not_signed_in');

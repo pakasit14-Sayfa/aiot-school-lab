@@ -71,9 +71,7 @@ class QuizQuestionSummary {
       question: row['question'] as String? ?? '',
       points: row['points'] as num? ?? 1,
       choices: rawChoices
-          .map(
-            (c) => QuizQuestionChoice.fromMap(c as Map<String, dynamic>),
-          )
+          .map((c) => QuizQuestionChoice.fromMap(c as Map<String, dynamic>))
           .toList(),
     );
   }
@@ -116,11 +114,7 @@ class QuizChoice {
 }
 
 class QuizAttachment {
-  const QuizAttachment({
-    required this.id,
-    required this.type,
-    this.fileName,
-  });
+  const QuizAttachment({required this.id, required this.type, this.fileName});
 
   final String id;
   final String type; // 'image' or 'video'

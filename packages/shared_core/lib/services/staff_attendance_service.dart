@@ -17,9 +17,7 @@ class StaffAttendanceService {
         await supabase.rpc('get_staff_work_hours', params: {'p_token': token})
             as List;
     if (rows.isEmpty) return null;
-    return StaffWorkHours.fromRow(
-      Map<String, dynamic>.from(rows.first as Map),
-    );
+    return StaffWorkHours.fromRow(Map<String, dynamic>.from(rows.first as Map));
   }
 
   /// [workStartTime] / [workEndTime] as `HH:mm`.

@@ -287,23 +287,19 @@ class StudentFollowupSummary {
     required this.directivesOverdue,
   });
 
-  factory StudentFollowupSummary.fromRow(Map<String, dynamic> row) =>
-      StudentFollowupSummary(
-        homeVisitsThisMonth: (row['home_visits_this_month'] as num?)
-                ?.toInt() ??
-            0,
-        homeVisitsFollowUpNeeded:
-            (row['home_visits_follow_up_needed'] as num?)?.toInt() ?? 0,
-        sdqAssessmentsTotal: (row['sdq_assessments_total'] as num?)
-                ?.toInt() ??
-            0,
-        sdqAssessmentsThisMonth:
-            (row['sdq_assessments_this_month'] as num?)?.toInt() ?? 0,
-        scholarshipsActive: (row['scholarships_active'] as num?)?.toInt() ??
-            0,
-        scholarshipAwardsPending:
-            (row['scholarship_awards_pending'] as num?)?.toInt() ?? 0,
-        directivesOpen: (row['directives_open'] as num?)?.toInt() ?? 0,
-        directivesOverdue: (row['directives_overdue'] as num?)?.toInt() ?? 0,
-      );
+  factory StudentFollowupSummary.fromRow(
+    Map<String, dynamic> row,
+  ) => StudentFollowupSummary(
+    homeVisitsThisMonth: (row['home_visits_this_month'] as num?)?.toInt() ?? 0,
+    homeVisitsFollowUpNeeded:
+        (row['home_visits_follow_up_needed'] as num?)?.toInt() ?? 0,
+    sdqAssessmentsTotal: (row['sdq_assessments_total'] as num?)?.toInt() ?? 0,
+    sdqAssessmentsThisMonth:
+        (row['sdq_assessments_this_month'] as num?)?.toInt() ?? 0,
+    scholarshipsActive: (row['scholarships_active'] as num?)?.toInt() ?? 0,
+    scholarshipAwardsPending:
+        (row['scholarship_awards_pending'] as num?)?.toInt() ?? 0,
+    directivesOpen: (row['directives_open'] as num?)?.toInt() ?? 0,
+    directivesOverdue: (row['directives_overdue'] as num?)?.toInt() ?? 0,
+  );
 }

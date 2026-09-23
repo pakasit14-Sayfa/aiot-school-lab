@@ -59,20 +59,20 @@ class StudentSupportCase {
       );
 
   String get categoryLabel => switch (category) {
-        'academic' => 'ด้านการเรียน',
-        'behavioral' => 'ด้านพฤติกรรม & การเข้าเรียน',
-        'emotional' => 'ด้านสภาพจิตใจ & อารมณ์',
-        'safety' => 'ด้านความปลอดภัย',
-        _ => category,
-      };
+    'academic' => 'ด้านการเรียน',
+    'behavioral' => 'ด้านพฤติกรรม & การเข้าเรียน',
+    'emotional' => 'ด้านสภาพจิตใจ & อารมณ์',
+    'safety' => 'ด้านความปลอดภัย',
+    _ => category,
+  };
 
   String get statusLabel => switch (status) {
-        'open' => 'เปิดเคสใหม่',
-        'in_progress' => 'กำลังช่วยเหลือ',
-        'escalated' => 'ส่งต่อฝ่ายแนะแนว',
-        'resolved' => 'ปิดเคสสำเร็จ',
-        _ => status,
-      };
+    'open' => 'เปิดเคสใหม่',
+    'in_progress' => 'กำลังช่วยเหลือ',
+    'escalated' => 'ส่งต่อฝ่ายแนะแนว',
+    'resolved' => 'ปิดเคสสำเร็จ',
+    _ => status,
+  };
 }
 
 class StudentSupportIntervention {
@@ -103,13 +103,13 @@ class StudentSupportIntervention {
       );
 
   String get actionTypeLabel => switch (actionType) {
-        'counseling' => 'การให้คำปรึกษา/พูดคุย',
-        'remedial_lesson' => 'สอนเสริม/ทบทวนบทเรียน',
-        'parent_meeting' => 'ติดต่อผู้ปกครอง',
-        'activity_assigned' => 'มอบหมายแบบฝึกหัดเสริม',
-        'observation' => 'บันทึกการสังเกตการณ์',
-        _ => actionType,
-      };
+    'counseling' => 'การให้คำปรึกษา/พูดคุย',
+    'remedial_lesson' => 'สอนเสริม/ทบทวนบทเรียน',
+    'parent_meeting' => 'ติดต่อผู้ปกครอง',
+    'activity_assigned' => 'มอบหมายแบบฝึกหัดเสริม',
+    'observation' => 'บันทึกการสังเกตการณ์',
+    _ => actionType,
+  };
 }
 
 /// Auto-computed "needs attention" signal (overdue work / frequent

@@ -20,8 +20,7 @@ class LeaveService {
 
     return rows
         .map(
-          (row) =>
-              LeaveRequestForReview.fromRow(row as Map<String, dynamic>),
+          (row) => LeaveRequestForReview.fromRow(row as Map<String, dynamic>),
         )
         .toList();
   }

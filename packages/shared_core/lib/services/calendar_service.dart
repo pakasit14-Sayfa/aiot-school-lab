@@ -57,9 +57,12 @@ class CalendarService {
         'p_title': title.trim(),
         'p_start_date': d(startDate),
         'p_end_date': endDate == null ? null : d(endDate),
-        'p_location': location?.trim().isEmpty ?? true ? null : location!.trim(),
-        'p_description':
-            description?.trim().isEmpty ?? true ? null : description!.trim(),
+        'p_location': location?.trim().isEmpty ?? true
+            ? null
+            : location!.trim(),
+        'p_description': description?.trim().isEmpty ?? true
+            ? null
+            : description!.trim(),
         'p_event_type': eventType,
       },
     );

@@ -74,9 +74,7 @@ class UtilityService {
             )
             as List;
     return rows
-        .map(
-          (r) => UtilityTrendPoint.fromEnergyRow(r as Map<String, dynamic>),
-        )
+        .map((r) => UtilityTrendPoint.fromEnergyRow(r as Map<String, dynamic>))
         .toList();
   }
 

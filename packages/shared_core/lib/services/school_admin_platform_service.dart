@@ -9,9 +9,7 @@ import 'auth_service.dart';
 import 'school_import_service.dart' show BulkImportResult;
 
 class SchoolAdminPlatformService {
-  SchoolAdminPlatformService({
-    SupabaseClient? client,
-  })  : _client = client;
+  SchoolAdminPlatformService({SupabaseClient? client}) : _client = client;
 
   final SupabaseClient? _client;
 
@@ -28,13 +26,18 @@ class SchoolAdminPlatformService {
   /// List all schools with aggregated real-time metrics for Super Admin
   Future<List<SchoolPlatformRecord>> fetchSchools() async {
     final token = await _requireToken();
-    final res = await _resolvedClient.rpc('list_schools_for_super_admin', params: {
-      'p_token': token,
-    });
+    final res = await _resolvedClient.rpc(
+      'list_schools_for_super_admin',
+      params: {'p_token': token},
+    );
 
     if (res is! List) return [];
     return res
-        .map((e) => SchoolPlatformRecord.fromJson(Map<String, dynamic>.from(e as Map)))
+        .map(
+          (e) => SchoolPlatformRecord.fromJson(
+            Map<String, dynamic>.from(e as Map),
+          ),
+        )
         .toList();
   }
 
@@ -49,17 +52,20 @@ class SchoolAdminPlatformService {
     DateTime? licenseExpiresAt,
   }) async {
     final token = await _requireToken();
-    final res = await _resolvedClient.rpc('create_school_for_super_admin', params: {
-      'p_token': token,
-      'p_name': name,
-      if (province != null) 'p_province': province,
-      if (adminEmail != null) 'p_admin_email': adminEmail,
-      'p_package_name': packageName,
-      'p_max_users': maxUsers,
-      'p_max_devices': maxDevices,
-      if (licenseExpiresAt != null)
-        'p_license_expires_at': licenseExpiresAt.toUtc().toIso8601String(),
-    });
+    final res = await _resolvedClient.rpc(
+      'create_school_for_super_admin',
+      params: {
+        'p_token': token,
+        'p_name': name,
+        if (province != null) 'p_province': province,
+        if (adminEmail != null) 'p_admin_email': adminEmail,
+        'p_package_name': packageName,
+        'p_max_users': maxUsers,
+        'p_max_devices': maxDevices,
+        if (licenseExpiresAt != null)
+          'p_license_expires_at': licenseExpiresAt.toUtc().toIso8601String(),
+      },
+    );
 
     return Map<String, dynamic>.from(res as Map);
   }
@@ -76,18 +82,21 @@ class SchoolAdminPlatformService {
     DateTime? licenseExpiresAt,
   }) async {
     final token = await _requireToken();
-    final res = await _resolvedClient.rpc('update_school_for_super_admin', params: {
-      'p_token': token,
-      'p_school_id': schoolId,
-      'p_name': name,
-      if (province != null) 'p_province': province,
-      if (adminEmail != null) 'p_admin_email': adminEmail,
-      if (packageName != null) 'p_package_name': packageName,
-      if (maxUsers != null) 'p_max_users': maxUsers,
-      if (maxDevices != null) 'p_max_devices': maxDevices,
-      if (licenseExpiresAt != null)
-        'p_license_expires_at': licenseExpiresAt.toUtc().toIso8601String(),
-    });
+    final res = await _resolvedClient.rpc(
+      'update_school_for_super_admin',
+      params: {
+        'p_token': token,
+        'p_school_id': schoolId,
+        'p_name': name,
+        if (province != null) 'p_province': province,
+        if (adminEmail != null) 'p_admin_email': adminEmail,
+        if (packageName != null) 'p_package_name': packageName,
+        if (maxUsers != null) 'p_max_users': maxUsers,
+        if (maxDevices != null) 'p_max_devices': maxDevices,
+        if (licenseExpiresAt != null)
+          'p_license_expires_at': licenseExpiresAt.toUtc().toIso8601String(),
+      },
+    );
 
     return res == true;
   }
@@ -98,11 +107,10 @@ class SchoolAdminPlatformService {
     required String status,
   }) async {
     final token = await _requireToken();
-    final res = await _resolvedClient.rpc('set_school_status_for_super_admin', params: {
-      'p_token': token,
-      'p_school_id': schoolId,
-      'p_status': status,
-    });
+    final res = await _resolvedClient.rpc(
+      'set_school_status_for_super_admin',
+      params: {'p_token': token, 'p_school_id': schoolId, 'p_status': status},
+    );
 
     return res == true;
   }
@@ -110,11 +118,14 @@ class SchoolAdminPlatformService {
   /// Fetch all device control data (schools, devices, approvals, permissions, logs)
   Future<DeviceControlDataModel> fetchDeviceControlData() async {
     final token = await _requireToken();
-    final res = await _resolvedClient.rpc('list_device_control_data_for_super_admin', params: {
-      'p_token': token,
-    });
+    final res = await _resolvedClient.rpc(
+      'list_device_control_data_for_super_admin',
+      params: {'p_token': token},
+    );
 
-    return DeviceControlDataModel.fromJson(Map<String, dynamic>.from(res as Map));
+    return DeviceControlDataModel.fromJson(
+      Map<String, dynamic>.from(res as Map),
+    );
   }
 
   // ── School Admin: อาคาร/ห้อง/อุปกรณ์/แจ้งเตือน/ปีการศึกษา (20260914010000) ──
@@ -127,22 +138,25 @@ class SchoolAdminPlatformService {
     String? note,
   }) async {
     final token = await _requireToken();
-    await _resolvedClient.rpc('update_school_building', params: {
-      'p_token': token,
-      'p_building_id': buildingId,
-      'p_name': name,
-      'p_code': code,
-      'p_floors': floors,
-      'p_note': note,
-    });
+    await _resolvedClient.rpc(
+      'update_school_building',
+      params: {
+        'p_token': token,
+        'p_building_id': buildingId,
+        'p_name': name,
+        'p_code': code,
+        'p_floors': floors,
+        'p_note': note,
+      },
+    );
   }
 
   Future<void> deleteBuilding(String buildingId) async {
     final token = await _requireToken();
-    await _resolvedClient.rpc('delete_school_building', params: {
-      'p_token': token,
-      'p_building_id': buildingId,
-    });
+    await _resolvedClient.rpc(
+      'delete_school_building',
+      params: {'p_token': token, 'p_building_id': buildingId},
+    );
   }
 
   /// ผู้รับผิดชอบอาคาร = ชื่อใน buildings.manager_name — ส่ง null เพื่อล้าง
@@ -151,11 +165,14 @@ class SchoolAdminPlatformService {
     required String? managerName,
   }) async {
     final token = await _requireToken();
-    await _resolvedClient.rpc('set_school_building_manager', params: {
-      'p_token': token,
-      'p_building_id': buildingId,
-      'p_manager_name': managerName,
-    });
+    await _resolvedClient.rpc(
+      'set_school_building_manager',
+      params: {
+        'p_token': token,
+        'p_building_id': buildingId,
+        'p_manager_name': managerName,
+      },
+    );
   }
 
   Future<void> updateRoom({
@@ -167,23 +184,26 @@ class SchoolAdminPlatformService {
     int? capacity,
   }) async {
     final token = await _requireToken();
-    await _resolvedClient.rpc('update_school_room', params: {
-      'p_token': token,
-      'p_room_id': roomId,
-      'p_name': name,
-      'p_code': code,
-      'p_floor': floor,
-      'p_room_type': roomType,
-      'p_capacity': capacity,
-    });
+    await _resolvedClient.rpc(
+      'update_school_room',
+      params: {
+        'p_token': token,
+        'p_room_id': roomId,
+        'p_name': name,
+        'p_code': code,
+        'p_floor': floor,
+        'p_room_type': roomType,
+        'p_capacity': capacity,
+      },
+    );
   }
 
   Future<void> deleteRoom(String roomId) async {
     final token = await _requireToken();
-    await _resolvedClient.rpc('delete_school_room', params: {
-      'p_token': token,
-      'p_room_id': roomId,
-    });
+    await _resolvedClient.rpc(
+      'delete_school_room',
+      params: {'p_token': token, 'p_room_id': roomId},
+    );
   }
 
   /// ลงทะเบียนอุปกรณ์ในโรงเรียนตัวเอง (register_device — school_admin)
@@ -196,14 +216,19 @@ class SchoolAdminPlatformService {
     String? kitCode,
   }) async {
     final token = await _requireToken();
-    final rows = await _resolvedClient.rpc('register_device', params: {
-      'p_token': token,
-      'p_type': type,
-      'p_name': name,
-      'p_serial_no': serialNo,
-      'p_location': location,
-      'p_kit_code': kitCode,
-    }) as List;
+    final rows =
+        await _resolvedClient.rpc(
+              'register_device',
+              params: {
+                'p_token': token,
+                'p_type': type,
+                'p_name': name,
+                'p_serial_no': serialNo,
+                'p_location': location,
+                'p_kit_code': kitCode,
+              },
+            )
+            as List;
     if (rows.isEmpty) throw StateError('register_device returned no row');
     return Map<String, dynamic>.from(rows.first as Map);
   }
@@ -217,44 +242,58 @@ class SchoolAdminPlatformService {
     String? status,
   }) async {
     final token = await _requireToken();
-    await _resolvedClient.rpc('update_school_device', params: {
-      'p_token': token,
-      'p_device_id': deviceId,
-      'p_name': name,
-      'p_location': location,
-      'p_building': building,
-      'p_room': room,
-      'p_status': status,
-    });
+    await _resolvedClient.rpc(
+      'update_school_device',
+      params: {
+        'p_token': token,
+        'p_device_id': deviceId,
+        'p_name': name,
+        'p_location': location,
+        'p_building': building,
+        'p_room': room,
+        'p_status': status,
+      },
+    );
   }
 
   /// รายละเอียดอุปกรณ์รายตัว (get_school_device_detail) — null ถ้าไม่พบ/นอกโรงเรียน
   Future<SchoolDeviceDetail?> getDeviceDetail(String deviceId) async {
     final token = await _requireToken();
-    final rows = await _resolvedClient.rpc('get_school_device_detail', params: {
-      'p_token': token,
-      'p_device_id': deviceId,
-    }) as List;
+    final rows =
+        await _resolvedClient.rpc(
+              'get_school_device_detail',
+              params: {'p_token': token, 'p_device_id': deviceId},
+            )
+            as List;
     if (rows.isEmpty) return null;
-    return SchoolDeviceDetail.fromRow(Map<String, dynamic>.from(rows.first as Map));
+    return SchoolDeviceDetail.fromRow(
+      Map<String, dynamic>.from(rows.first as Map),
+    );
   }
 
   /// รับทราบแจ้งเตือนที่ยังเป็น new ทั้งโรงเรียน — คืนจำนวนที่เปลี่ยน
   Future<int> acknowledgeAllAlerts() async {
     final token = await _requireToken();
-    final res = await _resolvedClient.rpc('acknowledge_all_school_alerts', params: {
-      'p_token': token,
-    });
+    final res = await _resolvedClient.rpc(
+      'acknowledge_all_school_alerts',
+      params: {'p_token': token},
+    );
     return (res as num?)?.toInt() ?? 0;
   }
 
   Future<List<AcademicYearOption>> listAcademicYears() async {
     final token = await _requireToken();
-    final rows = await _resolvedClient.rpc('list_academic_years', params: {
-      'p_token': token,
-    }) as List;
+    final rows =
+        await _resolvedClient.rpc(
+              'list_academic_years',
+              params: {'p_token': token},
+            )
+            as List;
     return rows
-        .map((r) => AcademicYearOption.fromRow(Map<String, dynamic>.from(r as Map)))
+        .map(
+          (r) =>
+              AcademicYearOption.fromRow(Map<String, dynamic>.from(r as Map)),
+        )
         .toList();
   }
 
@@ -264,12 +303,15 @@ class SchoolAdminPlatformService {
     DateTime? endDate,
   }) async {
     final token = await _requireToken();
-    final res = await _resolvedClient.rpc('create_academic_year', params: {
-      'p_token': token,
-      'p_name': name,
-      'p_start_date': startDate?.toIso8601String().substring(0, 10),
-      'p_end_date': endDate?.toIso8601String().substring(0, 10),
-    });
+    final res = await _resolvedClient.rpc(
+      'create_academic_year',
+      params: {
+        'p_token': token,
+        'p_name': name,
+        'p_start_date': startDate?.toIso8601String().substring(0, 10),
+        'p_end_date': endDate?.toIso8601String().substring(0, 10),
+      },
+    );
     return res as String;
   }
 
@@ -280,13 +322,16 @@ class SchoolAdminPlatformService {
     DateTime? endDate,
   }) async {
     final token = await _requireToken();
-    final res = await _resolvedClient.rpc('create_term', params: {
-      'p_token': token,
-      'p_academic_year_id': academicYearId,
-      'p_name': name,
-      'p_start_date': startDate?.toIso8601String().substring(0, 10),
-      'p_end_date': endDate?.toIso8601String().substring(0, 10),
-    });
+    final res = await _resolvedClient.rpc(
+      'create_term',
+      params: {
+        'p_token': token,
+        'p_academic_year_id': academicYearId,
+        'p_name': name,
+        'p_start_date': startDate?.toIso8601String().substring(0, 10),
+        'p_end_date': endDate?.toIso8601String().substring(0, 10),
+      },
+    );
     return res as String;
   }
 
@@ -303,16 +348,19 @@ class SchoolAdminPlatformService {
     String? room,
   }) async {
     final token = await _requireToken();
-    final res = await _resolvedClient.rpc('register_device_for_super_admin', params: {
-      'p_token': token,
-      'p_school_id': schoolId,
-      'p_name': name,
-      'p_type': type,
-      if (categoryCode != null) 'p_category_code': categoryCode,
-      if (deviceCode != null) 'p_device_code': deviceCode,
-      if (building != null) 'p_building': building,
-      if (room != null) 'p_room': room,
-    });
+    final res = await _resolvedClient.rpc(
+      'register_device_for_super_admin',
+      params: {
+        'p_token': token,
+        'p_school_id': schoolId,
+        'p_name': name,
+        'p_type': type,
+        if (categoryCode != null) 'p_category_code': categoryCode,
+        if (deviceCode != null) 'p_device_code': deviceCode,
+        if (building != null) 'p_building': building,
+        if (room != null) 'p_room': room,
+      },
+    );
 
     return Map<String, dynamic>.from(res as Map);
   }
@@ -323,11 +371,10 @@ class SchoolAdminPlatformService {
     required Map<String, dynamic> command,
   }) async {
     final token = await _requireToken();
-    final res = await _resolvedClient.rpc('queue_device_command', params: {
-      'p_token': token,
-      'p_device_id': deviceId,
-      'p_command': command,
-    });
+    final res = await _resolvedClient.rpc(
+      'queue_device_command',
+      params: {'p_token': token, 'p_device_id': deviceId, 'p_command': command},
+    );
 
     return res.toString();
   }
@@ -339,12 +386,15 @@ class SchoolAdminPlatformService {
     String? reason,
   }) async {
     final token = await _requireToken();
-    final res = await _resolvedClient.rpc('create_control_approval_request', params: {
-      'p_token': token,
-      'p_device_id': deviceId,
-      'p_command': command,
-      if (reason != null) 'p_reason': reason,
-    });
+    final res = await _resolvedClient.rpc(
+      'create_control_approval_request',
+      params: {
+        'p_token': token,
+        'p_device_id': deviceId,
+        'p_command': command,
+        if (reason != null) 'p_reason': reason,
+      },
+    );
 
     return Map<String, dynamic>.from(res as Map);
   }
@@ -356,12 +406,15 @@ class SchoolAdminPlatformService {
     String? reason,
   }) async {
     final token = await _requireToken();
-    final res = await _resolvedClient.rpc('decide_control_approval_request', params: {
-      'p_token': token,
-      'p_request_id': requestId,
-      'p_approved': approved,
-      if (reason != null) 'p_reason': reason,
-    });
+    final res = await _resolvedClient.rpc(
+      'decide_control_approval_request',
+      params: {
+        'p_token': token,
+        'p_request_id': requestId,
+        'p_approved': approved,
+        if (reason != null) 'p_reason': reason,
+      },
+    );
 
     return Map<String, dynamic>.from(res as Map);
   }
@@ -369,60 +422,76 @@ class SchoolAdminPlatformService {
   /// Fetch school buildings list
   Future<List<SchoolBuildingRecord>> fetchBuildings() async {
     final token = await _requireToken();
-    final res = await _resolvedClient.rpc('list_school_buildings', params: {
-      'p_token': token,
-    });
+    final res = await _resolvedClient.rpc(
+      'list_school_buildings',
+      params: {'p_token': token},
+    );
 
     if (res is! List) return [];
     return res
-        .map((e) => SchoolBuildingRecord.fromRow(Map<String, dynamic>.from(e as Map)))
+        .map(
+          (e) =>
+              SchoolBuildingRecord.fromRow(Map<String, dynamic>.from(e as Map)),
+        )
         .toList();
   }
 
   /// Fetch school rooms list
   Future<List<SchoolRoomRecord>> fetchRooms({String? buildingId}) async {
     final token = await _requireToken();
-    final res = await _resolvedClient.rpc('list_school_rooms', params: {
-      'p_token': token,
-      if (buildingId != null) 'p_building_id': buildingId,
-    });
+    final res = await _resolvedClient.rpc(
+      'list_school_rooms',
+      params: {
+        'p_token': token,
+        if (buildingId != null) 'p_building_id': buildingId,
+      },
+    );
 
     if (res is! List) return [];
     return res
-        .map((e) => SchoolRoomRecord.fromRow(Map<String, dynamic>.from(e as Map)))
+        .map(
+          (e) => SchoolRoomRecord.fromRow(Map<String, dynamic>.from(e as Map)),
+        )
         .toList();
   }
 
   /// Fetch school admin dashboard aggregate summary
   Future<SchoolAdminDashboardSummary> fetchDashboardSummary() async {
     final token = await _requireToken();
-    final res = await _resolvedClient.rpc('get_school_admin_dashboard_summary', params: {
-      'p_token': token,
-    });
+    final res = await _resolvedClient.rpc(
+      'get_school_admin_dashboard_summary',
+      params: {'p_token': token},
+    );
 
-    return SchoolAdminDashboardSummary.fromJson(Map<String, dynamic>.from(res as Map));
+    return SchoolAdminDashboardSummary.fromJson(
+      Map<String, dynamic>.from(res as Map),
+    );
   }
 
   /// Fetch school admin audit logs
   Future<List<SchoolAdminAuditLog>> fetchAuditLogs({int limit = 20}) async {
     final token = await _requireToken();
-    final res = await _resolvedClient.rpc('list_school_admin_audit_logs', params: {
-      'p_token': token,
-      'p_limit': limit,
-    });
+    final res = await _resolvedClient.rpc(
+      'list_school_admin_audit_logs',
+      params: {'p_token': token, 'p_limit': limit},
+    );
 
     if (res is! List) return [];
     return res
-        .map((e) => SchoolAdminAuditLog.fromRow(Map<String, dynamic>.from(e as Map)))
+        .map(
+          (e) =>
+              SchoolAdminAuditLog.fromRow(Map<String, dynamic>.from(e as Map)),
+        )
         .toList();
   }
 
   /// Fetch the single platform-wide settings row (Super Admin only)
   Future<PlatformSettings> getPlatformSettings() async {
     final token = await _requireToken();
-    final res = await _resolvedClient.rpc('get_platform_settings', params: {
-      'p_token': token,
-    });
+    final res = await _resolvedClient.rpc(
+      'get_platform_settings',
+      params: {'p_token': token},
+    );
 
     return PlatformSettings.fromRow(Map<String, dynamic>.from(res as Map));
   }
@@ -449,29 +518,31 @@ class SchoolAdminPlatformService {
     String? backupTime,
   }) async {
     final token = await _requireToken();
-    final res = await _resolvedClient.rpc('update_platform_settings', params: {
-      'p_token': token,
-      if (mq2Threshold != null) 'p_mq2_threshold': mq2Threshold,
-      if (pm25Threshold != null) 'p_pm25_threshold': pm25Threshold,
-      if (temperatureThreshold != null)
-        'p_temperature_threshold': temperatureThreshold,
-      if (offlineMinutes != null) 'p_offline_minutes': offlineMinutes,
-      if (mqttHost != null) 'p_mqtt_host': mqttHost,
-      if (mqttPort != null) 'p_mqtt_port': mqttPort,
-      if (lineNotify != null) 'p_line_notify': lineNotify,
-      if (emailNotify != null) 'p_email_notify': emailNotify,
-      if (pushNotify != null) 'p_push_notify': pushNotify,
-      if (automaticBackup != null) 'p_automatic_backup': automaticBackup,
-      if (maintenanceMode != null) 'p_maintenance_mode': maintenanceMode,
-      if (twoFactorRequired != null)
-        'p_two_factor_required': twoFactorRequired,
-      if (auditLogEnabled != null) 'p_audit_log_enabled': auditLogEnabled,
-      if (language != null) 'p_language': language,
-      if (timezone != null) 'p_timezone': timezone,
-      if (logRetentionDays != null)
-        'p_log_retention_days': logRetentionDays,
-      if (backupTime != null) 'p_backup_time': backupTime,
-    });
+    final res = await _resolvedClient.rpc(
+      'update_platform_settings',
+      params: {
+        'p_token': token,
+        if (mq2Threshold != null) 'p_mq2_threshold': mq2Threshold,
+        if (pm25Threshold != null) 'p_pm25_threshold': pm25Threshold,
+        if (temperatureThreshold != null)
+          'p_temperature_threshold': temperatureThreshold,
+        if (offlineMinutes != null) 'p_offline_minutes': offlineMinutes,
+        if (mqttHost != null) 'p_mqtt_host': mqttHost,
+        if (mqttPort != null) 'p_mqtt_port': mqttPort,
+        if (lineNotify != null) 'p_line_notify': lineNotify,
+        if (emailNotify != null) 'p_email_notify': emailNotify,
+        if (pushNotify != null) 'p_push_notify': pushNotify,
+        if (automaticBackup != null) 'p_automatic_backup': automaticBackup,
+        if (maintenanceMode != null) 'p_maintenance_mode': maintenanceMode,
+        if (twoFactorRequired != null)
+          'p_two_factor_required': twoFactorRequired,
+        if (auditLogEnabled != null) 'p_audit_log_enabled': auditLogEnabled,
+        if (language != null) 'p_language': language,
+        if (timezone != null) 'p_timezone': timezone,
+        if (logRetentionDays != null) 'p_log_retention_days': logRetentionDays,
+        if (backupTime != null) 'p_backup_time': backupTime,
+      },
+    );
 
     return PlatformSettings.fromRow(Map<String, dynamic>.from(res as Map));
   }
@@ -480,13 +551,17 @@ class SchoolAdminPlatformService {
   /// editing stays with teachers via CourseService/LessonService)
   Future<List<CourseOverviewRecord>> getCoursesOverview() async {
     final token = await _requireToken();
-    final res = await _resolvedClient.rpc('list_courses_for_super_admin', params: {
-      'p_token': token,
-    });
+    final res = await _resolvedClient.rpc(
+      'list_courses_for_super_admin',
+      params: {'p_token': token},
+    );
 
     if (res is! List) return [];
     return res
-        .map((e) => CourseOverviewRecord.fromRow(Map<String, dynamic>.from(e as Map)))
+        .map(
+          (e) =>
+              CourseOverviewRecord.fromRow(Map<String, dynamic>.from(e as Map)),
+        )
         .toList();
   }
 
@@ -495,10 +570,10 @@ class SchoolAdminPlatformService {
     List<Map<String, dynamic>> buildings,
   ) async {
     final token = await _requireToken();
-    final res = await _resolvedClient.rpc('import_school_buildings_batch', params: {
-      'p_token': token,
-      'p_buildings': buildings,
-    });
+    final res = await _resolvedClient.rpc(
+      'import_school_buildings_batch',
+      params: {'p_token': token, 'p_buildings': buildings},
+    );
     return BulkImportResult.fromJson(Map<String, dynamic>.from(res as Map));
   }
 
@@ -508,10 +583,10 @@ class SchoolAdminPlatformService {
     List<Map<String, dynamic>> rooms,
   ) async {
     final token = await _requireToken();
-    final res = await _resolvedClient.rpc('import_school_rooms_batch', params: {
-      'p_token': token,
-      'p_rooms': rooms,
-    });
+    final res = await _resolvedClient.rpc(
+      'import_school_rooms_batch',
+      params: {'p_token': token, 'p_rooms': rooms},
+    );
     return BulkImportResult.fromJson(Map<String, dynamic>.from(res as Map));
   }
 
@@ -521,11 +596,10 @@ class SchoolAdminPlatformService {
     List<Map<String, dynamic>> devices,
   ) async {
     final token = await _requireToken();
-    final res = await _resolvedClient.rpc('import_school_devices_batch', params: {
-      'p_token': token,
-      'p_devices': devices,
-    });
+    final res = await _resolvedClient.rpc(
+      'import_school_devices_batch',
+      params: {'p_token': token, 'p_devices': devices},
+    );
     return BulkImportResult.fromJson(Map<String, dynamic>.from(res as Map));
   }
 }
-

@@ -98,11 +98,7 @@ class UserAdminService {
     if (token == null) throw Exception('not_signed_in');
     final res = await supabase.rpc(
       'import_school_users_batch_for_school_admin',
-      params: {
-        'p_token': token,
-        'p_role': role.value,
-        'p_users': users,
-      },
+      params: {'p_token': token, 'p_role': role.value, 'p_users': users},
     );
     if (res is! Map) {
       throw StateError('import_school_users_batch returned no object');
@@ -110,4 +106,3 @@ class UserAdminService {
     return BulkImportResult.fromJson(Map<String, dynamic>.from(res));
   }
 }
-

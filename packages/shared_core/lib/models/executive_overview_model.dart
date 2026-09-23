@@ -341,25 +341,26 @@ class ClassroomWorkDetails {
     required this.assignments,
     required this.teacherActivities,
   });
-  factory ClassroomWorkDetails.fromRow(Map<String, dynamic> row) =>
-      ClassroomWorkDetails(
-        gradeLevel: row['grade_level'] as String? ?? '',
-        room: row['room'] as String? ?? '',
-        assignments: (row['assignments'] as List? ?? const [])
-            .map(
-              (e) => ClassroomAssignmentDetail.fromJson(
-                Map<String, dynamic>.from(e as Map),
-              ),
-            )
-            .toList(),
-        teacherActivities: (row['teacher_activities'] as List? ?? const [])
-            .map(
-              (e) => ClassroomTeacherActivity.fromJson(
-                Map<String, dynamic>.from(e as Map),
-              ),
-            )
-            .toList(),
-      );
+  factory ClassroomWorkDetails.fromRow(
+    Map<String, dynamic> row,
+  ) => ClassroomWorkDetails(
+    gradeLevel: row['grade_level'] as String? ?? '',
+    room: row['room'] as String? ?? '',
+    assignments: (row['assignments'] as List? ?? const [])
+        .map(
+          (e) => ClassroomAssignmentDetail.fromJson(
+            Map<String, dynamic>.from(e as Map),
+          ),
+        )
+        .toList(),
+    teacherActivities: (row['teacher_activities'] as List? ?? const [])
+        .map(
+          (e) => ClassroomTeacherActivity.fromJson(
+            Map<String, dynamic>.from(e as Map),
+          ),
+        )
+        .toList(),
+  );
 }
 
 class ClassroomAssignmentRosterItem {

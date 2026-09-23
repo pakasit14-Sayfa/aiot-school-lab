@@ -31,8 +31,9 @@ class StaffLeaveAttachment {
         sizeBytes: _int(row['size_bytes']),
         uploaderName: row['uploader_name']?.toString().trim() ?? '',
         uploadedAt:
-            DateTime.tryParse(row['uploaded_at']?.toString() ?? '')
-                ?.toLocal() ??
+            DateTime.tryParse(
+              row['uploaded_at']?.toString() ?? '',
+            )?.toLocal() ??
             DateTime.now(),
       );
 }

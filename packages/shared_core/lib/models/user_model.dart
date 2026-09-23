@@ -1,11 +1,4 @@
-enum UserRole {
-  superAdmin,
-  schoolAdmin,
-  teacher,
-  executive,
-  student,
-  parent,
-}
+enum UserRole { superAdmin, schoolAdmin, teacher, executive, student, parent }
 
 extension UserRoleExt on UserRole {
   String get value {
@@ -94,8 +87,7 @@ class UserModel {
   /// granted most recently (see list_school_users), which would
   /// otherwise silently exclude e.g. a teacher who was later also
   /// granted school_admin from role == teacher filters.
-  bool hasRole(UserRole target) =>
-      role == target || allRoles.contains(target);
+  bool hasRole(UserRole target) => role == target || allRoles.contains(target);
 
   /// Parses the row shape returned by auth/session/user-list RPCs
   /// (user_id, first_name, last_name, active_role, active_school_id,
@@ -105,7 +97,9 @@ class UserModel {
   /// 20260826130000_list_school_users_all_roles.sql) — absent elsewhere,
   /// in which case it falls back to just [role].
   factory UserModel.fromAuthRow(Map<String, dynamic> row) {
-    final role = UserRoleExt.fromString(row['active_role'] as String? ?? 'student');
+    final role = UserRoleExt.fromString(
+      row['active_role'] as String? ?? 'student',
+    );
     final rawAllRoles = row['all_roles'] as List?;
     return UserModel(
       uid: row['user_id'] as String,
@@ -114,7 +108,9 @@ class UserModel {
       role: role,
       allRoles: rawAllRoles == null
           ? [role]
-          : rawAllRoles.map((r) => UserRoleExt.fromString(r as String)).toList(),
+          : rawAllRoles
+                .map((r) => UserRoleExt.fromString(r as String))
+                .toList(),
       schoolId: row['active_school_id'] as String? ?? '',
       building: row['building'] as String? ?? '',
       status: row['status'] as String? ?? 'active',

@@ -46,9 +46,12 @@ class StaffRequestService {
               'p_subject': subject.trim(),
               'p_start_date': d(startDate),
               'p_end_date': endDate == null ? null : d(endDate),
-              'p_detail': detail?.trim().isEmpty ?? true ? null : detail!.trim(),
-              'p_location':
-                  location?.trim().isEmpty ?? true ? null : location!.trim(),
+              'p_detail': detail?.trim().isEmpty ?? true
+                  ? null
+                  : detail!.trim(),
+              'p_location': location?.trim().isEmpty ?? true
+                  ? null
+                  : location!.trim(),
             })
             as String;
     final records = await list();

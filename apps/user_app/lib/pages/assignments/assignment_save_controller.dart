@@ -39,6 +39,10 @@ class AssignmentSaveController {
   bool busy = false;
   bool hasWritten = false;
 
+  /// id ของใบงานที่เขียนไปแล้ว — ผู้เรียกต้องใช้ผูกไฟล์แนบหลังบันทึกสำเร็จ
+  /// (ใบงานใหม่เพิ่งมี id ตอนนี้เอง) null = ยังไม่เคยเขียนอะไรลงไป
+  String? get assignmentId => _assignmentId;
+
   Future<AssignmentSummary> save({
     required String courseId,
     required String type,

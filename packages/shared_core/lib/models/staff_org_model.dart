@@ -93,24 +93,22 @@ class StaffDirectoryEntry {
       ? value.map((e) => e.toString()).where((e) => e.isNotEmpty).toList()
       : const <String>[];
 
-  factory StaffDirectoryEntry.fromRow(Map<String, dynamic> row) =>
-      StaffDirectoryEntry(
-        userId: row['user_id'].toString(),
-        fullName: row['full_name']?.toString().trim() ?? '',
-        email: row['email']?.toString() ?? '',
-        status: row['status']?.toString() ?? 'active',
-        roles: _stringList(row['roles']),
-        administrativeDepartments: _stringList(
-          row['administrative_departments'],
-        ),
-        subjectGroups: _stringList(row['subject_groups']),
-        headsDepartments: _stringList(row['heads_departments']),
-        positionTitle:
-            (row['position_title']?.toString().trim().isEmpty ?? true)
-            ? null
-            : row['position_title'].toString(),
-        phone: (row['phone']?.toString().trim().isEmpty ?? true)
-            ? null
-            : row['phone'].toString(),
-      );
+  factory StaffDirectoryEntry.fromRow(
+    Map<String, dynamic> row,
+  ) => StaffDirectoryEntry(
+    userId: row['user_id'].toString(),
+    fullName: row['full_name']?.toString().trim() ?? '',
+    email: row['email']?.toString() ?? '',
+    status: row['status']?.toString() ?? 'active',
+    roles: _stringList(row['roles']),
+    administrativeDepartments: _stringList(row['administrative_departments']),
+    subjectGroups: _stringList(row['subject_groups']),
+    headsDepartments: _stringList(row['heads_departments']),
+    positionTitle: (row['position_title']?.toString().trim().isEmpty ?? true)
+        ? null
+        : row['position_title'].toString(),
+    phone: (row['phone']?.toString().trim().isEmpty ?? true)
+        ? null
+        : row['phone'].toString(),
+  );
 }

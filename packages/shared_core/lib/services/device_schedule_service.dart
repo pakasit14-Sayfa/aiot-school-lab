@@ -4,13 +4,15 @@ import 'supabase_config.dart';
 
 class DeviceScheduleService {
   static Future<List<DeviceSchedule>> listSchedules({String? deviceId}) async {
-    final rows = await supabase.rpc(
-      'list_device_schedules',
-      params: {
-        'p_token': AuthService.sessionToken,
-        'p_device_id': deviceId,
-      },
-    ) as List;
+    final rows =
+        await supabase.rpc(
+              'list_device_schedules',
+              params: {
+                'p_token': AuthService.sessionToken,
+                'p_device_id': deviceId,
+              },
+            )
+            as List;
 
     return rows
         .map((row) => DeviceSchedule.fromRow(row as Map<String, dynamic>))
@@ -53,9 +55,7 @@ class DeviceScheduleService {
     );
   }
 
-  static Future<void> deleteSchedule({
-    required String scheduleId,
-  }) async {
+  static Future<void> deleteSchedule({required String scheduleId}) async {
     await supabase.rpc(
       'delete_device_schedule',
       params: {

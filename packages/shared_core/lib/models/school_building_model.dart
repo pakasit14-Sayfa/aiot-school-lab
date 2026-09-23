@@ -168,7 +168,9 @@ class SchoolAdminAuditLog {
       detail: row['detail']?.toString() ?? '',
       actorName: row['actor_name']?.toString() ?? '',
       actorRole: row['actor_role']?.toString() ?? '',
-      createdAt: DateTime.tryParse(row['created_at']?.toString() ?? '') ?? DateTime.now(),
+      createdAt:
+          DateTime.tryParse(row['created_at']?.toString() ?? '') ??
+          DateTime.now(),
     );
   }
 }

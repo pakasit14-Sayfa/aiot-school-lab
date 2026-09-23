@@ -27,7 +27,8 @@ class SupabaseConfig {
   static const String _envKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
   static String get url => _envUrl.isNotEmpty ? _envUrl : _defaultUrl;
-  static String get publishableKey => _envKey.isNotEmpty ? _envKey : _defaultKey;
+  static String get publishableKey =>
+      _envKey.isNotEmpty ? _envKey : _defaultKey;
 
   /// Message of the error thrown when a release build was made without
   /// `--dart-define-from-file=env.prod.json`.

@@ -12,9 +12,7 @@ class RolePermissionMatrixService {
             as List;
 
     return rows
-        .map(
-          (row) => RolePermissionEntry.fromRow(row as Map<String, dynamic>),
-        )
+        .map((row) => RolePermissionEntry.fromRow(row as Map<String, dynamic>))
         .toList();
   }
 }

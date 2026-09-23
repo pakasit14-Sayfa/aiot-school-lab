@@ -239,7 +239,11 @@ class LessonService {
             )
             as List;
     return rows
-        .map((r) => LessonStudentProgress.fromRow(Map<String, dynamic>.from(r as Map)))
+        .map(
+          (r) => LessonStudentProgress.fromRow(
+            Map<String, dynamic>.from(r as Map),
+          ),
+        )
         .toList();
   }
 

@@ -35,9 +35,7 @@ class QuizService {
             )
             as List;
     return rows
-        .map(
-          (row) => QuizQuestionSummary.fromRow(row as Map<String, dynamic>),
-        )
+        .map((row) => QuizQuestionSummary.fromRow(row as Map<String, dynamic>))
         .toList();
   }
 
@@ -181,11 +179,7 @@ class QuizService {
 
     final uploadUrlResponse = await supabase.functions.invoke(
       'quiz-attachment-upload',
-      body: {
-        'token': token,
-        'question_id': questionId,
-        'file_name': fileName,
-      },
+      body: {'token': token, 'question_id': questionId, 'file_name': fileName},
     );
     final uploadData = uploadUrlResponse.data as Map<String, dynamic>?;
     final storagePath = uploadData?['storage_path'] as String?;

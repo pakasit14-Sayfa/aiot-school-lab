@@ -128,8 +128,7 @@ class SchoolReport {
     submittedBy: row['submitted_by'].toString(),
     submitterName: row['submitter_name']?.toString().trim() ?? '',
     submitterPosition: _text(row['submitter_position']),
-    submittedAt:
-        _date(row['submitted_at'])?.toLocal() ?? DateTime.now(),
+    submittedAt: _date(row['submitted_at'])?.toLocal() ?? DateTime.now(),
     reviewerName: _text(row['reviewer_name']),
     reviewedAt: _date(row['reviewed_at'])?.toLocal(),
     reviewNote: _text(row['review_note']),

@@ -27,23 +27,25 @@ class TeacherWorkloadSummary {
   /// need-count — a period nobody has assigned a substitute for yet
   /// shouldn't inflate this category.
   int get totalPeriods =>
-      regularPeriods + activityLabPeriods + substitutionRecorded + prepMeetingCount;
+      regularPeriods +
+      activityLabPeriods +
+      substitutionRecorded +
+      prepMeetingCount;
 
   bool get isEmpty => totalPeriods == 0;
 
-  factory TeacherWorkloadSummary.fromRow(Map<String, dynamic> row) =>
-      TeacherWorkloadSummary(
-        regularPeriods: (row['regular_periods'] as num).toInt(),
-        activityLabPeriods: (row['activity_lab_periods'] as num).toInt(),
-        regularTeacherCount: (row['regular_teacher_count'] as num).toInt(),
-        activityLabTeacherCount:
-            (row['activity_lab_teacher_count'] as num).toInt(),
-        substitutionRecorded: (row['substitution_recorded'] as num).toInt(),
-        substitutionNeeded: (row['substitution_needed'] as num).toInt(),
-        prepMeetingCount: (row['prep_meeting_count'] as num).toInt(),
-        prepMeetingTeacherCount:
-            (row['prep_meeting_teacher_count'] as num).toInt(),
-      );
+  factory TeacherWorkloadSummary.fromRow(
+    Map<String, dynamic> row,
+  ) => TeacherWorkloadSummary(
+    regularPeriods: (row['regular_periods'] as num).toInt(),
+    activityLabPeriods: (row['activity_lab_periods'] as num).toInt(),
+    regularTeacherCount: (row['regular_teacher_count'] as num).toInt(),
+    activityLabTeacherCount: (row['activity_lab_teacher_count'] as num).toInt(),
+    substitutionRecorded: (row['substitution_recorded'] as num).toInt(),
+    substitutionNeeded: (row['substitution_needed'] as num).toInt(),
+    prepMeetingCount: (row['prep_meeting_count'] as num).toInt(),
+    prepMeetingTeacherCount: (row['prep_meeting_teacher_count'] as num).toInt(),
+  );
 }
 
 /// One period on a given date whose regular teacher is on approved leave —
@@ -100,12 +102,11 @@ class PeriodNeedingSubstitute {
         alreadyCovered: row['already_covered'] as bool? ?? false,
         substituteTeacherName:
             (row['substitute_teacher_name'] as String?)?.isEmpty ?? true
-                ? null
-                : row['substitute_teacher_name'] as String?,
-        assignedByName:
-            (row['assigned_by_name'] as String?)?.isEmpty ?? true
-                ? null
-                : row['assigned_by_name'] as String?,
+            ? null
+            : row['substitute_teacher_name'] as String?,
+        assignedByName: (row['assigned_by_name'] as String?)?.isEmpty ?? true
+            ? null
+            : row['assigned_by_name'] as String?,
         reassigned: row['reassigned'] as bool? ?? false,
       );
 }

@@ -5,10 +5,9 @@ import 'supabase_config.dart';
 class LearningTrackService {
   static Future<List<LearningTrack>> listTracks() async {
     final token = _requireToken();
-    final rows = await supabase.rpc(
-      'list_learning_tracks',
-      params: {'p_token': token},
-    ) as List;
+    final rows =
+        await supabase.rpc('list_learning_tracks', params: {'p_token': token})
+            as List;
     return rows
         .map((row) => LearningTrack.fromRow(row as Map<String, dynamic>))
         .toList();
@@ -60,10 +59,12 @@ class LearningTrackService {
 
   static Future<List<LearningTrackRoom>> listTrackRooms() async {
     final token = _requireToken();
-    final rows = await supabase.rpc(
-      'list_learning_track_rooms',
-      params: {'p_token': token},
-    ) as List;
+    final rows =
+        await supabase.rpc(
+              'list_learning_track_rooms',
+              params: {'p_token': token},
+            )
+            as List;
     return rows
         .map((row) => LearningTrackRoom.fromRow(row as Map<String, dynamic>))
         .toList();
@@ -88,10 +89,12 @@ class LearningTrackService {
 
   static Future<List<LearningTrackOverview>> getOverview() async {
     final token = _requireToken();
-    final rows = await supabase.rpc(
-      'get_learning_track_overview',
-      params: {'p_token': token},
-    ) as List;
+    final rows =
+        await supabase.rpc(
+              'get_learning_track_overview',
+              params: {'p_token': token},
+            )
+            as List;
     return rows
         .map(
           (row) => LearningTrackOverview.fromRow(row as Map<String, dynamic>),

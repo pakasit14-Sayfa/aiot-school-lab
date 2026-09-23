@@ -77,9 +77,7 @@ class AuthService {
     required String password,
   }) async {
     _pendingLoginEmail = email.trim().toLowerCase();
-    final trustToken = await _trustTokenStorage.read(
-      _pendingLoginEmail!,
-    );
+    final trustToken = await _trustTokenStorage.read(_pendingLoginEmail!);
 
     Map<String, dynamic>? data;
     try {
@@ -123,10 +121,10 @@ class AuthService {
               roles = (row['building'] is List)
                   ? row['building'] as List
                   : (row['building'] is String)
-                      ? List<dynamic>.from(
-                          jsonDecode(row['building'] as String) as List,
-                        )
-                      : [];
+                  ? List<dynamic>.from(
+                      jsonDecode(row['building'] as String) as List,
+                    )
+                  : [];
             } catch (_) {}
           }
           data = {
@@ -231,9 +229,7 @@ class AuthService {
     }
 
     if (data['mfa_required'] == true) {
-      return AuthSignInResult.otpRequired(
-        LoginOtpChallenge.fromResponse(data),
-      );
+      return AuthSignInResult.otpRequired(LoginOtpChallenge.fromResponse(data));
     }
     if (data['error'] != null) {
       throw Exception(data['error']);

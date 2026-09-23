@@ -14,7 +14,9 @@ class ChartService {
             )
             as List;
     return rows
-        .map((r) => ChartableDataset.fromRow(Map<String, dynamic>.from(r as Map)))
+        .map(
+          (r) => ChartableDataset.fromRow(Map<String, dynamic>.from(r as Map)),
+        )
         .toList();
   }
 

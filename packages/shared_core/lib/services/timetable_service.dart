@@ -28,10 +28,10 @@ class TimetableService {
     final token = _token();
     var yearId = academicYearId;
     if (yearId == null) {
-      final years = (await supabase.rpc(
-        'list_academic_years',
-        params: {'p_token': token},
-      ) as List).cast<Map<String, dynamic>>();
+      final years =
+          (await supabase.rpc('list_academic_years', params: {'p_token': token})
+                  as List)
+              .cast<Map<String, dynamic>>();
       if (years.isEmpty) return const [];
       final today = DateTime.now();
       Map<String, dynamic>? current;
