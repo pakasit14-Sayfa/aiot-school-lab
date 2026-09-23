@@ -133,6 +133,7 @@ class TeacherExamBuilderPage extends StatefulWidget {
     this.initialKind = 'ข้อสอบก่อนเรียน',
     this.listMyCourses,
     this.createQuiz,
+    this.listLessons,
   });
 
   // ไม่บังคับ required เพื่อไม่ให้ route dev-preview เดิมใน main.dart
@@ -159,6 +160,13 @@ class TeacherExamBuilderPage extends StatefulWidget {
   })?
   createQuiz;
 
+  /// Seam for tests. `create_quiz` รับ `p_lesson_id` ได้ตั้งแต่แรก แต่หน้านี้
+  /// ไม่เคยส่งไป — ข้อสอบทุกชุดที่ครูสร้างจากแอปจึงไม่ผูกกับบทเรียนใดเลย
+  /// (ยืนยันกับ DB จริง 2026-09-23: ชุดที่สร้างจากแอปขึ้น "ยังไม่ผูกบทเรียน"
+  /// ส่วนชุดที่ seed ไว้ผูกบทที่ 1 ปกติ) ทำให้หน้าไหนที่จัดข้อสอบตามบท
+  /// มองไม่เห็นข้อสอบพวกนี้เลย
+  final Future<List<LessonSummary>> Function(String courseId)? listLessons;
+
   @override
   State<TeacherExamBuilderPage> createState() => _TeacherExamBuilderPageState();
 }
@@ -167,6 +175,10 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
   late _ExamKind _selectedKind;
   late TextEditingController _examTitleCtrl;
   int _timeLimitMinutes = 20;
+
+  List<LessonSummary> _lessons = const [];
+  String? _selectedLessonId;
+  bool _lessonsLoading = false;
   int _passingPercentage = 60;
   bool _shuffleQuestions = true;
   bool _shuffleOptions = true;
@@ -181,6 +193,7 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
   @override
   void initState() {
     super.initState();
+    _loadLessons();
     if (widget.initialKind.contains('หลังเรียน')) {
       _selectedKind = _ExamKind.postTest;
     } else if (widget.initialKind.contains('ก่อนเรียน')) {
@@ -220,6 +233,27 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
         ),
       );
     });
+  }
+
+  /// โหลดบทเรียนของวิชานี้มาให้ครูเลือกผูกข้อสอบ — เงียบ ๆ ถ้าโหลดไม่ได้
+  /// เพราะการผูกบทเป็นของเสริม ไม่ควรกันไม่ให้สร้างข้อสอบ
+  Future<void> _loadLessons() async {
+    final courseId = widget.courseId;
+    if (courseId == null) return;
+    setState(() => _lessonsLoading = true);
+    try {
+      final load = widget.listLessons ?? LessonService.listLessons;
+      final lessons = await load(courseId);
+      if (!mounted) return;
+      setState(() {
+        _lessons = lessons;
+        _lessonsLoading = false;
+      });
+    } catch (e) {
+      debugPrint('teacher_exam_builder_page: โหลดบทเรียนไม่สำเร็จ — $e');
+      if (!mounted) return;
+      setState(() => _lessonsLoading = false);
+    }
   }
 
   Future<void> _importFromBank() async {
@@ -471,6 +505,7 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
         courseId: targetCourseId,
         type: quizKindStr,
         title: title,
+        lessonId: _selectedLessonId,
         timeLimitMin: _timeLimitMinutes,
       );
 
@@ -690,6 +725,13 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
                           spacing: 8,
                           runSpacing: 8,
                           children: [
+                            _LessonPill(
+                              lessons: _lessons,
+                              selectedId: _selectedLessonId,
+                              loading: _lessonsLoading,
+                              onChanged: (id) =>
+                                  setState(() => _selectedLessonId = id),
+                            ),
                             _SpecPill(
                               icon: Icons.timer_rounded,
                               label: '$_timeLimitMinutes นาที',
@@ -1037,6 +1079,87 @@ class _SegmentedCapsule<T> extends StatelessWidget {
 
 /// Compact rounded stat pill (Kahoot/Forms style) — shows an icon+value and
 /// optionally tiny +/- steppers when [onDecrease]/[onIncrease] are given.
+/// ปุ่มเลือกบทเรียนที่จะผูกข้อสอบเข้าด้วย — หน้าตาเดียวกับ _SpecPill แต่กดแล้ว
+/// เปิดเมนูให้เลือก เลือก "ยังไม่ผูกบทเรียน" ได้ เพราะบางชุดครูตั้งใจไม่ผูกจริง ๆ
+/// และวิชาที่ยังไม่มีบทเรียนก็ต้องสร้างข้อสอบได้อยู่ดี
+class _LessonPill extends StatelessWidget {
+  const _LessonPill({
+    required this.lessons,
+    required this.selectedId,
+    required this.loading,
+    required this.onChanged,
+  });
+
+  final List<LessonSummary> lessons;
+  final String? selectedId;
+  final bool loading;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    const color = TeacherPalette.skyDeep;
+    final selected = lessons.where((l) => l.id == selectedId).firstOrNull;
+    final label = loading
+        ? 'กำลังโหลดบทเรียน…'
+        : (selected?.title ?? 'ยังไม่ผูกบทเรียน');
+
+    final pill = Container(
+      padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.menu_book_rounded, size: 14, color: color),
+          const SizedBox(width: 6),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 190),
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          if (lessons.isNotEmpty)
+            const Icon(Icons.expand_more_rounded, size: 16, color: color),
+        ],
+      ),
+    );
+
+    if (lessons.isEmpty) {
+      return Tooltip(
+        message: loading
+            ? 'กำลังโหลดรายการบทเรียนของวิชานี้'
+            : 'วิชานี้ยังไม่มีบทเรียนให้ผูก — สร้างบทเรียนก่อนจึงจะเลือกได้',
+        child: pill,
+      );
+    }
+
+    return PopupMenuButton<String?>(
+      tooltip: 'เลือกบทเรียนที่จะผูกข้อสอบชุดนี้',
+      initialValue: selectedId,
+      onSelected: onChanged,
+      itemBuilder: (context) => [
+        const PopupMenuItem<String?>(
+          value: null,
+          child: Text('ยังไม่ผูกบทเรียน'),
+        ),
+        const PopupMenuDivider(),
+        for (final l in lessons)
+          PopupMenuItem<String?>(value: l.id, child: Text(l.title)),
+      ],
+      child: pill,
+    );
+  }
+}
+
 class _SpecPill extends StatelessWidget {
   const _SpecPill({
     required this.icon,
