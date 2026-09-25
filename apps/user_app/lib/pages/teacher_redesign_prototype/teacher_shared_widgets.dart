@@ -276,12 +276,22 @@ class TeacherMockPageShell extends StatefulWidget {
     required this.builder,
     this.actions,
     this.activeMenuLabel,
+    this.onRefresh,
     super.key,
   });
 
   final String title;
   final Widget Function(BuildContext context, bool isDesktop) builder;
   final List<Widget>? actions;
+
+  /// ลากลงเพื่อรีเฟรช (ถ้าหน้าไหนต้องการ) — ห่อ SingleChildScrollView ของ
+  /// เชลล์เองด้วย RefreshIndicator แทนที่หน้านั้นจะเพิ่ม SingleChildScrollView
+  /// ซ้อนของตัวเองเข้าไปอีกชั้น เพราะ Scrollable สองตัวซ้อนกันแนวเดียวกัน
+  /// จะแย่งชิ่ง gesture arena กัน — ตัวในกลายเป็น viewport เท่าเนื้อหา
+  /// (ระยะเลื่อน = 0) แล้วดักท่าลากทิ้งไปเฉย ๆ หน้านั้นก็เลื่อนไม่ได้เลย
+  /// (เจอกับหน้าเช็คชื่อจริง 2026-09-23 — ก่อนหน้านี้ทุกหน้าจึงไม่เคยลอง
+  /// เพิ่ม RefreshIndicator เองเลยสักหน้า)
+  final Future<void> Function()? onRefresh;
 
   /// ชื่อเมนู sidebar ที่ตรงกับหน้านี้ (เช่น 'รายวิชา', 'นักเรียน') — ใช้
   /// ไฮไลต์เมนูที่ถูกต้องใน Drawer ให้ทำงานเหมือนหน้าแดชบอร์ด แทนที่จะ
@@ -318,15 +328,27 @@ class _TeacherMockPageShellState extends State<TeacherMockPageShell> {
             ? 1320.0
             : (isWideDesktop ? 1080.0 : 640.0);
 
+        final scrollView = SingleChildScrollView(
+          physics: widget.onRefresh == null
+              ? const BouncingScrollPhysics()
+              : const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+          child: widget.builder(context, isWideDesktop),
+        );
+
         final content = Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: contentMaxWidth),
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-              child: widget.builder(context, isWideDesktop),
-            ),
+            child: widget.onRefresh == null
+                ? scrollView
+                : RefreshIndicator(
+                    color: TeacherPalette.primary,
+                    onRefresh: widget.onRefresh!,
+                    child: scrollView,
+                  ),
           ),
         );
 

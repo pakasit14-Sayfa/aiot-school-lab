@@ -71,14 +71,11 @@ void main() {
     // After mark all present, all 3 students have status 'present'
     expect(mockRoster.every((r) => r.status == 'present'), isTrue);
 
-    // Test clicking on status badge to change status via PopupMenu
-    final student3Picker = find.byType(PopupMenuButton<String>).at(2);
-    await tester.tap(student3Picker);
-    await tester.pumpAndSettle();
-
-    // Tap 'ขาดเรียน' in the opened popup menu
-    expect(find.text('ขาดเรียน'), findsWidgets);
-    await tester.tap(find.text('ขาดเรียน').last);
+    // Test tapping the segmented status button directly — one tap now,
+    // no popup menu. Each row has its own "ขาดเรียน" button; student 3
+    // (index 2) is the 3rd one in document order.
+    final student3AbsentButton = find.byTooltip('ขาดเรียน').at(2);
+    await tester.tap(student3AbsentButton);
     await tester.pumpAndSettle();
 
     // Student 3 is now set to 'absent'
