@@ -160,6 +160,38 @@ void main() {
     expect(find.text('ประตูชำรุด'), findsOneWidget);
     expect(find.text('A-101'), findsOneWidget);
   });
+
+  testWidgets(
+    'severity shows its real Thai label, never the raw backend value',
+    (tester) async {
+      final controller = _controller(
+        loadDetail: (id) async => _detail(id: id, severity: 'high'),
+      );
+      await _pumpPage(tester, controller);
+
+      await tester.tap(find.text('ดูรายละเอียด'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('เหตุใหญ่'), findsOneWidget);
+      expect(find.text('high'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'unset severity is honestly minor, not a fabricated "ปกติ" assessment',
+    (tester) async {
+      final controller = _controller(
+        loadDetail: (id) async => _detail(id: id, severity: null),
+      );
+      await _pumpPage(tester, controller);
+
+      await tester.tap(find.text('ดูรายละเอียด'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('เหตุเล็ก'), findsOneWidget);
+      expect(find.text('ปกติ'), findsNothing);
+    },
+  );
 }
 
 Future<void> _pumpPage(
@@ -214,16 +246,17 @@ TeacherIncidentReport _report({String status = 'new'}) => TeacherIncidentReport(
   severity: 'medium',
 );
 
-IncidentReportDetail _detail({required String id}) => IncidentReportDetail(
-  id: id,
-  category: IncidentCategory.anomaly,
-  room: 'A-101',
-  status: 'new',
-  resolutionType: null,
-  resolutionNote: null,
-  createdAt: DateTime.utc(2030, 1, 1),
-  acknowledgedAt: null,
-  closedAt: null,
-  reason: 'ประตูชำรุด',
-  severity: 'medium',
-);
+IncidentReportDetail _detail({required String id, String? severity = 'medium'}) =>
+    IncidentReportDetail(
+      id: id,
+      category: IncidentCategory.anomaly,
+      room: 'A-101',
+      status: 'new',
+      resolutionType: null,
+      resolutionNote: null,
+      createdAt: DateTime.utc(2030, 1, 1),
+      acknowledgedAt: null,
+      closedAt: null,
+      reason: 'ประตูชำรุด',
+      severity: severity,
+    );

@@ -421,7 +421,10 @@ class _SchoolAdminIncidentInboxPageState
                     _buildDetailRow('ห้อง / จุดเกิดเหตุ:', detail.room ?? 'ไม่ระบุ'),
                     _buildDetailRow('ผู้แจ้ง:', report.reporterName),
                     _buildDetailRow('เหตุผล / อาการ:', detail.reason ?? 'ไม่ระบุ'),
-                    _buildDetailRow('ระดับความรุนแรง:', detail.severity ?? 'ปกติ'),
+                    _buildDetailRow(
+                      'ระดับความรุนแรง:',
+                      _severityLabel(detail.severity),
+                    ),
                     _buildDetailRow('สถานะปัจจุบัน:', detail.status),
                     _buildDetailRow(
                       'เวลาแจ้งเหตุ:',
@@ -455,6 +458,19 @@ class _SchoolAdminIncidentInboxPageState
       },
     );
   }
+
+  /// `severity` is stored as `'high'`/`'medium'`/`'low'` (see
+  /// `student_safety_page.dart`'s `_buildSeverityBadge` for the same
+  /// mapping) — this used to show the raw English value straight to the
+  /// admin, and defaulted a genuinely-unset severity to `'ปกติ'` ("normal"),
+  /// a plausible-looking assessment nobody actually made. Missing severity
+  /// now falls into the same "เหตุเล็ก" bucket the rest of the app already
+  /// treats it as, translated like every real value instead of a special case.
+  String _severityLabel(String? severity) => switch (severity) {
+    'high' => 'เหตุใหญ่',
+    'medium' => 'เหตุปานกลาง',
+    _ => 'เหตุเล็ก',
+  };
 
   Widget _buildDetailRow(String label, String value) {
     return Padding(
