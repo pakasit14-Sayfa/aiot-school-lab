@@ -142,7 +142,11 @@ void main() {
 
     await tester.tap(find.text('แบบทดสอบก่อนเรียน บทที่ 1'));
     await tester.pumpAndSettle();
+    // 2026-09-23: "เพิ่มทั้งชุด" เดิมเลือกแล้วเด้งกลับทันที ซึ่งเป็นเหตุผลที่
+    // เลือกทีละข้อไม่ได้ ตอนนี้มันแค่ติ๊กทุกข้อ แล้วกด "ใช้ n ข้อ" เพื่อยืนยัน
     await tester.tap(find.textContaining('เพิ่มทั้งชุด'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('ใช้ 1 ข้อ'));
     await tester.pumpAndSettle();
     await tester.tap(find.textContaining('ยืนยันการเลือก'));
     await tester.pumpAndSettle();

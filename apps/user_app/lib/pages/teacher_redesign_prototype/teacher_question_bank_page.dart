@@ -41,6 +41,7 @@ Color bankTypeAccent(BankQuestionType type) => switch (type) {
 /// `Navigator.push<List<BankQuestion>>`.
 class BankQuestion {
   const BankQuestion({
+    required this.id,
     required this.questionText,
     required this.subject,
     required this.type,
@@ -51,6 +52,10 @@ class BankQuestion {
     this.difficulty = 'ปานกลาง',
   });
 
+  /// `question_id` จาก `list_quiz_questions` — เดิมโค้ดทิ้งค่านี้ไป คำถามจึง
+  /// ไม่มีตัวระบุ และหน้านี้เลือกได้แค่ "ทั้งชุด" เท่านั้น ครูที่อยากได้
+  /// 2 ข้อจากชุด 8 ข้อ ต้องดึงมาทั้ง 8 แล้วไปลบทิ้งเองใน Exam Builder
+  final String id;
   final String questionText;
   final String subject;
   final BankQuestionType type;
@@ -105,7 +110,10 @@ class TeacherQuestionBankPage extends StatefulWidget {
 
 class _TeacherQuestionBankPageState extends State<TeacherQuestionBankPage> {
   String _setSearch = '';
-  final Set<int> _selectedSetIds = {};
+  /// เก็บ id ของ "คำถาม" ที่ติ๊กไว้ ไม่ใช่ดัชนีของ "ชุด" — การติ๊กทั้งชุด
+  /// คือการใส่ id ของทุกข้อในชุดนั้นลงไป ไม่ใช่สถานะแยกอีกชั้น เพื่อให้มี
+  /// แหล่งความจริงเดียวว่าอะไรถูกเลือกอยู่
+  final Set<String> _selectedQuestionIds = {};
 
   bool _isLoading = true;
   List<BankQuestionSet> _questionSets = [];
@@ -162,6 +170,7 @@ class _TeacherQuestionBankPageState extends State<TeacherQuestionBankPage> {
                 (c) => c.isCorrect,
               );
               return BankQuestion(
+                id: question.id,
                 questionText: question.question,
                 subject: course.subjectName,
                 type: bankTypeFromDb(question.type),
@@ -266,7 +275,10 @@ class _TeacherQuestionBankPageState extends State<TeacherQuestionBankPage> {
         final setId = visibleSetIndexes[listIdx];
         final set = _questionSets[setId];
 
-        final selected = _selectedSetIds.contains(setId);
+        final pickedInSet = _selectedCountIn(set);
+        final selected = pickedInSet > 0; // เลือกบางข้อก็ถือว่าการ์ดนี้ทำงานอยู่
+        final wholeSet = pickedInSet == set.questions.length &&
+            set.questions.isNotEmpty;
         final accent = _setKindAccent(set.kind);
         return Padding(
           padding: const EdgeInsets.only(bottom: 10),
@@ -276,22 +288,26 @@ class _TeacherQuestionBankPageState extends State<TeacherQuestionBankPage> {
               color: selected ? accent.withValues(alpha: 0.06) : Colors.white,
               child: InkWell(
                 onTap: () async {
-                  final result = await Navigator.push<bool>(
+                  final result = await Navigator.push<Set<String>>(
                     context,
                     MaterialPageRoute(
                       builder: (_) => _BankQuestionSetDetailPage(
                         set: set,
-                        initiallySelected: selected,
+                        initiallySelected: {
+                          for (final q in set.questions)
+                            if (_selectedQuestionIds.contains(q.id)) q.id,
+                        },
                       ),
                     ),
                   );
                   if (result == null || !mounted) return;
                   setState(() {
-                    if (result) {
-                      _selectedSetIds.add(setId);
-                    } else {
-                      _selectedSetIds.remove(setId);
+                    // ผลลัพธ์เป็นสถานะสุดท้ายของ "ชุดนี้" เท่านั้น
+                    // ชุดอื่นที่ติ๊กไว้ต้องไม่ถูกแตะ
+                    for (final q in set.questions) {
+                      _selectedQuestionIds.remove(q.id);
                     }
+                    _selectedQuestionIds.addAll(result);
                   });
                 },
                 child: Container(
@@ -347,19 +363,16 @@ class _TeacherQuestionBankPageState extends State<TeacherQuestionBankPage> {
                             const SizedBox(width: 8),
                             InkWell(
                               borderRadius: BorderRadius.circular(999),
-                              onTap: () => setState(() {
-                                if (selected) {
-                                  _selectedSetIds.remove(setId);
-                                } else {
-                                  _selectedSetIds.add(setId);
-                                }
-                              }),
+                              onTap: () => _setWholeSet(set, !wholeSet),
                               child: Padding(
                                 padding: const EdgeInsets.all(4),
                                 child: Icon(
-                                  selected
+                                  wholeSet
                                       ? Icons.check_box_rounded
-                                      : Icons.check_box_outline_blank_rounded,
+                                      : (selected
+                                            ? Icons.indeterminate_check_box_rounded
+                                            : Icons
+                                                  .check_box_outline_blank_rounded),
                                   color: selected
                                       ? accent
                                       : TeacherPalette.muted,
@@ -403,10 +416,28 @@ class _TeacherQuestionBankPageState extends State<TeacherQuestionBankPage> {
   /// exam builder ที่รอผลผ่าน `Navigator.push<List<BankQuestion>>` อยู่แล้ว)
   /// — เดิมหน้านี้ไม่เคย pop ค่ากลับเลยสักครั้ง ต่อให้ติ๊กเลือกไว้เท่าไหร่
   /// ก็ไม่มีผลอะไรกับหน้าที่เรียกมา
-  List<BankQuestion> get _selectedQuestions => _selectedSetIds
-      .where((i) => i < _questionSets.length)
-      .expand((i) => _questionSets[i].questions)
-      .toList();
+  List<BankQuestion> get _selectedQuestions => [
+    for (final set in _questionSets)
+      for (final q in set.questions)
+        if (_selectedQuestionIds.contains(q.id)) q,
+  ];
+
+  /// ชุดนี้ถูกเลือกไว้กี่ข้อจากทั้งหมด — ใช้แยก 3 สถานะ (ไม่เลือก / บางข้อ /
+  /// ครบทั้งชุด) แทนที่จะมีแค่เลือก-ไม่เลือกเหมือนเดิม
+  int _selectedCountIn(BankQuestionSet set) =>
+      set.questions.where((q) => _selectedQuestionIds.contains(q.id)).length;
+
+  void _setWholeSet(BankQuestionSet set, bool selected) {
+    setState(() {
+      for (final q in set.questions) {
+        if (selected) {
+          _selectedQuestionIds.add(q.id);
+        } else {
+          _selectedQuestionIds.remove(q.id);
+        }
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -768,10 +799,14 @@ class _BankQuestionDetailPageState extends State<BankQuestionDetailPage> {
   }
 }
 
-/// Read-only view of everything inside a ready-made exam set. Teachers can
-/// see every question but can't cherry-pick or edit them individually here
-/// — the whole set is added (or removed) as one unit, mirroring how these
-/// sets will eventually be curated/locked by an admin rather than teachers.
+/// Everything inside one exam set, with a checkbox per question.
+///
+/// 2026-09-23: this used to add or remove the set as one unit — a teacher who
+/// wanted 2 questions out of 8 had to pull in all 8 and delete 6 of them again
+/// in the exam builder. Selection is now per question (`BankQuestion.id`, which
+/// the loader used to throw away), and "เพิ่มทั้งชุด" simply ticks every
+/// question in the set. Pops the final set of selected question ids **for this
+/// set only** — sets picked elsewhere are untouched.
 class _BankQuestionSetDetailPage extends StatefulWidget {
   const _BankQuestionSetDetailPage({
     required this.set,
@@ -779,7 +814,10 @@ class _BankQuestionSetDetailPage extends StatefulWidget {
   });
 
   final BankQuestionSet set;
-  final bool initiallySelected;
+
+  /// id ของข้อในชุดนี้ที่ติ๊กไว้อยู่ก่อนเข้ามา — คืนกลับเป็นสถานะสุดท้าย
+  /// ของชุดนี้เท่านั้น ไม่ยุ่งกับชุดอื่น
+  final Set<String> initiallySelected;
 
   @override
   State<_BankQuestionSetDetailPage> createState() =>
@@ -788,7 +826,11 @@ class _BankQuestionSetDetailPage extends StatefulWidget {
 
 class _BankQuestionSetDetailPageState
     extends State<_BankQuestionSetDetailPage> {
-  late bool _selected = widget.initiallySelected;
+  late final Set<String> _picked = {...widget.initiallySelected};
+
+  bool get _wholeSet =>
+      widget.set.questions.isNotEmpty &&
+      _picked.length == widget.set.questions.length;
 
   @override
   Widget build(BuildContext context) {
@@ -823,14 +865,14 @@ class _BankQuestionSetDetailPageState
             child: Row(
               children: [
                 const Icon(
-                  Icons.lock_outline_rounded,
+                  Icons.checklist_rounded,
                   size: 18,
                   color: TeacherPalette.muted,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '${set.description}\nชุดสำเร็จรูป — ดูได้อย่างเดียว เพิ่มเข้าข้อสอบได้ทั้งชุดเท่านั้น',
+                    '${set.description}\nติ๊กเฉพาะข้อที่ต้องการ หรือกดปุ่มด้านล่างเพื่อเลือกทั้งชุดรวดเดียว',
                     style: const TextStyle(
                       color: TeacherPalette.muted,
                       fontWeight: FontWeight.w700,
@@ -847,9 +889,20 @@ class _BankQuestionSetDetailPageState
               builder: (context) {
                 final q = set.questions[i];
                 final accent = bankTypeAccent(q.type);
+                final picked = _picked.contains(q.id);
                 return ClipRRect(
                   borderRadius: BorderRadius.circular(16),
-                  child: Container(
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => setState(() {
+                        if (picked) {
+                          _picked.remove(q.id);
+                        } else {
+                          _picked.add(q.id);
+                        }
+                      }),
+                      child: Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
                       border: Border(
@@ -865,6 +918,16 @@ class _BankQuestionSetDetailPageState
                       children: [
                         Row(
                           children: [
+                            Icon(
+                              picked
+                                  ? Icons.check_box_rounded
+                                  : Icons.check_box_outline_blank_rounded,
+                              size: 19,
+                              color: picked
+                                  ? TeacherPalette.primary
+                                  : TeacherPalette.softText,
+                            ),
+                            const SizedBox(width: 8),
                             _Tag(
                               text: 'ข้อที่ ${i + 1}',
                               color: TeacherPalette.muted,
@@ -911,6 +974,8 @@ class _BankQuestionSetDetailPageState
                             ),
                         ],
                       ],
+                        ),
+                      ),
                     ),
                   ),
                 );
@@ -923,34 +988,68 @@ class _BankQuestionSetDetailPageState
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-          child: FilledButton.icon(
-            onPressed: () {
-              setState(() => _selected = !_selected);
-              Navigator.pop(context, _selected);
-            },
-            icon: Icon(
-              _selected
-                  ? Icons.remove_circle_rounded
-                  : Icons.add_circle_rounded,
-              size: 18,
-            ),
-            label: Text(
-              _selected
-                  ? 'เอาออกทั้งชุด'
-                  : 'เพิ่มทั้งชุด (${set.questions.length} ข้อ)',
-            ),
-            style: FilledButton.styleFrom(
-              backgroundColor: _selected
-                  ? TeacherPalette.red
-                  : TeacherPalette.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: const StadiumBorder(),
-              textStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w900,
+          child: Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      if (_wholeSet) {
+                        _picked.clear();
+                      } else {
+                        _picked
+                          ..clear()
+                          ..addAll(set.questions.map((q) => q.id));
+                      }
+                    });
+                  },
+                  icon: Icon(
+                    _wholeSet
+                        ? Icons.remove_circle_rounded
+                        : Icons.add_circle_rounded,
+                    size: 18,
+                  ),
+                  label: Text(
+                    _wholeSet
+                        ? 'เอาออกทั้งชุด'
+                        : 'เพิ่มทั้งชุด (${set.questions.length} ข้อ)',
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _wholeSet
+                        ? TeacherPalette.red
+                        : TeacherPalette.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: const StadiumBorder(),
+                    textStyle: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(width: 10),
+              // ปุ่มยืนยันแยกจากปุ่มเลือกทั้งชุด เพราะ "เลือก" กับ "จบแล้ว
+              // เอากลับไป" เป็นคนละการกระทำ — เดิมปุ่มเดียวทำทั้งสองอย่าง
+              // พร้อมกัน จึงเลือกทีละข้อไม่ได้เลย
+              FilledButton(
+                onPressed: () => Navigator.pop(context, _picked),
+                style: FilledButton.styleFrom(
+                  backgroundColor: TeacherPalette.ink,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 16,
+                    horizontal: 18,
+                  ),
+                  shape: const StadiumBorder(),
+                  textStyle: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                child: Text('ใช้ ${_picked.length} ข้อ'),
+              ),
+            ],
           ),
         ),
       ),
