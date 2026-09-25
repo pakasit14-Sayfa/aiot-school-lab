@@ -2041,16 +2041,15 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
     );
   }
 
+  /// `person.status` is only ever `'active'`/`'suspended'` (see
+  /// `_accountStatusLabels`) — this used to switch on stale Thai labels from
+  /// an unrelated feature (`'ลา'`/`'มาสาย'`/...) that never matched, so every
+  /// row fell through to the `default` (success/green) case regardless of
+  /// whether the person was actually suspended.
   Color _statusColor(String status) {
     switch (status) {
-      case 'ลา':
-        return AppPalette.warning;
-      case 'มาสาย':
+      case 'suspended':
         return AppPalette.danger;
-      case 'ประชุม/อบรม':
-        return AppPalette.learningBlue;
-      case 'เข้าสอน':
-        return AppPalette.primaryPink;
       default:
         return AppPalette.success;
     }
@@ -2147,7 +2146,7 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
                           ),
                         ),
                         trailing: Text(
-                          person.status,
+                          _accountStatusLabels[person.status] ?? person.status,
                           style: TextStyle(
                             fontSize: 8.8,
                             fontWeight: FontWeight.w700,

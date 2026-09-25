@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_first_app/pages/executive_redesign_prototype/pages/director_teachers_page.dart';
+import 'package:my_first_app/pages/executive_redesign_prototype/theme/app_palette.dart';
 import 'package:shared_core/shared_core.dart';
 
 /// This page did not import `shared_core` and invented an entire staff body:
@@ -578,6 +579,31 @@ void main() {
       expect(recordedSubstituteId, 'u-ครูสำรอง ทดสอบ');
       expect(reloadCount, 2, reason: 'ต้องโหลดใหม่หลังบันทึกสำเร็จเพื่อยืนยันจาก backend');
       expect(find.text('ไม่มีคาบที่ต้องจัดครูสอนแทนในวันนี้'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'department detail dialog shows the Thai status label and its real color, not the raw backend value',
+    (tester) async {
+      // _statusColor() used to switch on stale labels from an unrelated
+      // feature ('ลา'/'มาสาย'/...) that never matched 'active'/'suspended' —
+      // every row fell through to the default (success/green) case, and the
+      // trailing Text showed the raw English status instead of translating
+      // it like the filter pills already do.
+      await _pump(
+        tester,
+        staff: [
+          _staff(name: 'ครูระงับ ทดสอบ', admin: ['ฝ่ายทดสอบ'], status: 'suspended'),
+        ],
+        departments: [_dept(name: 'ฝ่ายทดสอบ', members: 1)],
+      );
+
+      await tester.tap(find.text('ฝ่ายทดสอบ').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('suspended'), findsNothing);
+      final label = tester.widget<Text>(find.text('ระงับการใช้งาน').last);
+      expect((label.style?.color), AppPalette.danger);
     },
   );
 }
