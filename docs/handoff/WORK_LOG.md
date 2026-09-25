@@ -78,6 +78,45 @@ report file flow and settings. No production deployment.
 migration ในรอบนี้) และไม่ได้เปิดเบราว์เซอร์คลิกจริงตาม DoD เต็มของ
 `AGENTS.md`
 
+## School Admin — ไล่ตรวจ 2 หน้าที่ `state.sh` นับว่า "ไม่มี connection test" — 2026-09-25
+
+เหตุผลเดียวกับ Executive ข้างบน: `state.sh` นับเฉพาะ
+`test/school_admin/*connection_test.dart` พอดี ทำให้ School Admin โชว์
+"24 หน้า · มี connection test 22" 2 หน้าที่เหลือคือ `school_admin_dashboard_page`
+(3,128 บรรทัด) กับ `school_timetable_page` (1,915 บรรทัด, ฟีเจอร์ D6)
+ไล่อ่านทั้งไฟล์จริงทั้งคู่แล้ว **fully connected ทั้ง 2 หน้า ไม่มีของปลอม**:
+
+- `school_admin_dashboard_page` — ต่อ 6 service จริงครบทุกการ์ด (Platform
+  summary, Room/Building, UserAdmin, Incident alerts, Utility+Realtime,
+  Audit log) เมนู 25 รายการเชื่อมหน้าจริงหมด ไม่มี "coming soon" ปลอม gate
+  0-vs-missing ถูกต้อง (PM2.5 เช็ค `metricsWithData` ก่อนเชื่อค่า) มี test
+  จริง 2 ไฟล์ที่ script มองไม่เห็น (`school_admin_dashboard_page_test.dart`
+  อยู่ top-level `test/`, `school_admin_dashboard_resource_test.dart` ชื่อ
+  "resource" ไม่ใช่ "connection") รวม 12/12 ผ่าน พิสูจน์ data-to-screen จริง
+- `school_timetable_page` — ต่อ `TimetableService` ครบ ทุก action
+  (`assignSlot`/`replacePeriods`/`copyIntoSelectedRoom`) เขียนแล้วอ่านกลับ
+  ยืนยันก่อนบอกสำเร็จ RPC ที่ใช้ (`admin_set_room_timetable_slot` ฯลฯ)
+  ยืนยันมีจริงใน migration 20260919-21 มี test จริง 1 ไฟล์ที่ script มองไม่เห็น
+  (`test/school_timetable_page_connection_test.dart` อยู่ top-level ไม่ใช่
+  `test/school_admin/`)
+- **จุดที่ตรวจเพิ่มเพราะ agent เจอค้าง**: กลัวว่าหน้าตารางสอนฝั่งครู
+  (`teacher_class_schedule_page.dart` → RPC `list_teacher_schedules`) จะอ่าน
+  จากตารางคนละตัวกับที่แอดมินสร้างในฟีเจอร์ D6 ตรวจ RPC
+  `admin_set_room_timetable_slot` ตรง ๆ พบว่าเขียนลง
+  `class_schedules`/`courses`/`course_teachers` ตัวเดียวกันที่
+  `list_teacher_schedules` อ่านอยู่แล้ว — ครูเห็นตารางที่แอดมินสร้างจริง
+  ไม่มีช่องว่างข้อมูล ปิด ticket D2 (`director_meetings_page`/
+  `meeting_detail_page` ไม่มีตาราง meetings เลย) ได้แล้วด้วยจากรอบตรวจ
+  Executive ก่อนหน้านี้ — schema/RPC มีครบจริงตั้งแต่ 20260907
+
+**สรุปรวม 2 รอบตรวจ (Executive 15 + School Admin 24 = 39 หน้า)**: ไม่มีของ
+ปลอมที่ไม่เปิดเผยเลยสักหน้า พบบั๊กแสดงผลจริงแค่ 1 จุด (`director_teachers_page`
+สีสถานะผิด, แก้แล้ว commit `f8436d5`) `state.sh` §3 นับ pattern ชื่อไฟล์เดียว
+เท่านั้น เป็นสัญญาณเตือนที่ over-flag ไม่ใช่ตัวเลขความคืบหน้าจริง — ต้องอ่านไฟล์
+เต็มเสมอตามที่ `AGENTS.md`/`CLAUDE.md` เตือนไว้ซ้ำหลายรอบ
+
+## 🔴 การตัดสินใจที่ค้างอยู่ — บล็อกงานข้างล่าง
+
 รอเจ้าของโปรเจกต์เคาะ ไม่ใช่งานที่ AI ตัดสินเองได้
 
 | # | เรื่อง | บล็อกอะไร | ตัวเลือก |
@@ -85,7 +124,7 @@ migration ในรอบนี้) และไม่ได้เปิดเ�
 | **D1** | อนุญาตให้เขียน production ไหม | ticket 0.2–0.4, 5.6 · **ช่องโหว่ 2 จุดยังเปิดอยู่** | อนุญาต / เจ้าของรันเอง ตาม `PRODUCTION_FIX_0.2-0.4.md` |
 | ~~**S1**~~ | ✅ **ปิดแล้ว 2026-09-08** — เมทริกซ์สิทธิ์ + การ์ด "บทบาทในระบบ" บนแท็บ "ตารางสิทธิ์ตามบทบาท" ของ `school_permissions_page.dart` เคยเป็นข้อมูลแต่งขึ้นล้วน (7 โมดูลเขียนมือ + คอลัมน์ `ครูประจำอาคาร` ที่ยุบไปแล้ว, การ์ดบทบาท hardcode "2 คน"/"1 คน" ทุกบทบาทตายตัว) แก้ตามที่ `DECISIONS_2026-09-07.md` ข้อ 5 สั่งไว้จริง: สร้าง RPC ใหม่ `list_role_permission_matrix` สแกน `pg_get_functiondef()` สดจากฐานข้อมูล หา pattern `v_actor.role not in (...)` ที่ RPC ส่วนใหญ่ของโปรเจกต์ใช้จริง (155/273 ฟังก์ชันที่เช็ค `v_actor.role` ตรง pattern นี้ ที่เหลือโชว่า "ไม่พบรูปแบบที่สแกนได้" ตรงๆ ไม่เดา) ต่อหน้าจอเป็นตารางค้นหาได้จริง + การ์ดบทบาท 6 ตัวจริงพร้อมจำนวนคนจริงจาก `{u.role, ...u.allRoles}` migration `20260908000000` pgTAP `43_school_admin_permission_matrix.test.sql` (8/8 ผ่าน) commit `f2a4d17`/`8b00c76`/`873dbc2`. **ของค้างที่เจอระหว่างทำ ไม่ได้แตะ**: dialog "กำหนดขอบเขตสิทธิ์" (`_buildRoleSelectorChips` ฯลฯ) ยังมี chip `ครูประจำอาคาร` อยู่ — คนละฟีเจอร์ ต้องตรวจแยกว่าจริงหรือปลอมก่อนแก้ |
 | ~~**S3**~~ | ✅ **ปิดแล้ว 2026-09-08** — ปุ่ม Export ที่โผล่ใน `school_admin/` (สำรวจจริงแล้วเจอ 4 หน้าในสโคป ไม่ใช่ 5: `school_admin_esg_page.dart`, `school_admin_energy_page.dart`, `school_alerts_page.dart`, `school_resources_page.dart` — `school_reports_page.dart` คนละ ticket 2.4, `school_permissions_page.dart` คือ S1 ที่ deferred แยกไว้) ทำ CSV export จริงทั้ง 4 หน้าโดยใช้ข้อมูลที่แต่ละหน้าโหลดอยู่แล้ว (ไม่มี RPC ใหม่) แพทเทิร์นเดียวกับ `super_admin_alerts_logs_page.dart` (`_csvField()`/`downloadBytes()`) เพิ่ม `downloadBytesOverride` seam ทุกหน้าให้ test พิสูจน์ได้ว่าเรียก download จริง ไม่ใช่แค่เช็คปุ่ม disabled commit `b54b9fa`/`dd042ef`/`5410479`/`68e5fb8`. **หมายเหตุ**: ขัดกับ `DECISIONS_2026-09-07.md` ข้อ 6 เดิม (อีกเซสชันถามแยกกันได้คำตอบ "disable" ตรงข้ามกัน) — เจ้าของยืนยันแล้วว่าเก็บงาน CSV ไว้ ไม่ revert แก้ `DECISIONS_2026-09-07.md` ให้ตรงแล้ว. **ต่อยอด 2026-09-08**: เจ้าของขอ Excel เพิ่มด้วย — ทั้ง 4 หน้าเพิ่มปุ่มเลือก "ส่งออกเป็น CSV" / "ส่งออกเป็น Excel" (popup menu) โดยดึง row-building logic ออกมาเป็นเมธอดกลาง (`_buildReportRows`/`_buildAlertRows`) ใช้ร่วมกันทั้งสองฟอร์แมตกันข้อมูลเพี้ยนกัน ใช้ `package:excel` ตัวเดียวกับที่มีอยู่แล้วใน `teacher_aiot_dashboard_page.dart` (`.encode()` ไม่ใช่ `.save()` กัน side-effect ดาวน์โหลดซ้อนที่เคยเป็นบั๊กมาก่อน) test ยืนยันด้วย PK magic bytes ว่าไฟล์ .xlsx เป็นไฟล์จริง commit `48a6422`/`5da7d12`/`6648183`/`ca6be5c` |
-| **D2** | `director_meetings_page` (2,216 บรรทัด) — ไม่มีตาราง meetings/attendees/agenda ในสคีมาเลย | Executive 3.7 | สร้างใหม่ (+3–4 เซสชัน) / disable แท็บ (0.3) / ลบทิ้ง |
+| ~~**D2**~~ | ✅ **ตัดสินใจนี้ล้าสมัยแล้ว 2026-09-25** — ตอนตั้ง ticket นี้ยังไม่มีสคีมาจริง แต่ migration `20260907030000`/`20260907040000` (meetings) และ `20260910010000` (read contract) ได้สร้างตาราง+31 RPC ไว้ครบตั้งแต่นั้นแล้ว ไล่อ่าน `director_meetings_page.dart`/`meeting_detail_page.dart`/`meeting_detail_controller.dart` เต็มไฟล์ (audit Executive 2026-09-25) ยืนยันว่าต่อ `MeetingService` จริงครบ เขียนแล้วอ่านกลับยืนยันก่อนบอกสำเร็จ ไม่มีของปลอม — ไม่ต้องเลือกตัวเลือกไหนในตารางนี้แล้ว |
 | **D3** | Super Admin ใช้เกณฑ์ไหน | Phase 4 | เติม state อย่างเดียว (6–8) / refactor เป็น controller เหมือน School Admin (12–15) |
 | **D5** | โควตา GitLab CI หมด (`ci_quota_exceeded`) — ไม่ใช่ปัญหาโค้ด | CI ทั้งหมด | ต่อโควตา / self-hosted runner / ใช้ GitHub Actions อย่างเดียว |
 
