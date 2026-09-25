@@ -48,7 +48,35 @@ report file flow and settings. No production deployment.
 - Local only, no database reset. The running browser build and the unfinished
   Flutter page changes were not verified by this migration run.
 
-## 🔴 การตัดสินใจที่ค้างอยู่ — บล็อกงานข้างล่าง
+## Executive — ไล่ตรวจ 9 หน้าที่ `state.sh` นับว่า "ไม่มี connection test" — 2026-09-25
+
+`./scripts/state.sh` §3 นับเฉพาะไฟล์ที่ชื่อลงท้าย `*_connection_test.dart`
+พอดี ทำให้ Executive โชว์ "15 หน้า · มี connection test 6" — เข้าใจผิดได้ว่า
+9 หน้าที่เหลือไม่มี test เลย ไล่อ่านทั้งไฟล์จริงทั้ง 9 หน้า (ไม่ใช่ grep)
+เทียบกับ `DATA_CONNECTION_METHODOLOGY.md` แล้วพบว่า **ทุกหน้ามี test จริง
+แค่ตั้งชื่อคนละแบบ** — ส่วนใหญ่เป็น `*_honesty_test.dart` (DI widget test
+ที่พิสูจน์ทั้ง data-to-screen จริง และยืนยันว่าของปลอมเก่าไม่กลับมา) หรือถูก
+ทดสอบอยู่ในไฟล์ชื่ออื่น (`meeting_detail_page.dart` ถูกทดสอบใน
+`director_meetings_connection_test.dart`)
+
+**ผลตรวจทั้ง 9 หน้า — fully connected ทุกหน้า ไม่มีข้อมูลปลอมที่ไม่เปิดเผย:**
+`director_academic_calendar_page`, `director_environment_page`,
+`director_emergency_page`, `director_learning_page` (เคยปลอม 100% ตาม audit
+2026-08-31 — ปิดครบแล้วจริงผ่านหลาย commit 09-08 ถึง 09-16),
+`director_reports_page`, `director_settings_page`,
+`director_student_followup_page`, `director_teachers_page`,
+`meeting_detail_page` (schema/RPC ที่ `MASTER_PLAN` เคยตั้งเป็น D2 ว่า
+"ไม่มีตารางเลย" ตอนนี้มีจริงครบ 17 RPC แล้ว — ตัดสินใจ D2 ปิดได้)
+
+**บั๊กจริงที่เจอมีจุดเดียว** (ไม่ใช่ของปลอม เป็นบั๊กแสดงผล) —
+`director_teachers_page.dart` `_statusColor()` เทียบกับ label ไทยของอีก
+ฟีเจอร์ที่ไม่ตรงกับค่าจริง (`active`/`suspended`) เลยตกไป default สีเขียว
+เสมอ + trailing text โชว์ค่าดิบไม่แปลไทย แก้แล้ว commit `f8436d5`
+
+**ขอบเขตที่ยังไม่ครอบคลุม**: เป็นการอ่านโค้ด + วิเคราะห์ DI widget test
+เท่านั้น ไม่ได้รันจริงกับ Supabase local/prod (ไม่มีของใหม่ต้องรันเพราะไม่มี
+migration ในรอบนี้) และไม่ได้เปิดเบราว์เซอร์คลิกจริงตาม DoD เต็มของ
+`AGENTS.md`
 
 รอเจ้าของโปรเจกต์เคาะ ไม่ใช่งานที่ AI ตัดสินเองได้
 
